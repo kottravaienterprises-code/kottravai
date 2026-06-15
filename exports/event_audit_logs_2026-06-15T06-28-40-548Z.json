@@ -1,0 +1,363 @@
+{
+  "metadata": {
+    "type": "event_audit_logs",
+    "timestamp": "2026-06-15T06-28-40-548Z",
+    "recordCount": 22
+  },
+  "data": [
+    {
+      "id": "9e120aae-5c24-477a-8d7a-92090c4247fa",
+      "event_id": "3db09c2c-5cc3-484e-8265-0b8e77ec94c8",
+      "event_type": "DEAL_WON",
+      "source": "test",
+      "tenant_id": "1",
+      "payload": {},
+      "status": "PROCESSED",
+      "retry_count": 1,
+      "error_message": null,
+      "created_at": "2026-06-15T06:28:36.537Z",
+      "updated_at": "2026-06-15T06:28:37.355Z"
+    },
+    {
+      "id": "095a7c4c-1cd7-4420-84ea-60618292da51",
+      "event_id": "842b1244-4996-475f-8672-574097d9a2b9",
+      "event_type": "DLQ_REPLAY_TEST",
+      "source": "test_runner",
+      "tenant_id": "tenant_1",
+      "payload": {},
+      "status": "PROCESSED",
+      "retry_count": 1,
+      "error_message": "Replayed from DLQ",
+      "created_at": "2026-06-15T06:28:35.103Z",
+      "updated_at": "2026-06-15T06:28:35.651Z"
+    },
+    {
+      "id": "a48741ef-eda4-4da4-bff2-b213272bd867",
+      "event_id": "9bc32a24-84c7-4e0c-a11e-53e45dd4e118",
+      "event_type": "IDEMPOTENT_TEST",
+      "source": "test_runner",
+      "tenant_id": "tenant_1",
+      "payload": {
+        "value": 42
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:28:34.488Z",
+      "updated_at": "2026-06-15T06:28:34.488Z"
+    },
+    {
+      "id": "3f804137-798f-4dab-a7e5-6dcb2b938a8f",
+      "event_id": "9a4f5a23-4122-47d8-beed-6ea83b7c515c",
+      "event_type": "WEBHOOK_TEST_EVENT",
+      "source": "test",
+      "tenant_id": "1",
+      "payload": {},
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:28:04.894Z",
+      "updated_at": "2026-06-15T06:28:04.894Z"
+    },
+    {
+      "id": "044989fc-9375-45e0-9946-2070a2b7317e",
+      "event_id": "e3bacc87-9a91-4d7f-9308-b5a77f86bf45",
+      "event_type": "DLQ_REPLAY_TEST",
+      "source": "test_runner",
+      "tenant_id": "tenant_1",
+      "payload": {},
+      "status": "PROCESSED",
+      "retry_count": 1,
+      "error_message": "Replayed from DLQ",
+      "created_at": "2026-06-15T06:28:02.644Z",
+      "updated_at": "2026-06-15T06:28:03.972Z"
+    },
+    {
+      "id": "8a0aadf9-c80c-4cc0-b09d-3fcb413965e4",
+      "event_id": "720c2fee-b991-43ec-bc84-cc887c674349",
+      "event_type": "IDEMPOTENT_TEST",
+      "source": "test_runner",
+      "tenant_id": "tenant_1",
+      "payload": {
+        "value": 42
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:28:02.065Z",
+      "updated_at": "2026-06-15T06:28:02.065Z"
+    },
+    {
+      "id": "1439b628-ef24-4d00-a12a-8031da26319f",
+      "event_id": "1eda4b08-30d6-47fa-ad60-3ea64f439b91",
+      "event_type": "DEAL_WON",
+      "source": "crm",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "owner": "Jane Smith",
+        "value": 100000,
+        "account": "Acme Corp"
+      },
+      "status": "PROCESSED",
+      "retry_count": 1,
+      "error_message": null,
+      "created_at": "2026-06-15T06:22:46.904Z",
+      "updated_at": "2026-06-15T06:22:47.117Z"
+    },
+    {
+      "id": "169df9dc-19e9-4d97-9120-99b756d6715b",
+      "event_id": "76bda745-ca89-4e08-bac7-ce385d420286",
+      "event_type": "APPROVAL_REQUIRED",
+      "source": "system",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "id": "app_1",
+        "requester": "John Doe",
+        "actionType": "DISCOUNT",
+        "description": "20% off"
+      },
+      "status": "PROCESSED",
+      "retry_count": 1,
+      "error_message": null,
+      "created_at": "2026-06-15T06:22:45.711Z",
+      "updated_at": "2026-06-15T06:22:45.884Z"
+    },
+    {
+      "id": "240c45e8-f460-4d77-baa6-08cb1172ae44",
+      "event_id": "fccccddc-48cd-429d-ac75-49e0ab3548a9",
+      "event_type": "PAYMENT_FAILED",
+      "source": "stripe",
+      "tenant_id": "tenant_from_stripe_cus_67890",
+      "payload": {
+        "currency": "usd",
+        "customer": "cus_67890",
+        "amountDue": 5000,
+        "invoiceId": "in_12345"
+      },
+      "status": "PROCESSED",
+      "retry_count": 1,
+      "error_message": null,
+      "created_at": "2026-06-15T06:22:44.499Z",
+      "updated_at": "2026-06-15T06:22:44.686Z"
+    },
+    {
+      "id": "2c31db69-ea00-4789-85d2-d2b1bffbd9f4",
+      "event_id": "fdb34278-f3d2-4df8-9d81-a4f7114dade7",
+      "event_type": "TEST_EVENT",
+      "source": "test_suite",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "message": "hello world"
+      },
+      "status": "PROCESSED",
+      "retry_count": 1,
+      "error_message": null,
+      "created_at": "2026-06-15T06:22:43.161Z",
+      "updated_at": "2026-06-15T06:22:43.331Z"
+    },
+    {
+      "id": "bd4875bb-f5d3-41a0-ba53-cc3ec4ab0bd1",
+      "event_id": "f26ad273-646e-498e-8aa1-082c157d105c",
+      "event_type": "DEAL_WON",
+      "source": "crm",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "owner": "Jane Smith",
+        "value": 100000,
+        "account": "Acme Corp"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:21:52.259Z",
+      "updated_at": "2026-06-15T06:21:52.259Z"
+    },
+    {
+      "id": "a3b65eec-0d84-4977-bb09-05b7705a32a2",
+      "event_id": "f85984ec-a1ef-4d9a-9d5e-81673f3d5908",
+      "event_type": "APPROVAL_REQUIRED",
+      "source": "system",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "id": "app_1",
+        "requester": "John Doe",
+        "actionType": "DISCOUNT",
+        "description": "20% off"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:21:50.977Z",
+      "updated_at": "2026-06-15T06:21:50.977Z"
+    },
+    {
+      "id": "95798fd6-3789-41c1-956a-26ec6f89fc55",
+      "event_id": "4a8be736-744f-4e48-9265-c5e12504efbf",
+      "event_type": "PAYMENT_FAILED",
+      "source": "stripe",
+      "tenant_id": "tenant_from_stripe_cus_67890",
+      "payload": {
+        "currency": "usd",
+        "customer": "cus_67890",
+        "amountDue": 5000,
+        "invoiceId": "in_12345"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:21:49.699Z",
+      "updated_at": "2026-06-15T06:21:49.699Z"
+    },
+    {
+      "id": "194d651a-b580-420a-bd89-30322d52a4e8",
+      "event_id": "3c2f1bda-b0e4-4f64-8ecb-8a3a02581419",
+      "event_type": "TEST_EVENT",
+      "source": "test_suite",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "message": "hello world"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:21:48.179Z",
+      "updated_at": "2026-06-15T06:21:48.179Z"
+    },
+    {
+      "id": "e97682ff-8313-404e-b024-2dbf4fa38d44",
+      "event_id": "d017fa1a-6960-4f80-8036-0895bdf60b75",
+      "event_type": "DEAL_WON",
+      "source": "crm",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "owner": "Jane Smith",
+        "value": 100000,
+        "account": "Acme Corp"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:20:52.800Z",
+      "updated_at": "2026-06-15T06:20:52.800Z"
+    },
+    {
+      "id": "4d88eb74-1ef5-4494-be03-a8f818a2c20a",
+      "event_id": "eb9ec69f-04a1-40a8-9c9f-5195f825c235",
+      "event_type": "APPROVAL_REQUIRED",
+      "source": "system",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "id": "app_1",
+        "requester": "John Doe",
+        "actionType": "DISCOUNT",
+        "description": "20% off"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:20:50.585Z",
+      "updated_at": "2026-06-15T06:20:50.585Z"
+    },
+    {
+      "id": "7d75edb6-93c4-4527-8393-1902b8b765ea",
+      "event_id": "a5ab553f-a1f2-4f1b-a73e-e59ac622a502",
+      "event_type": "PAYMENT_FAILED",
+      "source": "stripe",
+      "tenant_id": "tenant_from_stripe_cus_67890",
+      "payload": {
+        "currency": "usd",
+        "customer": "cus_67890",
+        "amountDue": 5000,
+        "invoiceId": "in_12345"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:20:49.197Z",
+      "updated_at": "2026-06-15T06:20:49.197Z"
+    },
+    {
+      "id": "40a8b59e-ef58-462b-aab1-e602afa81076",
+      "event_id": "124c46f2-46db-48c6-adf5-4867050653aa",
+      "event_type": "TEST_EVENT",
+      "source": "test_suite",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "message": "hello world"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:20:47.517Z",
+      "updated_at": "2026-06-15T06:20:47.517Z"
+    },
+    {
+      "id": "fd095b20-26e3-4d7b-8a62-85d7703f8369",
+      "event_id": "3c5395a3-270d-4101-bc99-62be2533c8d3",
+      "event_type": "DEAL_WON",
+      "source": "crm",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "owner": "Jane Smith",
+        "value": 100000,
+        "account": "Acme Corp"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:19:54.711Z",
+      "updated_at": "2026-06-15T06:19:54.711Z"
+    },
+    {
+      "id": "fb22b497-ad9f-4256-a9a3-81f39e7a629e",
+      "event_id": "bef2717a-5589-4354-a151-2ebd2b136a22",
+      "event_type": "APPROVAL_REQUIRED",
+      "source": "system",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "id": "app_1",
+        "requester": "John Doe",
+        "actionType": "DISCOUNT",
+        "description": "20% off"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:19:54.196Z",
+      "updated_at": "2026-06-15T06:19:54.196Z"
+    },
+    {
+      "id": "b8cf16ba-a9b3-4eb2-ab08-58b08682193d",
+      "event_id": "3938a505-4c42-4331-bcd4-66c1ff27b533",
+      "event_type": "PAYMENT_FAILED",
+      "source": "stripe",
+      "tenant_id": "tenant_from_stripe_cus_67890",
+      "payload": {
+        "currency": "usd",
+        "customer": "cus_67890",
+        "amountDue": 5000,
+        "invoiceId": "in_12345"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:19:53.676Z",
+      "updated_at": "2026-06-15T06:19:53.676Z"
+    },
+    {
+      "id": "7d5fe2c3-a5fa-4dae-8308-d7530c6f3e0a",
+      "event_id": "6c1b1ca5-e63d-4c0e-971d-d804470a33a6",
+      "event_type": "TEST_EVENT",
+      "source": "test_suite",
+      "tenant_id": "tenant_123",
+      "payload": {
+        "message": "hello world"
+      },
+      "status": "PUBLISHED",
+      "retry_count": 0,
+      "error_message": null,
+      "created_at": "2026-06-15T06:19:52.990Z",
+      "updated_at": "2026-06-15T06:19:52.990Z"
+    }
+  ]
+}

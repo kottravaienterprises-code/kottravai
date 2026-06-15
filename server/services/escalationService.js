@@ -16,6 +16,7 @@ class EscalationService {
       missedFollowUps: 0,
       escalatedToHigh: 0,
       escalatedToCritical: 0,
+      revopsSlaBreaches: 0,
       errors: 0
     };
 
@@ -31,6 +32,17 @@ class EscalationService {
       // 3. Process 3-Day Inactivity (High)
       const high = await this.processInactivity(3, 'high');
       results.escalatedToHigh = high.count;
+
+      // 4. Process RevOps SLAs
+      try {
+        const revopsService = require('./revopsService');
+        const slaResults = await revopsService.checkStageSLAs();
+        results.revopsSlaBreaches = slaResults.results?.flaggedOverdue || 0;
+        results.errors += slaResults.results?.errors || 0;
+      } catch (revopsErr) {
+        console.error('[EscalationService] RevOps SLA sweep failed:', revopsErr);
+        results.errors++;
+      }
 
       console.log('[EscalationService] Sweep completed successfully:', results);
       return { success: true, results };

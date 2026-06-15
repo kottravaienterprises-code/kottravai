@@ -34,6 +34,12 @@ export interface Lead {
   next_followup_at?: string;
   created_at: string;
   updated_at: string;
+  sales_stage?: string;
+  estimated_deal_value?: number;
+  conversion_probability?: number;
+  forecast_revenue?: number;
+  closed_won_at?: string;
+  closed_lost_at?: string;
 }
 
 export interface LeadActivity {

@@ -13,6 +13,9 @@ export default function LeadCRMPanel({ lead, onUpdate }: LeadCRMPanelProps) {
   const [nextAction, setNextAction] = useState(lead.next_action || "");
   const [nextFollowup, setNextFollowup] = useState(lead.next_followup_at ? new Date(lead.next_followup_at).toISOString().split('T')[0] : "");
   const [status, setStatus] = useState(lead.status || "new");
+  const [salesStage, setSalesStage] = useState(lead.sales_stage || "New Lead");
+  const [estimatedDealValue, setEstimatedDealValue] = useState(lead.estimated_deal_value || "");
+  const [conversionProbability, setConversionProbability] = useState(lead.conversion_probability || "");
   const [salesReps, setSalesReps] = useState<SalesRepresentative[]>([]);
   const [activeTab, setActiveTab] = useState<'timeline' | 'communications'>('timeline');
 
@@ -52,6 +55,9 @@ export default function LeadCRMPanel({ lead, onUpdate }: LeadCRMPanelProps) {
     try {
       const payload = {
         status,
+        sales_stage: salesStage,
+        estimated_deal_value: estimatedDealValue ? parseFloat(String(estimatedDealValue)) : 0,
+        conversion_probability: conversionProbability ? parseInt(String(conversionProbability), 10) : 0,
         assigned_to: assignedTo,
         next_action: nextAction,
         next_followup_at: nextFollowup || null
@@ -125,6 +131,48 @@ export default function LeadCRMPanel({ lead, onUpdate }: LeadCRMPanelProps) {
                 <option key={rep.id} value={rep.id}>{rep.name}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Sales Stage</label>
+            <select 
+              value={salesStage} 
+              onChange={e => setSalesStage(e.target.value)}
+              className="w-full text-sm font-medium bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-[#8E2A8B]"
+            >
+              <option value="New Lead">New Lead</option>
+              <option value="Qualified">Qualified</option>
+              <option value="Contacted">Contacted</option>
+              <option value="Proposal Sent">Proposal Sent</option>
+              <option value="Negotiation">Negotiation</option>
+              <option value="Closed Won">Closed Won</option>
+              <option value="Closed Lost">Closed Lost</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Estimated Value (₹)</label>
+              <input 
+                type="number"
+                placeholder="AI Suggests: ₹50,000"
+                value={estimatedDealValue}
+                onChange={e => setEstimatedDealValue(e.target.value)}
+                className="w-full text-sm font-medium bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-[#8E2A8B]"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Probability (%)</label>
+              <input 
+                type="number"
+                placeholder="AI Suggests: 40%"
+                value={conversionProbability}
+                onChange={e => setConversionProbability(e.target.value)}
+                className="w-full text-sm font-medium bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-[#8E2A8B]"
+                min="0"
+                max="100"
+              />
+            </div>
           </div>
         </div>
 

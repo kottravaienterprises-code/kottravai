@@ -96,6 +96,15 @@ try {
     console.warn('⚠️ dailyAnalyticsJob not loaded:', e.message);
 }
 
+// Init Nurturing Job
+let initNurturingJob = () => {};
+try {
+    ({ initNurturingJob } = require('./jobs/followupNurturingJob'));
+    initNurturingJob();
+} catch (e) {
+    console.warn('⚠️ followupNurturingJob not loaded:', e.message);
+}
+
 // --- Performance Cache (Simple In-Memory) ---
 const productCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -107,6 +116,7 @@ const clearProductCache = () => {
 
 
 const affiliateRoutes = require('./routes/affiliates');
+const webhooksRoutes = require('./routes/webhooks');
 
 let chatRouter = require('express').Router();
 try { chatRouter = require('./chat'); } catch (e) { console.warn('⚠️ chat router not loaded:', e.message); chatRouter.all('*', (req, res) => res.status(503).json({ error: 'Chat service unavailable' })); }
@@ -289,44 +299,145 @@ const authenticateToken = async (req, res, next) => {
     }
 };
 
-const authenticateAdmin = (req, res, next) => {
+const logSecurityViolation = async (adminId, role, action, resource, ipAddress, userAgent) => {
+    try {
+        await db.query(`
+            INSERT INTO public.admin_audit_logs (admin_id, action, resource, resource_id, metadata, ip_address, role, user_agent)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+            adminId || 'unauthenticated',
+            'SECURITY_VIOLATION',
+            resource || 'api',
+            action || 'UNAUTHORIZED_ACCESS',
+            JSON.stringify({ violation: true, timestamp: new Date().toISOString() }),
+            ipAddress || '127.0.0.1',
+            role || 'NONE',
+            userAgent || 'N/A'
+        ]);
+    } catch (err) {
+        console.error('Failed to log security violation:', err.message);
+    }
+};
+
+const checkLeadAccess = async (req, leadId) => {
+    if (req.adminRole === 'SUPER_ADMIN') return { allowed: true };
+
+    const leadRes = await db.query(
+        'SELECT assigned_to, team FROM public.leads WHERE id = $1',
+        [leadId]
+    );
+    if (leadRes.rows.length === 0) return { allowed: false, status: 404, error: 'Lead not found' };
+
+    const lead = leadRes.rows[0];
+
+    if (req.adminRole === 'AUDITOR') {
+        if (req.method !== 'GET') {
+            return { allowed: false, status: 403, error: 'Auditor has read-only access' };
+        }
+        return { allowed: true };
+    }
+
+    if (req.adminRole === 'REPRESENTATIVE') {
+        if (lead.assigned_to === null || lead.assigned_to === req.adminUser.id) {
+            return { allowed: true };
+        }
+        return { allowed: false, status: 403, error: 'Forbidden: You do not own this lead' };
+    }
+
+    if (req.adminRole === 'MANAGER') {
+        if (lead.assigned_to === null || lead.team === req.adminUser.team) {
+            return { allowed: true };
+        }
+        return { allowed: false, status: 403, error: 'Forbidden: Lead belongs to another team' };
+    }
+
+    return { allowed: false, status: 403, error: 'Unauthorized role' };
+};
+
+const checkRole = (allowedRoles) => {
+    return (req, res, next) => {
+        if (!req.adminRole || !allowedRoles.includes(req.adminRole)) {
+            return res.status(403).json({ error: `Forbidden: Requires one of roles: ${allowedRoles.join(', ')}` });
+        }
+        next();
+    };
+};
+
+const authenticateAdmin = async (req, res, next) => {
     const adminSecret = req.headers['x-admin-secret'] || req.headers['X-Admin-Secret'] || req.query.token;
     const systemSecret = process.env.VITE_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Admin!Kottravai2025%100';
-    const fallbackSecret = 'Admin!Kottravai2025%100e'; // Fallback for cached Vite environment
-    const auditorSecret = req.headers['x-auditor-secret'];
+    const fallbackSecret = 'Admin!Kottravai2025%100e';
+    const auditorSecret = req.headers['x-auditor-secret'] || req.headers['X-Auditor-Secret'];
 
-    console.log('🔐 [authenticateAdmin] Validating request');
-    console.log('🔐 [authenticateAdmin] Method:', req.method, 'Path:', req.path);
-    console.log('🔐 [authenticateAdmin] Admin secret provided:', !!adminSecret);
-    console.log('🔐 [authenticateAdmin] Admin secret value:', adminSecret ? `"${adminSecret.substring(0, 30)}..."` : 'NONE');
-    console.log('🔐 [authenticateAdmin] System secret (from ENV):', systemSecret ? `"${systemSecret.substring(0, 30)}..."` : 'NONE');
-    console.log('🔐 [authenticateAdmin] Fallback secret:', fallbackSecret ? `"${fallbackSecret.substring(0, 30)}..."` : 'NONE');
-    
-    // Compare tokens
+    // 1. Check master secrets first (backward compatibility)
     const token1Match = adminSecret === systemSecret;
     const token2Match = adminSecret === fallbackSecret;
     const token3Match = adminSecret === 'Admin!Kottravai2025%100';
-    
-    console.log('🔐 [authenticateAdmin] Token matches system secret?', token1Match);
-    console.log('🔐 [authenticateAdmin] Token matches fallback secret?', token2Match);
-    console.log('🔐 [authenticateAdmin] Token matches hardcoded default?', token3Match);
 
     if (adminSecret && (token1Match || token2Match || token3Match)) {
-        console.log('✅ [authenticateAdmin] SUPER_ADMIN access granted');
         req.adminRole = 'SUPER_ADMIN';
+        req.adminUser = {
+            id: 'master_admin',
+            username: 'super_admin',
+            role: 'SUPER_ADMIN',
+            team: 'Global'
+        };
         return next();
     }
 
-    if (auditorSecret === 'read_only_audit') {
-        console.log('✅ [authenticateAdmin] AUDITOR access granted');
-        if (req.method !== 'GET') return res.status(403).json({ error: 'Auditor has read-only access' });
+    if (auditorSecret === 'read_only_audit' || auditorSecret === 'audit123') {
+        if (req.method !== 'GET') {
+            return res.status(403).json({ error: 'Auditor has read-only access' });
+        }
         req.adminRole = 'AUDITOR';
+        req.adminUser = {
+            id: 'master_auditor',
+            username: 'auditor',
+            role: 'AUDITOR',
+            team: 'Global'
+        };
         return next();
     }
 
-    console.error('❌ [authenticateAdmin] UNAUTHORIZED - no valid token');
-    console.error('❌ [authenticateAdmin] Provided token:', adminSecret ? `"${adminSecret}"` : 'NONE');
-    console.error('❌ [authenticateAdmin] Expected token:', `"${systemSecret}"`);
+    // 2. Check Supabase token (for agent logins)
+    const authHeader = req.headers['authorization'];
+    const bearerToken = authHeader && authHeader.split(' ')[1];
+    const sessionToken = bearerToken || adminSecret;
+
+    if (sessionToken && sessionToken.startsWith('eyJ')) {
+        try {
+            const { data: { user }, error } = await supabase.auth.getUser(sessionToken);
+            if (!error && user) {
+                const userRes = await db.query(
+                    'SELECT id, username, full_name, role, team FROM public.users WHERE id = $1',
+                    [user.id]
+                );
+                if (userRes.rows.length > 0) {
+                    const dbUser = userRes.rows[0];
+                    if (['SUPER_ADMIN', 'MANAGER', 'REPRESENTATIVE', 'AUDITOR'].includes(dbUser.role)) {
+                        req.adminRole = dbUser.role;
+                        req.adminUser = {
+                            id: dbUser.id,
+                            username: dbUser.username || dbUser.full_name,
+                            role: dbUser.role,
+                            team: dbUser.team
+                        };
+                        
+                        if (dbUser.role === 'AUDITOR' && req.method !== 'GET') {
+                            await logSecurityViolation(dbUser.id, dbUser.role, 'WRITE_ATTEMPT', req.path, req.ip, req.headers['user-agent']);
+                            return res.status(403).json({ error: 'Auditor has read-only access' });
+                        }
+                        return next();
+                    }
+                }
+            }
+        } catch (jwtErr) {
+            console.error('🔐 [authenticateAdmin] JWT verify failed:', jwtErr.message);
+        }
+    }
+
+    console.error('❌ [authenticateAdmin] UNAUTHORIZED access attempt');
+    await logSecurityViolation('unauthenticated', 'NONE', 'UNAUTHORIZED_ACCESS', req.path, req.ip, req.headers['user-agent']);
     return res.status(403).json({ error: 'Unauthorized admin access' });
 };
 
@@ -336,18 +447,23 @@ const logAdminAction = (action, resource, resourceId, metadata = {}) => {
         const originalJson = res.json;
         res.json = function(data) {
             if (res.statusCode >= 200 && res.statusCode < 300) {
+                const adminId = req.adminUser?.id || req.adminUser?.username || 'unknown_admin';
+                const adminRole = req.adminRole || req.adminUser?.role || 'ADMIN';
+                const rId = String(resourceId || req.params.id || data?.id || (data?.lead?.id) || 'N/A');
                 const logData = [
-                    req.adminRole || 'ADMIN',
+                    adminId,
                     action,
                     resource,
-                    String(resourceId || req.params.id || data.id || 'N/A'),
+                    rId,
                     JSON.stringify({ ...metadata, method: req.method }),
-                    req.ip
+                    req.ip,
+                    adminRole,
+                    req.headers['user-agent'] || 'N/A'
                 ];
                 
                 db.query(`
-                    INSERT INTO admin_audit_logs (admin_id, action, resource, resource_id, metadata, ip_address)
-                    VALUES ($1, $2, $3, $4, $5, $6)
+                    INSERT INTO public.admin_audit_logs (admin_id, action, resource, resource_id, metadata, ip_address, role, user_agent)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 `, logData).catch(err => console.error('📝 [AUDIT_LOG_ERROR]:', err.message));
             }
             return originalJson.call(this, data);
@@ -2990,6 +3106,11 @@ app.get('/api/leads/export', authenticateAdmin, async (req, res) => {
     try {
         console.log('📥 [/api/leads/export] Export request started');
         console.log('📥 [/api/leads/export] Admin role:', req.adminRole);
+
+        if (req.adminRole === 'REPRESENTATIVE') {
+            await logSecurityViolation(req.adminUser?.id, req.adminRole, 'EXPORT_BLOCKED', 'leads', req.ip, req.headers['user-agent']);
+            return res.status(403).json({ error: 'Exports are disabled for representatives' });
+        }
         
         // Get available columns dynamically
         const tableStructure = await db.query(`
@@ -3005,20 +3126,45 @@ app.get('/api/leads/export', authenticateAdmin, async (req, res) => {
         const requestedColumns = [
             'id', 'name', 'email', 'phone', 'company_name', 'source', 'lead_type', 
             'priority', 'lead_score', 'utm_source', 'utm_medium', 'utm_campaign', 
-            'last_contacted_at', 'next_followup_at', 'created_at', 'status', 'inquiry', 'ai_summary'
+            'last_contacted_at', 'next_followup_at', 'created_at', 'status', 'inquiry', 'ai_summary', 'team'
         ];
         
         const safeColumns = requestedColumns.filter(col => availableColumns.includes(col));
         console.log('📥 [/api/leads/export] Safe columns to export:', safeColumns.join(', '));
         console.log('📥 [/api/leads/export] Missing columns:', requestedColumns.filter(col => !safeColumns.includes(col)).join(', '));
         
-        const query = `SELECT ${safeColumns.join(', ')} FROM leads ORDER BY created_at DESC`;
-        console.log('📥 [/api/leads/export] Executing query...');
+        let query = `SELECT ${safeColumns.join(', ')} FROM leads`;
+        const queryParams = [];
+
+        if (req.adminRole === 'MANAGER') {
+            query += ` WHERE team = $1 OR team IS NULL`;
+            queryParams.push(req.adminUser.team || 'Domestic');
+        } else if (req.adminRole === 'AUDITOR') {
+            // Auditors can read all but we log their audit export
+        }
+
+        query += ` ORDER BY created_at DESC`;
+        console.log('📥 [/api/leads/export] Executing query:', query);
         
-        const result = await db.query(query);
+        const result = await db.query(query, queryParams);
         const leads = result.rows || [];
         
         console.log('✅ [/api/leads/export] Query executed, rows:', leads.length);
+
+        // Log export action to immutable audit logs
+        await db.query(`
+            INSERT INTO public.admin_audit_logs (admin_id, action, resource, resource_id, metadata, ip_address, role, user_agent)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+            req.adminUser?.id || 'unknown_admin',
+            'EXPORT',
+            'leads',
+            'all',
+            JSON.stringify({ format: 'csv', count: leads.length, filterTeam: req.adminUser.team || null }),
+            req.ip,
+            req.adminRole,
+            req.headers['user-agent'] || 'N/A'
+        ]).catch(err => console.error('Failed to log export:', err.message));
 
         // CSV Header
         const csvHeader = safeColumns.map(col => 
@@ -3786,21 +3932,56 @@ app.post('/api/admin/automation/run-escalations', async (req, res) => {
 });
 
 /**
+ * POST /api/admin/automation/run-predictions
+ * Triggered by nightly cron. Runs Churn/Expansion predictive scoring.
+ */
+const predictiveIntelService = require('./services/predictiveIntelligenceService');
+app.post('/api/admin/automation/run-predictions', async (req, res) => {
+    try {
+        const secret = req.headers['x-cron-secret'];
+        const validSecret = process.env.CRON_SECRET || process.env.VITE_ADMIN_PASSWORD;
+        if (!secret || secret !== validSecret) {
+            return res.status(401).json({ error: 'Unauthorized: Invalid CRON secret' });
+        }
+        
+        // 1. Detect pipeline/forecast anomalies
+        const anomalies = await predictiveIntelService.detectRevenueAnomalies();
+        
+        // 2. Run Churn & Expansion predictive signals (batch)
+        await predictiveIntelService.runNightlyPredictions();
+        
+        res.json({ success: true, message: 'Predictive batch completed', anomalies });
+    } catch (err) {
+        console.error('Prediction sweep error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+/**
  * GET /api/admin/sales-queue
  * Fetches dashboard operational metrics.
  */
 app.get('/api/admin/sales-queue', authenticateAdmin, async (req, res) => {
     try {
-        const query = `
+        let sql = `
             SELECT 
               COUNT(*) FILTER (WHERE next_followup_at::date = CURRENT_DATE AND status NOT IN ('won', 'lost', 'archived', 'completed')) as tasks_due_today,
               COUNT(*) FILTER (WHERE next_followup_at < NOW() AND status NOT IN ('won', 'lost', 'archived', 'completed')) as overdue_followups,
               COUNT(*) FILTER (WHERE priority = 'critical' AND status NOT IN ('won', 'lost', 'archived', 'completed')) as critical_leads,
               COUNT(*) FILTER (WHERE assigned_to IS NULL AND status NOT IN ('won', 'lost', 'archived', 'completed')) as unassigned_leads,
               COUNT(*) FILTER (WHERE priority = 'high' AND status NOT IN ('won', 'lost', 'archived', 'completed')) as escalated_leads
-            FROM public.leads;
+            FROM public.leads
         `;
-        const { rows } = await db.query(query);
+        const params = [];
+        if (req.adminRole === 'REPRESENTATIVE') {
+            sql += ` WHERE assigned_to = $1 OR assigned_to IS NULL`;
+            params.push(req.adminUser.id);
+        } else if (req.adminRole === 'MANAGER') {
+            sql += ` WHERE team = $1 OR assigned_to IS NULL`;
+            params.push(req.adminUser.team || 'Domestic');
+        }
+
+        const { rows } = await db.query(sql, params);
         res.json({ success: true, queue: rows[0] });
     } catch (err) {
         console.error('Error fetching sales queue metrics:', err);
@@ -4042,6 +4223,14 @@ app.get('/api/admin/leads', authenticateAdmin, async (req, res) => {
             }
         }
 
+        if (req.adminRole === 'REPRESENTATIVE') {
+            query = query.or(`assigned_to.eq.${req.adminUser.id},assigned_to.is.null`);
+        } else if (req.adminRole === 'MANAGER') {
+            if (req.adminUser.team) {
+                query = query.or(`team.eq.${req.adminUser.team},assigned_to.is.null`);
+            }
+        }
+
         const { data, error, count } = await query;
 
         if (error) {
@@ -4050,11 +4239,20 @@ app.get('/api/admin/leads', authenticateAdmin, async (req, res) => {
         }
 
         // Compute dashboard stats
-        const statsQuery = await supabase
+        let statsQuery = supabase
             .from('leads')
             .select('status, lead_type, source');
 
-        const allLeads = statsQuery.data || [];
+        if (req.adminRole === 'REPRESENTATIVE') {
+            statsQuery = statsQuery.or(`assigned_to.eq.${req.adminUser.id},assigned_to.is.null`);
+        } else if (req.adminRole === 'MANAGER') {
+            if (req.adminUser.team) {
+                statsQuery = statsQuery.or(`team.eq.${req.adminUser.team},assigned_to.is.null`);
+            }
+        }
+
+        const statsRes = await statsQuery;
+        const allLeads = statsRes.data || [];
         const totalLeads     = allLeads.length;
         const newLeads       = allLeads.filter(l => l.status === 'new').length;
         const qualifiedLeads = allLeads.filter(l => l.status === 'qualified').length;
@@ -4083,13 +4281,73 @@ app.patch('/api/admin/leads/:id', authenticateAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
+
+        const access = await checkLeadAccess(req, id);
+        if (!access.allowed) {
+            return res.status(access.status || 403).json({ success: false, error: access.error });
+        }
+
+        if (updates.assigned_to) {
+            const agentRes = await db.query('SELECT team FROM public.users WHERE id = $1', [updates.assigned_to]);
+            if (agentRes.rows.length > 0) {
+                updates.team = agentRes.rows[0].team;
+            }
+        }
+
+        // Fetch current lead state for RevOps stage-gate validation
+        const currentLeadRes = await db.query(
+            'SELECT sales_stage, estimated_deal_value, conversion_probability, expected_close_date, proposal_generated, last_contacted_at, final_deal_value, close_notes FROM public.leads WHERE id = $1',
+            [id]
+        );
+        if (currentLeadRes.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Lead not found' });
+        }
+        
+        const currentLead = currentLeadRes.rows[0];
+        const merged = { ...currentLead, ...updates };
+
+        // RevOps Stage-Gate Validations
+        if (updates.sales_stage && updates.sales_stage !== currentLead.sales_stage) {
+            const newStage = updates.sales_stage;
+
+            if (newStage === 'Proposal Sent') {
+                if (!merged.estimated_deal_value || Number(merged.estimated_deal_value) <= 0 || !merged.conversion_probability || !merged.expected_close_date) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'RevOps Gate Blocked: Transitioning to Proposal Sent requires estimated_deal_value (greater than 0), conversion_probability, and expected_close_date.'
+                    });
+                }
+            }
+
+            if (newStage === 'Negotiation') {
+                if (!merged.proposal_generated || !merged.last_contacted_at) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'RevOps Gate Blocked: Transitioning to Negotiation requires generating a proposal (proposal_generated = true) and logging communication contact (last_contacted_at).'
+                    });
+                }
+            }
+
+            if (newStage === 'Closed Won') {
+                if (!merged.final_deal_value || Number(merged.final_deal_value) <= 0 || !merged.close_notes || merged.close_notes.trim().length === 0) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'RevOps Gate Blocked: Transitioning to Closed Won requires final_deal_value (greater than 0) and close_notes.'
+                    });
+                }
+                
+                // Align deal value on closed won
+                updates.estimated_deal_value = merged.final_deal_value;
+            }
+        }
+
         const result = await leadService.updateLead(id, updates, null, req.user?.id || null);
         
         console.log(`[Leads] Admin updated lead ${id}:`, updates);
         res.json({ success: true, lead: result.data });
     } catch (err) {
         console.error('[Leads] PATCH /api/admin/leads/:id error:', err.message);
-        res.status(500).json({ error: 'Server error updating lead' });
+        res.status(500).json({ success: false, error: err.message || 'Server error updating lead' });
     }
 });
 
@@ -4114,6 +4372,12 @@ app.get('/api/admin/sales-reps', authenticateAdmin, async (req, res) => {
 app.get('/api/admin/leads/:id/activities', authenticateAdmin, async (req, res) => {
     try {
         const { id } = req.params;
+        
+        const access = await checkLeadAccess(req, id);
+        if (!access.allowed) {
+            return res.status(access.status || 403).json({ success: false, error: access.error });
+        }
+
         const { data, error } = await supabase
             .from('lead_activities')
             .select('*')
@@ -4138,10 +4402,16 @@ app.get('/api/admin/leads/:id/activities', authenticateAdmin, async (req, res) =
 app.post('/api/admin/leads/:id/activities', authenticateAdmin, async (req, res) => {
     try {
         const { id } = req.params;
+        
+        const access = await checkLeadAccess(req, id);
+        if (!access.allowed) {
+            return res.status(access.status || 403).json({ success: false, error: access.error });
+        }
+
         const { activity_type, activity_description, performed_by } = req.body;
         
         const type = activity_type || 'Note Added';
-        const performer = performed_by || req.user?.id || null;
+        const performer = performed_by || req.user?.id || req.adminUser?.id || null;
         
         const result = await leadService.logActivity(id, type, activity_description, performer);
         res.json({ success: true, activity: result.data });
@@ -4157,14 +4427,41 @@ app.post('/api/admin/leads/:id/activities', authenticateAdmin, async (req, res) 
  */
 app.get('/api/admin/leads/export', authenticateAdmin, async (req, res) => {
     try {
-        const { data, error } = await supabase
+        if (req.adminRole === 'REPRESENTATIVE') {
+            await logSecurityViolation(req.adminUser?.id, req.adminRole, 'EXPORT_BLOCKED', 'leads', req.ip, req.headers['user-agent']);
+            return res.status(403).json({ error: 'Exports are disabled for representatives' });
+        }
+
+        let query = supabase
             .from('leads')
             .select('*')
             .order('created_at', { ascending: false });
 
+        if (req.adminRole === 'MANAGER') {
+            query = query.or(`team.eq.${req.adminUser.team},team.is.null`);
+        }
+
+        const { data, error } = await query;
+
         if (error) throw error;
 
         const leads = data || [];
+        
+        // Log export action to immutable audit logs
+        await db.query(`
+            INSERT INTO public.admin_audit_logs (admin_id, action, resource, resource_id, metadata, ip_address, role, user_agent)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+            req.adminUser?.id || 'unknown_admin',
+            'EXPORT',
+            'leads',
+            'all',
+            JSON.stringify({ format: 'csv', count: leads.length, filterTeam: req.adminUser.team || null, endpoint: '/api/admin/leads/export' }),
+            req.ip,
+            req.adminRole,
+            req.headers['user-agent'] || 'N/A'
+        ]).catch(err => console.error('Failed to log export:', err.message));
+
         const headers = [
             'id','created_at','name','email','phone','company_name',
             'lead_type','source','status','priority','lead_score',
@@ -4198,6 +4495,21 @@ app.get('/api/admin/leads/export', authenticateAdmin, async (req, res) => {
 // Mount Affiliate Routes (Supporting both singular and plural for migration compatibility)
 app.use('/api/affiliate', affiliateRoutes(authenticateToken, authenticateAdmin));
 app.use('/api/affiliates', affiliateRoutes(authenticateToken, authenticateAdmin));
+app.use('/api/webhooks', webhooksRoutes);
+
+try {
+    app.use('/api/admin/pipeline', authenticateAdmin, require('./routes/pipelineRoutes'));
+    app.use('/api/admin/revops', authenticateAdmin, require('./routes/revopsRoutes'));
+    app.use('/api/admin/security', authenticateAdmin, require('./routes/securityRoutes'));
+    app.use('/api/admin/bi', authenticateAdmin, require('./routes/biRoutes'));
+    app.use('/api/admin/cs', authenticateAdmin, require('./routes/csRoutes'));
+    app.use('/api/admin/revenue', authenticateAdmin, require('./routes/revenueRoutes'));
+    app.use('/api/admin/workflows', authenticateAdmin, require('./routes/workflowRoutes'));
+    app.use('/api/admin/autonomous', authenticateAdmin, require('./routes/autonomousRoutes'));
+    app.use('/api/admin/executive', authenticateAdmin, require('./routes/executiveCommandRoutes'));
+} catch (error) {
+    console.error('Error loading admin analytical, security, BI, CS, or Revenue routes:', error);
+}
 
 // --- Static File Serving (For Production) ---
 app.use(express.static(path.join(__dirname, '../dist')));

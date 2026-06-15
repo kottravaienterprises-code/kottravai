@@ -122,12 +122,28 @@ class LeadService {
   /**
    * Core CRM update method (status, assignment, generic fields).
    */
-  async updateLead(id, updates, oldLeadData = null, performerId = null) {
+    async updateLead(id, updates, oldLeadData = null, performerId = null) {
     try {
       let oldLead = oldLeadData;
       if (!oldLead) {
         const { data } = await supabase.from('leads').select('*').eq('id', id).single();
         oldLead = data || {};
+      }
+
+      // Phase 4: Auto-calculate forecast revenue if deal value or probability changes
+      if (updates.estimated_deal_value !== undefined || updates.conversion_probability !== undefined) {
+        const dealValue = updates.estimated_deal_value !== undefined ? parseFloat(updates.estimated_deal_value) || 0 : parseFloat(oldLead.estimated_deal_value) || 0;
+        const prob = updates.conversion_probability !== undefined ? parseInt(updates.conversion_probability, 10) || 0 : parseInt(oldLead.conversion_probability, 10) || 0;
+        updates.forecast_revenue = dealValue * (prob / 100.0);
+      }
+
+      // Phase 4: Handle closed won/lost timestamps
+      if (updates.sales_stage && updates.sales_stage !== oldLead.sales_stage) {
+          if (updates.sales_stage === 'Closed Won') {
+              updates.closed_won_at = new Date().toISOString();
+          } else if (updates.sales_stage === 'Closed Lost') {
+              updates.closed_lost_at = new Date().toISOString();
+          }
       }
 
       const { data: updatedLead, error: updateErr } = await supabase

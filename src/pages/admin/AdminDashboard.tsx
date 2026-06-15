@@ -49,6 +49,12 @@ import {
   Wallet,
   Menu,
   Sparkles,
+  Shield,
+  BarChart3,
+  HeartHandshake,
+  Zap,
+  Terminal,
+  BrainCircuit
 } from "lucide-react";
 import {
   XAxis,
@@ -66,6 +72,13 @@ import {
   Cell,
 } from "recharts";
 import { CopilotDashboardView } from "./CopilotDashboardView";
+import BiDashboardView from "./BiDashboardView";
+import CsPortalView from "./CsPortalView";
+import RevenueCommandCenter from "./RevenueCommandCenter";
+import WorkflowCommandCenter from "./WorkflowCommandCenter";
+import { ExecutiveCommandLayer } from "./ExecutiveCommandLayer";
+import { PredictiveInsightsPanel } from "./PredictiveInsightsPanel";
+import { StrategicPlanningPanel } from "./StrategicPlanningPanel";
 import { categories } from "@/data/products";
 import toast from "react-hot-toast";
 import { compressImage } from "../../utils/imageCompressor";
@@ -75,6 +88,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 // import { supabase } from '@/utils/supabaseClient';
 import { API_BASE } from "@/config/api";
+import PipelineDashboard from "./PipelineDashboard";
 import LeadCRMPanel from "./LeadCRMPanel";
 import { LeadCopilotPanel } from "./LeadCopilotPanel";
 import { Lead } from "@/types/crm";
@@ -573,6 +587,8 @@ const AdminDashboard = () => {
     | "affiliate-dashboard"
     | "affiliate-payouts"
   | "leads"
+  | "revenue"
+  | "workflows"
   >("dashboard");
 
   // Leads state
@@ -899,10 +915,99 @@ const AdminDashboard = () => {
     saved: string;
   } | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "sales-copilot">(
-    "overview",
+  const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "sales-copilot" | "pipeline-intelligence" | "security-governance" | "business-intelligence" | "customer-success" | "revenue-intelligence" | "workflows" | "executive-command" | "predictive-intelligence" | "strategic-planning">(
+    "overview"
   );
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Security and Governance state
+  const [securityProfile, setSecurityProfile] = useState<{
+    role: string;
+    permissions: string[];
+    teamScope: string;
+  } | null>(null);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [complianceSummary, setComplianceSummary] = useState<any>(null);
+  const [crmUsers, setCrmUsers] = useState<any[]>([]);
+  const [loadingSecurity, setLoadingSecurity] = useState(false);
+  const [securitySearch, setSecuritySearch] = useState("");
+  const [securityActionFilter, setSecurityActionFilter] = useState("");
+
+  const fetchSecurityData = async () => {
+    setLoadingSecurity(true);
+    try {
+      const token = sessionStorage.getItem("kottravai_admin_token") || "";
+      const headers: any = {};
+      if (token.startsWith("eyJ")) {
+        headers["Authorization"] = `Bearer ${token}`;
+      } else {
+        headers["X-Admin-Secret"] = token;
+      }
+
+      const [logsRes, summaryRes, usersRes] = await Promise.all([
+        axios.get(`${API_BASE}/api/admin/security/audit-logs?search=${securitySearch}&action=${securityActionFilter}`, { headers }).catch(() => ({ data: { success: false, data: { logs: [] } } })),
+        axios.get(`${API_BASE}/api/admin/security/compliance-summary`, { headers }).catch(() => ({ data: { success: false } })),
+        axios.get(`${API_BASE}/api/admin/security/users`, { headers }).catch(() => ({ data: { success: false, data: { users: [] } } }))
+      ]);
+
+      if (logsRes.data?.success) setAuditLogs(logsRes.data.data.logs);
+      if (summaryRes.data?.success) setComplianceSummary(summaryRes.data.data);
+      if (usersRes.data?.success) setCrmUsers(usersRes.data.data.users);
+    } catch (err) {
+      console.error("Failed to fetch security/compliance data:", err);
+    } finally {
+      setLoadingSecurity(false);
+    }
+  };
+
+  const updateUserRole = async (userId: string, role: string, team: string) => {
+    try {
+      const token = sessionStorage.getItem("kottravai_admin_token") || "";
+      const headers: any = {};
+      if (token.startsWith("eyJ")) {
+        headers["Authorization"] = `Bearer ${token}`;
+      } else {
+        headers["X-Admin-Secret"] = token;
+      }
+      
+      const res = await axios.patch(`${API_BASE}/api/admin/security/users/${userId}/role`, { role, team }, { headers });
+      if (res.data.success) {
+        toast.success("User role and team updated successfully!");
+        fetchSecurityData();
+      }
+    } catch (err: any) {
+      console.error("Failed to update user role:", err);
+      toast.error(err.response?.data?.error || "Failed to update user role.");
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "security-governance") {
+      fetchSecurityData();
+    }
+  }, [activeTab, securitySearch, securityActionFilter]);
+
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      try {
+        const token = sessionStorage.getItem("kottravai_admin_token") || "";
+        const headers: any = {};
+        if (token.startsWith("eyJ")) {
+          headers["Authorization"] = `Bearer ${token}`;
+        } else {
+          headers["X-Admin-Secret"] = token;
+        }
+        
+        const res = await axios.get(`${API_BASE}/api/admin/security/permissions`, { headers });
+        if (res.data.success) {
+          setSecurityProfile(res.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch security permissions:', err);
+      }
+    };
+    fetchPermissions();
+  }, []);
 
   const generateInvoice = async (order: any) => {
     const invoiceId = `INV-${Date.now().toString(36).toUpperCase()}`;
@@ -2539,6 +2644,72 @@ const AdminDashboard = () => {
                     >
                       <Sparkles size={14} /> Copilot
                     </button>
+                    <button
+                      onClick={() => setActiveTab("pipeline-intelligence")}
+                      className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "pipeline-intelligence" ? "bg-[#8E2A8B] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"}`}
+                    >
+                      <TrendingUp size={16} /> Pipeline Intelligence
+                    </button>
+                    {(!securityProfile || securityProfile.role !== "REPRESENTATIVE") && (
+                      <>
+                        <button
+                          onClick={() => setActiveTab("business-intelligence")}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "business-intelligence" ? "bg-[#8E2A8B] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"}`}
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                          Business Intelligence
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("customer-success")}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "customer-success" ? "bg-[#8E2A8B] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"}`}
+                        >
+                          <HeartHandshake className="w-4 h-4" />
+                          Customer Success
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("revenue-intelligence")}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "revenue-intelligence" ? "bg-indigo-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50"}`}
+                        >
+                          <DollarSign className="w-4 h-4" />
+                          Revenue Intelligence
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("workflows")}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "workflows" ? "bg-[#8E2A8B] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"}`}
+                        >
+                          <Zap className="w-4 h-4" />
+                          Workflow Operations
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("executive-command")}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "executive-command" ? "bg-red-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50"}`}
+                        >
+                          <Terminal className="w-4 h-4" />
+                          Executive Command
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("predictive-intelligence")}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "predictive-intelligence" ? "bg-emerald-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50"}`}
+                        >
+                          <BrainCircuit className="w-4 h-4" />
+                          Predictive Intelligence
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("strategic-planning")}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "strategic-planning" ? "bg-purple-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50"}`}
+                        >
+                          <TrendingUp className="w-4 h-4" />
+                          Strategic Planning
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("security-governance")}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "security-governance" ? "bg-[#8E2A8B] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"}`}
+                        >
+                          <Shield size={16} /> Security & Governance
+                        </button>
+                      </>
+                    )}
+
                   </div>
                   <button className="bg-white p-2.5 rounded-xl shadow-sm border border-gray-100 text-gray-400 hover:text-[#8E2A8B] transition-colors">
                     <Calendar size={20} />
@@ -3016,6 +3187,221 @@ const AdminDashboard = () => {
               )}
               {activeTab === "sales-copilot" && (
                  <CopilotDashboardView />
+              )}
+              {activeTab === "pipeline-intelligence" && (
+                 <PipelineDashboard />
+              )}
+              {activeTab === "security-governance" && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  {/* Compliance Summary Metrics */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-[#2D1B4E]">
+                      <h4 className="text-gray-400 text-[10px] font-black uppercase tracking-wider">Total Operations Audited</h4>
+                      <p className="text-2xl font-black text-[#2D1B4E] mt-1">{complianceSummary?.stats?.total_logs || 0}</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-emerald-500">
+                      <h4 className="text-gray-400 text-[10px] font-black uppercase tracking-wider">Lead Exports Run</h4>
+                      <p className="text-2xl font-black text-[#2D1B4E] mt-1">{complianceSummary?.stats?.export_count || 0}</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-rose-500">
+                      <h4 className="text-gray-400 text-[10px] font-black uppercase tracking-wider">Security Violations</h4>
+                      <p className="text-2xl font-black text-rose-600 mt-1">{complianceSummary?.stats?.violation_count || 0}</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-amber-500">
+                      <h4 className="text-gray-400 text-[10px] font-black uppercase tracking-wider">Role/Privilege Changes</h4>
+                      <p className="text-2xl font-black text-[#2D1B4E] mt-1">{complianceSummary?.stats?.role_change_count || 0}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column (2/3) - Audit Logs */}
+                    <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div>
+                          <h3 className="text-[#2D1B4E] font-black text-lg">System Audit & Access Logs</h3>
+                          <p className="text-xs text-gray-400">Append-only chronological record of CRM actions</p>
+                        </div>
+                        
+                        <div className="flex gap-2 w-full sm:w-auto">
+                          <input 
+                            type="text" 
+                            placeholder="Filter by admin/resource..." 
+                            value={securitySearch}
+                            onChange={(e) => setSecuritySearch(e.target.value)}
+                            className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-[#8E2A8B] w-full sm:w-40"
+                          />
+                          <select
+                            value={securityActionFilter}
+                            onChange={(e) => setSecurityActionFilter(e.target.value)}
+                            className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none bg-white"
+                          >
+                            <option value="">All Actions</option>
+                            <option value="LOGIN">LOGIN</option>
+                            <option value="EXPORT">EXPORT</option>
+                            <option value="ROLE_CHANGE">ROLE_CHANGE</option>
+                            <option value="LEAD_ASSIGNMENT">LEAD_ASSIGNMENT</option>
+                            <option value="SECURITY_VIOLATION">VIOLATIONS</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="border-b border-gray-100 text-gray-400 font-bold uppercase text-[10px]">
+                              <th className="py-2.5">Time</th>
+                              <th className="py-2.5">User</th>
+                              <th className="py-2.5">Role</th>
+                              <th className="py-2.5">Action</th>
+                              <th className="py-2.5">Resource</th>
+                              <th className="py-2.5">Target ID</th>
+                              <th className="py-2.5">IP</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {loadingSecurity ? (
+                              <tr><td colSpan={7} className="text-center py-6 text-gray-400">Loading audit trail...</td></tr>
+                            ) : auditLogs.length > 0 ? (
+                              auditLogs.map((log) => (
+                                <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                                  <td className="py-2">{new Date(log.created_at).toLocaleString()}</td>
+                                  <td className="py-2 font-bold text-gray-700">{log.admin_id}</td>
+                                  <td className="py-2">
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                                      log.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-700' :
+                                      log.role === 'MANAGER' ? 'bg-blue-100 text-blue-700' :
+                                      log.role === 'AUDITOR' ? 'bg-amber-100 text-amber-700' :
+                                      'bg-gray-100 text-gray-600'
+                                    }`}>{log.role || 'ADMIN'}</span>
+                                  </td>
+                                  <td className="py-2">
+                                    <span className={`font-bold ${
+                                      log.action === 'SECURITY_VIOLATION' ? 'text-red-600' :
+                                      log.action === 'EXPORT' ? 'text-emerald-600' : 'text-gray-800'
+                                    }`}>{log.action}</span>
+                                  </td>
+                                  <td className="py-2 text-gray-500">{log.resource}</td>
+                                  <td className="py-2 text-gray-400 font-mono text-[10px]">{log.resource_id}</td>
+                                  <td className="py-2 text-gray-400">{log.ip_address}</td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr><td colSpan={7} className="text-center py-6 text-gray-400">No matching logs found.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Right Column (1/3) - Role Management & Violations */}
+                    <div className="space-y-6">
+                      {/* Security Violations Feed */}
+                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-rose-600 font-black text-sm uppercase tracking-wider">Security Violations</h3>
+                          <span className="bg-rose-50 text-rose-600 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                            {complianceSummary?.recentViolations?.length || 0} Alert(s)
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                          {complianceSummary?.recentViolations && complianceSummary.recentViolations.length > 0 ? (
+                            complianceSummary.recentViolations.map((v: any, index: number) => (
+                              <div key={index} className="p-3 bg-red-50 rounded-lg border border-red-100 text-[11px] space-y-1">
+                                <div className="flex justify-between font-bold text-red-700">
+                                  <span>{v.metadata?.method || 'GET'} ACCESS BLOCKED</span>
+                                  <span>{new Date(v.created_at).toLocaleTimeString()}</span>
+                                </div>
+                                <p className="text-gray-600">IP: <span className="font-mono text-gray-800">{v.ip_address}</span></p>
+                                <p className="text-gray-500 line-clamp-1">Path: {v.resource}</p>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center py-6 text-gray-400 text-xs">
+                              No security violations detected. System healthy!
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* User Role Management */}
+                      {(!securityProfile || securityProfile.role === 'SUPER_ADMIN') && (
+                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+                          <h3 className="text-[#2D1B4E] font-black text-sm uppercase tracking-wider">CRM User Role Management</h3>
+                          
+                          <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+                            {crmUsers.length > 0 ? (
+                              crmUsers.map((user) => (
+                                <div key={user.id} className="p-3 bg-gray-50 rounded-lg space-y-2.5 text-[11px]">
+                                  <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+                                    <span className="font-bold text-gray-800">{user.full_name || user.username}</span>
+                                    <span className="text-[10px] text-gray-400">{user.mobile}</span>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="text-[10px] text-gray-400 font-bold block mb-1">Role Privilege</label>
+                                      <select 
+                                        value={user.role}
+                                        onChange={(e) => updateUserRole(user.id, e.target.value, user.team)}
+                                        className="w-full border border-gray-200 rounded p-1 bg-white text-[11px]"
+                                      >
+                                        <option value="SUPER_ADMIN">Super Admin</option>
+                                        <option value="MANAGER">Manager</option>
+                                        <option value="REPRESENTATIVE">Representative</option>
+                                        <option value="AUDITOR">Auditor</option>
+                                        <option value="USER">User (Customer)</option>
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-gray-400 font-bold block mb-1">Team Scope</label>
+                                      <select 
+                                        value={user.team || ""}
+                                        onChange={(e) => updateUserRole(user.id, user.role, e.target.value)}
+                                        className="w-full border border-gray-200 rounded p-1 bg-white text-[11px]"
+                                      >
+                                        <option value="">None (Global)</option>
+                                        <option value="Domestic">Domestic</option>
+                                        <option value="APAC">APAC</option>
+                                        <option value="EMEA">EMEA</option>
+                                        <option value="AMER">AMER</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-center py-6 text-gray-400 text-xs">
+                                No registered crm users found.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {activeTab === "business-intelligence" && (
+                <BiDashboardView API_BASE={API_BASE} />
+              )}
+              {activeTab === "customer-success" && (
+                <CsPortalView API_BASE={API_BASE} />
+              )}
+              {activeTab === "revenue-intelligence" && (
+                <RevenueCommandCenter API_BASE={API_BASE} />
+              )}
+              {activeTab === "workflows" && (
+                <WorkflowCommandCenter API_BASE={API_BASE} />
+              )}
+              {activeTab === "executive-command" && (
+                <ExecutiveCommandLayer />
+              )}
+              {activeTab === "predictive-intelligence" && (
+                <PredictiveInsightsPanel API_BASE={API_BASE} />
+              )}
+              {activeTab === "strategic-planning" && (
+                <StrategicPlanningPanel />
               )}
             </div>
           ) : view === "videos" ? (
