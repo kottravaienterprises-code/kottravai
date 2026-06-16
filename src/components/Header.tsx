@@ -151,8 +151,8 @@ const Header = () => {
             label: "Heritage Mixes", path: "/category/heritage-mixes",
             sub: [
                 { label: "Idli Podi", path: "/category/idli-podi" },
-                { label: "Tasty Dosa Mix", path: "/category/tasty-dosa-mix" },
-                { label: "Wholesome Rice Mix", path: "/category/wholesome-rice-mix" }
+                { label: "Dosa Batter Mix", path: "/category/dosa-batter-mix" },
+                { label: "Ready To Mix", path: "/category/ready-to-mix" }
             ]
         },
         {

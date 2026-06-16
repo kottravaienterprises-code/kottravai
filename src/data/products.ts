@@ -314,6 +314,6 @@ export const categories = [
 
     // --- Sub Categories: Heritage Mixes ---
     { name: 'Idli Podi', count: 0, slug: 'idli-podi', parent: 'heritage-mixes' },
-    { name: 'Tasty Dosa Mix', count: 0, slug: 'tasty-dosa-mix', parent: 'heritage-mixes' },
-    { name: 'Wholesome Rice Mix', count: 0, slug: 'wholesome-rice-mix', parent: 'heritage-mixes' }
+    { name: 'Dosa Batter Mix', count: 0, slug: 'dosa-batter-mix', parent: 'heritage-mixes' },
+    { name: 'Ready To Mix', count: 0, slug: 'ready-to-mix', parent: 'heritage-mixes' }
 ];
