@@ -230,14 +230,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         if (normalizedCode === 'ECOLIFE24') {
             const cocoTotal = cart
                 .filter((item: any) =>
-                    item.categorySlug === 'coco-crafts' ||
-                    item.category_slug === 'coco-crafts' ||
+                    item.categorySlug === 'coconut-shell-products' ||
+                    item.category_slug === 'coconut-shell-products' ||
                     item.category?.toLowerCase().includes('coco')
                 )
                 .reduce((sum, item) => sum + (Number(item.price) * (item.quantity || 1)), 0);
 
             if (cocoTotal <= 0) {
-                setCouponError('This coupon is valid only for Coco Crafts products');
+                setCouponError('This coupon is valid only for Coconut Shell Products products');
                 setCouponApplied(false);
                 setCouponDiscount(0);
                 return;

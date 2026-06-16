@@ -4,11 +4,11 @@ import { motion } from 'framer-motion';
 import { useRef } from 'react';
 
 const cards = [
-    { id: 1, title: 'For Your Home', subtitle: 'Natural living starts here', image: '/fmgdv3264zu-1772640046533.webp', link: '/category/coco-crafts' },
+    { id: 1, title: 'For Your Home', subtitle: 'Natural living starts here', image: '/fmgdv3264zu-1772640046533.webp', link: '/category/coconut-shell-products' },
     { id: 2, title: 'For Gifting', subtitle: 'Thoughtful gifts for loved ones', image: '/9tce0oa5y3u-1775120003580-Gemini_Generated_Image_1nopgu1nopgu1nop(1).webp', link: '/category/hampers' },
     { id: 3, title: 'For Your Kitchen', subtitle: 'Wholesome & traditional goodness', image: '/rzhuephpg7f-1777963682141-Gemini_Generated_Image_vpfc55vpfc55vpfc (1) (1).webp', link: '/category/heritage-mixes' },
     { id: 4, title: 'For Self Care', subtitle: 'Pure care for you & your family', image: '/x3gxlnc79r-1770976867292.webp', link: '/category/essential-care' },
-    { id: 5, title: 'For Festive Moments', subtitle: 'Make every celebration extra special', image: '/2q7ietfbksc-1778150205829-output_img19.webp', link: '/category/terracotta-ornaments' }
+    { id: 5, title: 'For Festive Moments', subtitle: 'Make every celebration extra special', image: '/2q7ietfbksc-1778150205829-output_img19.webp', link: '/category/handmade-jewellery' }
 ];
 
 const CuratedMoments = () => {

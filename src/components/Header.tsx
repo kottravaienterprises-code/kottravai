@@ -134,23 +134,23 @@ const Header = () => {
         {
             label: "Handicrafts", path: "/category/handicrafts",
             sub: [
-                { label: "Coco Crafts", path: "/category/coco-crafts" },
+                { label: "Coconut Shell Products", path: "/category/coconut-shell-products" },
                 {
-                    label: "Terracotta Ornaments",
-                    path: "/category/terracotta-ornaments",
+                    label: "Handmade Jewellery",
+                    path: "/category/handmade-jewellery",
                     sub: [
                         { label: "Festival Wear", path: "/category/festival-wear" },
                         { label: "Bridal Set", path: "/category/bridal-set" },
                         { label: "Daily Wear", path: "/category/daily-wear" }
                     ]
                 },
-                { label: "Banana Fibre Essentials", path: "/category/banana-fibre-essentials" }
+                { label: "Banana Fiber Products", path: "/category/banana-fiber-products" }
             ]
         },
         {
             label: "Heritage Mixes", path: "/category/heritage-mixes",
             sub: [
-                { label: "Daily Idly Mix", path: "/category/daily-idly-mix" },
+                { label: "Idli Podi", path: "/category/idli-podi" },
                 { label: "Tasty Dosa Mix", path: "/category/tasty-dosa-mix" },
                 { label: "Wholesome Rice Mix", path: "/category/wholesome-rice-mix" }
             ]

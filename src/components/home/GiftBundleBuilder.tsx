@@ -22,7 +22,7 @@ const GiftBundleBuilder = () => {
         }
     };
 
-    // Filter only Terracotta Ornaments
+    // Filter only Handmade Jewellery
     const giftItems = useMemo(() => {
         if (!products) return [];
         return products.filter(p =>
@@ -53,7 +53,7 @@ const GiftBundleBuilder = () => {
                         <h2 className="text-4xl md:text-6xl font-black text-[#1A1A1A] tracking-tight font-outfit">Shop Terracotta Jewellery</h2>
                     </div>
                     <div className="mt-4 md:mt-0">
-                        <Link to="/category/terracotta-ornaments" className="inline-flex items-center gap-2 text-sm font-bold text-[#8E2A8B] hover:underline uppercase tracking-wide">
+                        <Link to="/category/handmade-jewellery" className="inline-flex items-center gap-2 text-sm font-bold text-[#8E2A8B] hover:underline uppercase tracking-wide">
                             View All
                             <ChevronRight size={14} />
                         </Link>

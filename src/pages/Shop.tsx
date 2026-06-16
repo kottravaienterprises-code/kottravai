@@ -76,7 +76,7 @@ const Shop = () => {
             sumRecursive(parent.slug);
         });
 
-        // 4. Also process intermediate levels (like terracotta-ornaments)
+        // 4. Also process intermediate levels (like handmade-jewellery)
         categories.filter(c => c.parent).forEach(inter => {
             sumRecursive(inter.slug);
         });

@@ -6,21 +6,21 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 const categories = [
     {
         id: 1,
-        title: "Coco Crafts",
+        title: "Coconut Shell Products",
         image: "/cs.jpg",
-        link: "/category/coco-crafts"
+        link: "/category/coconut-shell-products"
     },
     {
         id: 2,
         title: "Terracotta Jewellery",
         image: "/w5pt5wnue7-1778068003534-black_set_final_1_1.webp",
-        link: "/category/terracotta-ornaments"
+        link: "/category/handmade-jewellery"
     },
     {
         id: 3,
         title: "Banana Fibre Essential",
         image: "/yhf2zsie9kp-1778313282517-Gemini_Generated_Image_25jjpm25jjpm25jj (1).webp",
-        link: "/category/banana-fibre-essentials"
+        link: "/category/banana-fiber-products"
     },
     {
         id: 4,

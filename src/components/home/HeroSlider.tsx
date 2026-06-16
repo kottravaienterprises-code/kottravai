@@ -19,7 +19,7 @@ const HeroSlider = () => {
                 image: '/hero.webp',
                 mobileImage: '/hero.webp',
                 alt: 'Handcrafted Terracotta Jewellery',
-                link: '/category/terracotta-ornaments'
+                link: '/category/handmade-jewellery'
             },
             {
                 image: '/kottravai-banner.webp',
@@ -32,7 +32,7 @@ const HeroSlider = () => {
                 image: '/uploads/2026/01/banner-2.webp',
                 mobileImage: '/uploads/2026/01/banner-2.webp',
                 alt: 'Crafted from Coconut',
-                link: '/category/coco-crafts',
+                link: '/category/coconut-shell-products',
                 showTextOverlay: false
             }
         ];

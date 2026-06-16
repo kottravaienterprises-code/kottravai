@@ -16,7 +16,7 @@ const CuratedMoments = lazy(() => import('@/components/home/CuratedMoments'));
 const TextTestimonials = lazy(() => import('@/components/home/TextTestimonials'));
 const JournalSection = lazy(() => import('@/components/home/JournalSection'));
 const SeeKottravaiInLife = lazy(() => import('@/components/home/SeeKottravaiInLife'));
-const CocoCraftsRow = lazy(() => import('@/components/home/CocoCraftsRow'));
+const CoconutShellProductsRow = lazy(() => import('@/components/home/CoconutShellProductsRow'));
 const BananaFiberRow = lazy(() => import('@/components/home/BananaFiberRow'));
 const GiftBundleBuilder = lazy(() => import('@/components/home/GiftBundleBuilder'));
 const HeritageMixes = lazy(() => import('@/components/home/HeritageMixes'));
@@ -166,10 +166,10 @@ const Home = () => {
                 </Suspense>
             </LazyRender>
 
-            {/* Coco Crafts Section — Premium Redesign */}
+            {/* Coconut Shell Products Section — Premium Redesign */}
             <LazyRender placeholderHeight={450}>
                 <Suspense fallback={<SectionSkeleton />}>
-                    <CocoCraftsRow />
+                    <CoconutShellProductsRow />
                 </Suspense>
             </LazyRender>
 

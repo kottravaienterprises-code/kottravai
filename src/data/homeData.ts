@@ -6,7 +6,7 @@ export const heroSlides = [
         title: 'Handcrafted Terracotta Jewellery',
         subtitle: 'Rooted in tradition. Designed for everyday elegance.',
         cta: 'Shop Collection',
-        link: '/category/terracotta-ornaments'
+        link: '/category/handmade-jewellery'
     }
 ];
 

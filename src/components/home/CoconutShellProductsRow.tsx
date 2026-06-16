@@ -3,7 +3,7 @@ import { useProducts } from '@/context/ProductContext';
 import CocoProductCard from './CocoProductCard';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-const CocoCraftsRow = () => {
+const CoconutShellProductsRow = () => {
     const { products } = useProducts();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -28,7 +28,7 @@ const CocoCraftsRow = () => {
             <div className="container mx-auto px-4 max-w-[1240px]">
                 <div className="mb-6 px-4 flex flex-col md:flex-row md:items-center md:justify-between text-center md:text-left">
                     <div>
-                        <h2 className="text-4xl md:text-6xl font-black text-[#1A1A1A] tracking-tight font-outfit">Coco Crafts</h2>
+                        <h2 className="text-4xl md:text-6xl font-black text-[#1A1A1A] tracking-tight font-outfit">Coconut Shell Products</h2>
                     </div>
                     <div className="mt-4 md:mt-0 hidden md:flex items-center gap-4">
                         <button
@@ -63,4 +63,4 @@ const CocoCraftsRow = () => {
     );
 };
 
-export default CocoCraftsRow;
+export default CoconutShellProductsRow;

@@ -34,7 +34,7 @@ const EverydayMoments = () => {
             title: "For Festive Moments",
             subtitle: "Make every celebration extra special",
             image: "https://images.unsplash.com/photo-1617033935328-fd23296de14a?q=80&w=600&auto=format&fit=crop", // Terracotta jewelry
-            link: "/shop?category=terracotta-ornaments"
+            link: "/shop?category=handmade-jewellery"
         }
     ];
 

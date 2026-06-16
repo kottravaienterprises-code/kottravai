@@ -163,7 +163,7 @@ const ArtisanProfile: React.FC = () => {
              {/* CTA */}
              <div className="pt-4 text-center">
                 <Link 
-                   to={artisan.hub === 'mathalampaarai' ? "/category/coco-crafts" : "/shop"}
+                   to={artisan.hub === 'mathalampaarai' ? "/category/coconut-shell-products" : "/shop"}
                    className="inline-flex items-center gap-6 px-12 py-4 bg-white border-4 border-[#2D1B4E] text-[#2D1B4E] rounded-full font-black uppercase tracking-widest text-xs hover:bg-[#2D1B4E] hover:text-white transition-all shadow-xl hover:scale-105"
                  >
                    Explore Her Collection <ArrowRight size={20} />

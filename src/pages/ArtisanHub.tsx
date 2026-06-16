@@ -295,7 +295,7 @@ const ArtisanHub: React.FC = () => {
                       <h2 className="text-4xl font-serif font-bold text-[#2D1B4E]">Made in {hubTitle}</h2>
                       <div className="w-16 h-1 bg-[#8E2A8B]/20 rounded-full mt-4"></div>
                     </div>
-                    <Link to={hubName === 'mathalampaarai' ? "/category/coco-crafts" : "/shop"} className="text-xs font-black uppercase tracking-widest text-[#8E2A8B] hover:opacity-60 flex items-center gap-2">
+                    <Link to={hubName === 'mathalampaarai' ? "/category/coconut-shell-products" : "/shop"} className="text-xs font-black uppercase tracking-widest text-[#8E2A8B] hover:opacity-60 flex items-center gap-2">
                       All Products <ArrowRight size={14} />
                     </Link>
                 </div>

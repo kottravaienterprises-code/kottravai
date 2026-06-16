@@ -6,12 +6,12 @@ const galleryImages = [
     {
         src: '/WhatsApp Image 2026-05-22 at 4.59.29 PM.jpeg',
         alt: 'Kottravai lifestyle 1',
-        link: '/category/coco-crafts'
+        link: '/category/coconut-shell-products'
     },
     {
         src: '/WhatsApp Image 2026-05-22 at 5.00.10 PM.jpeg',
         alt: 'Kottravai lifestyle 2',
-        link: '/category/terracotta-ornaments'
+        link: '/category/handmade-jewellery'
     },
     {
         src: '/WhatsApp Image 2026-05-22 at 5.00.35 PM.jpeg',

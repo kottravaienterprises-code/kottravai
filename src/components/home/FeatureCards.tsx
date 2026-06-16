@@ -16,7 +16,7 @@ const features = [
         title: "Handmade with Purpose & Love",
         subtitle: "Crafted by Skilled Artisans\nUsing Natural Materials.",
         buttonText: "Explore Collections",
-        link: "/category/coco-crafts",
+        link: "/category/coconut-shell-products",
         image: "/cs.jpg",
     },
     {
