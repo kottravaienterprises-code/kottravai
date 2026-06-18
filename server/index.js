@@ -4513,7 +4513,7 @@ try {
 
 // --- Static File Serving (For Production) ---
 const sitemapRoutes = require('./routes/sitemapRoutes');
-app.use('/', sitemapRoutes);
+app.use('/api', sitemapRoutes);
 
 app.use(express.static(path.join(__dirname, '../dist')));
 

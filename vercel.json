@@ -32,11 +32,31 @@
   ],
   "rewrites": [
     {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap.xml"
+    },
+    {
+      "source": "/sitemap_products_1.xml",
+      "destination": "/api/sitemap_products_1.xml"
+    },
+    {
+      "source": "/sitemap_pages_1.xml",
+      "destination": "/api/sitemap_pages_1.xml"
+    },
+    {
+      "source": "/sitemap_collections_1.xml",
+      "destination": "/api/sitemap_collections_1.xml"
+    },
+    {
+      "source": "/sitemap_blogs_1.xml",
+      "destination": "/api/sitemap_blogs_1.xml"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
     },
     {
-      "source": "/((?!api|assets|robots.txt|sitemap.xml|favicon.png|logo.png|.*\\.).*)",
+      "source": "/((?!api|assets|robots.txt|sitemap.xml|sitemap_.*\\.xml|favicon.png|logo.png|.*\\.).*)",
       "destination": "/index.html"
     }
   ]
