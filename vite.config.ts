@@ -1,29 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
-import Sitemap from 'vite-plugin-sitemap'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react(),
-    Sitemap({
-      hostname: 'https://www.kottravai.in',
-      dynamicRoutes: [
-        '/shop',
-        '/about',
-        '/b2b',
-        '/contact',
-        '/faqs',
-        '/alliance',
-        '/camps',
-        '/blog',
-        '/shipping-policy',
-        '/refund-policy',
-        '/terms-of-service',
-        '/privacy-policy'
-      ]
-    })
+    react()
   ],
   resolve: {
     alias: {
