@@ -1121,14 +1121,16 @@ try {
     const trackingRoutes = require('./routes/trackingRoutes');
     app.use('/api/track', trackingRoutes);
 
-    // Import daily email sender and setup endpoints
+    // Import daily and weekly email sender and setup endpoints
     let generateDailyAnalyticsSummary;
     let sendDailyAnalyticsEmail;
+    let sendWeeklyAnalyticsEmail;
     try {
       ({ generateDailyAnalyticsSummary } = require('./services/dailyAnalyticsService'));
       ({ sendDailyAnalyticsEmail } = require('./services/dailyEmailSender'));
+      ({ sendWeeklyAnalyticsEmail } = require('./services/weeklyEmailSender'));
     } catch(e) {
-      console.warn('⚠️ Daily analytics services not available:', e.message);
+      console.warn('⚠️ Analytics email services not available:', e.message);
     }
 
     app.get('/api/analytics/preview-daily-report', async (req, res) => {
@@ -1145,6 +1147,16 @@ try {
       try {
         if (!sendDailyAnalyticsEmail) return res.status(503).json({ error: 'Service Unavailable' });
         const result = await sendDailyAnalyticsEmail();
+        res.json(result);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.all('/api/analytics/send-weekly-report', async (req, res) => {
+      try {
+        if (!sendWeeklyAnalyticsEmail) return res.status(503).json({ error: 'Service Unavailable' });
+        const result = await sendWeeklyAnalyticsEmail();
         res.json(result);
       } catch (err) {
         res.status(500).json({ error: err.message });

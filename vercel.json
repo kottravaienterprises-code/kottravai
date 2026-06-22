@@ -26,6 +26,10 @@
       "schedule": "30 2 * * *"
     },
     {
+      "path": "/api/analytics/send-weekly-report",
+      "schedule": "0 8 * * 1"
+    },
+    {
       "path": "/api/track/cart-recovery",
       "schedule": "0 * * * *"
     }
