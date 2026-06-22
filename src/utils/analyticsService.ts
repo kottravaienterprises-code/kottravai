@@ -50,10 +50,26 @@ class AnalyticsService {
 
     private resolveTrafficSource() {
         const params = new URLSearchParams(window.location.search);
+        let utm_source = params.get('utm_source');
+        let utm_medium = params.get('utm_medium');
+        let utm_campaign = params.get('utm_campaign');
+
+        // If URL has UTM parameters, save them to sessionStorage
+        if (utm_source || utm_medium || utm_campaign) {
+            sessionStorage.setItem('kottravai_utm_source', utm_source || '');
+            sessionStorage.setItem('kottravai_utm_medium', utm_medium || '');
+            sessionStorage.setItem('kottravai_utm_campaign', utm_campaign || '');
+        } else {
+            // Otherwise try to load them from sessionStorage
+            utm_source = sessionStorage.getItem('kottravai_utm_source');
+            utm_medium = sessionStorage.getItem('kottravai_utm_medium');
+            utm_campaign = sessionStorage.getItem('kottravai_utm_campaign');
+        }
+
         return {
-            utm_source: params.get('utm_source') || '',
-            utm_medium: params.get('utm_medium') || '',
-            utm_campaign: params.get('utm_campaign') || ''
+            utm_source: utm_source || '',
+            utm_medium: utm_medium || '',
+            utm_campaign: utm_campaign || ''
         };
     }
 
