@@ -1163,59 +1163,7 @@ try {
       }
     });
 
-    app.get('/api/analytics/temp-referrers', async (req, res) => {
-      try {
-        const sheetsService = require('./services/googleSheetsService');
-        const s = await sheetsService.sheets();
-        const rows = await sheetsService.fetchRawEventRows(s);
-        
-        // Target: Yesterday
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-        
-        let counts = {
-          medium: 0,
-          blogspot: 0,
-          linkedin: 0,
-          quora: 0,
-          pinterest: 0
-        };
-        
-        let matchedVisitors = new Set();
-        
-        rows.forEach(row => {
-          const rawTs = row.timestamp || row.Timestamp || row['Date'] || row['timestamp'];
-          if (!rawTs) return;
-          
-          if (rawTs.startsWith(yesterdayStr)) {
-            const vid = row.visitor_id || row['Visitor ID'] || row['visitor_id'];
-            if (vid && matchedVisitors.has(vid)) return; // Only count unique visitors
-            
-            const ref = (row.referrer || row.Referrer || row['Referrer'] || '').toLowerCase();
-            
-            let matched = false;
-            if (ref.includes('medium.com')) { counts.medium++; matched = true; }
-            else if (ref.includes('blogspot.com')) { counts.blogspot++; matched = true; }
-            else if (ref.includes('linkedin.com')) { counts.linkedin++; matched = true; }
-            else if (ref.includes('quora.com')) { counts.quora++; matched = true; }
-            else if (ref.includes('pinterest.')) { counts.pinterest++; matched = true; }
-            
-            if (matched && vid) {
-                matchedVisitors.add(vid);
-            }
-          }
-        });
-        
-        res.json({
-          date: yesterdayStr,
-          counts: counts
-        });
-      } catch(e) {
-        res.status(500).json({error: e.message});
-      }
-    });
+
 } catch (e) {
     console.warn('⚠️ trackingRoutes not loaded:', e.message);
     // Fallback: accept posts to /api/track to avoid breaking clients; mimic previous lightweight behaviour
@@ -5089,6 +5037,60 @@ app.post('/api/campus/register', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════
 // END CAMPUS REGISTRATION
 // ═══════════════════════════════════════════════════════════════════
+
+app.get('/api/analytics/temp-referrers', async (req, res) => {
+  try {
+    const sheetsService = require('./services/googleSheetsService');
+    const s = await sheetsService.sheets();
+    const rows = await sheetsService.fetchRawEventRows(s);
+    
+    // Target: Yesterday
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    let counts = {
+      medium: 0,
+      blogspot: 0,
+      linkedin: 0,
+      quora: 0,
+      pinterest: 0
+    };
+    
+    let matchedVisitors = new Set();
+    
+    rows.forEach(row => {
+      const rawTs = row.timestamp || row.Timestamp || row['Date'] || row['timestamp'];
+      if (!rawTs) return;
+      
+      if (rawTs.startsWith(yesterdayStr)) {
+        const vid = row.visitor_id || row['Visitor ID'] || row['visitor_id'];
+        if (vid && matchedVisitors.has(vid)) return; // Only count unique visitors
+        
+        const ref = (row.referrer || row.Referrer || row['Referrer'] || '').toLowerCase();
+        
+        let matched = false;
+        if (ref.includes('medium.com')) { counts.medium++; matched = true; }
+        else if (ref.includes('blogspot.com')) { counts.blogspot++; matched = true; }
+        else if (ref.includes('linkedin.com')) { counts.linkedin++; matched = true; }
+        else if (ref.includes('quora.com')) { counts.quora++; matched = true; }
+        else if (ref.includes('pinterest.')) { counts.pinterest++; matched = true; }
+        
+        if (matched && vid) {
+            matchedVisitors.add(vid);
+        }
+      }
+    });
+    
+    res.json({
+      date: yesterdayStr,
+      counts: counts
+    });
+  } catch(e) {
+    res.status(500).json({error: e.message});
+  }
+});
 
 module.exports = app;
 
