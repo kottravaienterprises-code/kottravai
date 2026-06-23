@@ -64,6 +64,23 @@ class AnalyticsService {
             utm_source = sessionStorage.getItem('kottravai_utm_source');
             utm_medium = sessionStorage.getItem('kottravai_utm_medium');
             utm_campaign = sessionStorage.getItem('kottravai_utm_campaign');
+            
+            // If still no utm_source, try to extract domain from the document.referrer
+            if (!utm_source && typeof document !== 'undefined' && document.referrer) {
+                try {
+                    const refUrl = new URL(document.referrer);
+                    if (!refUrl.hostname.includes(window.location.hostname)) {
+                        utm_source = refUrl.hostname.replace('www.', '');
+                        utm_medium = 'referral';
+                        
+                        // Save this inferred source so we don't lose it on navigation
+                        sessionStorage.setItem('kottravai_utm_source', utm_source);
+                        sessionStorage.setItem('kottravai_utm_medium', utm_medium);
+                    }
+                } catch (e) {
+                    // Silent fail if referrer is not a valid URL
+                }
+            }
         }
 
         return {
