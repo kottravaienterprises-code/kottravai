@@ -1163,49 +1163,54 @@ try {
       }
     });
 
-    app.get('/api/analytics/temp-3-days', async (req, res) => {
+    app.get('/api/analytics/temp-referrers', async (req, res) => {
       try {
         const sheetsService = require('./services/googleSheetsService');
         const s = await sheetsService.sheets();
         const rows = await sheetsService.fetchRawEventRows(s);
         
-        const threeDaysAgo = new Date();
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+        // Target: Yesterday
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
         
-        let visitors = new Set();
-        let sources = {};
+        let counts = {
+          medium: 0,
+          blogspot: 0,
+          linkedin: 0,
+          quora: 0,
+          pinterest: 0
+        };
+        
+        let matchedVisitors = new Set();
         
         rows.forEach(row => {
           const rawTs = row.timestamp || row.Timestamp || row['Date'] || row['timestamp'];
           if (!rawTs) return;
-          const ts = new Date(rawTs);
-          if (ts >= threeDaysAgo) {
+          
+          if (rawTs.startsWith(yesterdayStr)) {
             const vid = row.visitor_id || row['Visitor ID'] || row['visitor_id'];
-            if (vid) visitors.add(vid);
+            if (vid && matchedVisitors.has(vid)) return; // Only count unique visitors
             
-            let source = (row.utm_source || row['UTM Source'] || '').trim().toLowerCase();
-            if (!source || source === 'undefined' || source === 'null') source = 'direct';
+            const ref = (row.referrer || row.Referrer || row['Referrer'] || '').toLowerCase();
             
-            if (vid) {
-                if (!sources[vid]) sources[vid] = source;
+            let matched = false;
+            if (ref.includes('medium.com')) { counts.medium++; matched = true; }
+            else if (ref.includes('blogspot.com')) { counts.blogspot++; matched = true; }
+            else if (ref.includes('linkedin.com')) { counts.linkedin++; matched = true; }
+            else if (ref.includes('quora.com')) { counts.quora++; matched = true; }
+            else if (ref.includes('pinterest.')) { counts.pinterest++; matched = true; }
+            
+            if (matched && vid) {
+                matchedVisitors.add(vid);
             }
           }
         });
         
-        const sourceCounts = {};
-        Object.values(sources).forEach(src => {
-          sourceCounts[src] = (sourceCounts[src] || 0) + 1;
-        });
-        
-        const sourcePercentages = {};
-        for (const [src, count] of Object.entries(sourceCounts)) {
-          sourcePercentages[src] = ((count / (visitors.size || 1)) * 100).toFixed(2) + '%';
-        }
-        
         res.json({
-          total_visitors_last_3_days: visitors.size,
-          counts: sourceCounts,
-          percentages: sourcePercentages
+          date: yesterdayStr,
+          counts: counts
         });
       } catch(e) {
         res.status(500).json({error: e.message});
