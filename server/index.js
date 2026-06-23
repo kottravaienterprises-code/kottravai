@@ -1162,6 +1162,55 @@ try {
         res.status(500).json({ error: err.message });
       }
     });
+
+    app.get('/api/analytics/temp-3-days', async (req, res) => {
+      try {
+        const sheetsService = require('./services/googleSheetsService');
+        const s = await sheetsService.sheets();
+        const rows = await sheetsService.fetchRawEventRows(s);
+        
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+        
+        let visitors = new Set();
+        let sources = {};
+        
+        rows.forEach(row => {
+          const rawTs = row.timestamp || row.Timestamp || row['Date'] || row['timestamp'];
+          if (!rawTs) return;
+          const ts = new Date(rawTs);
+          if (ts >= threeDaysAgo) {
+            const vid = row.visitor_id || row['Visitor ID'] || row['visitor_id'];
+            if (vid) visitors.add(vid);
+            
+            let source = (row.utm_source || row['UTM Source'] || '').trim().toLowerCase();
+            if (!source || source === 'undefined' || source === 'null') source = 'direct';
+            
+            if (vid) {
+                if (!sources[vid]) sources[vid] = source;
+            }
+          }
+        });
+        
+        const sourceCounts = {};
+        Object.values(sources).forEach(src => {
+          sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+        });
+        
+        const sourcePercentages = {};
+        for (const [src, count] of Object.entries(sourceCounts)) {
+          sourcePercentages[src] = ((count / (visitors.size || 1)) * 100).toFixed(2) + '%';
+        }
+        
+        res.json({
+          total_visitors_last_3_days: visitors.size,
+          counts: sourceCounts,
+          percentages: sourcePercentages
+        });
+      } catch(e) {
+        res.status(500).json({error: e.message});
+      }
+    });
 } catch (e) {
     console.warn('⚠️ trackingRoutes not loaded:', e.message);
     // Fallback: accept posts to /api/track to avoid breaking clients; mimic previous lightweight behaviour
