@@ -1241,26 +1241,107 @@ function buildAggregations(rows) {
     }
   };
 }
+// --- Caching & Incremental Sync State ---
+let cachedRawEvents = null;
+let cachedHeaders = null;
+let lastProcessedDataRowCount = 0;
+let lastCacheSyncTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 async function fetchRawEventRows(s) {
-  const response = await s.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: DEFAULT_RANGE
-  });
+  const now = Date.now();
+  if (cachedRawEvents && (now - lastCacheSyncTime) < CACHE_TTL) {
+    console.log('[CACHE_HIT] Returning cached raw events');
+    return cachedRawEvents;
+  }
+
+  console.log('[CACHE_MISS] Fetching raw events from Google Sheets');
+  
+  let fetchRange = DEFAULT_RANGE;
+  let isIncremental = false;
+
+  if (cachedRawEvents && cachedHeaders && lastProcessedDataRowCount > 0) {
+    // Row 1 is header, Row 2 is first data row.
+    // If we have 10 data rows, the last data row is Row 11.
+    // We want to fetch starting from Row 12.
+    const startRow = lastProcessedDataRowCount + 2; 
+    fetchRange = `${RAW_EVENTS_SHEET_TITLE}!A${startRow}:AG`;
+    isIncremental = true;
+    console.log(`[INCREMENTAL_SYNC_START] Fetching from row ${startRow}`);
+  }
+
+  // Implement Rate Limiting / Exponential Backoff
+  let response;
+  let retries = 0;
+  const maxRetries = 3;
+  
+  while (retries < maxRetries) {
+    try {
+      response = await s.spreadsheets.values.get({
+        spreadsheetId: SHEET_ID,
+        range: fetchRange
+      });
+      break; // Success
+    } catch (err) {
+      if (err.code === 429 || (err.message && err.message.includes('Quota exceeded'))) {
+        console.warn(`[GOOGLE_SHEETS_QUOTA_RETRY] Rate limit exceeded. Retry ${retries + 1}/${maxRetries}`);
+        retries++;
+        if (retries === maxRetries) {
+          console.error('[GOOGLE_SHEETS_QUOTA_EXCEEDED] Falling back to cached data');
+          if (cachedRawEvents) return cachedRawEvents;
+          throw err;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries))); // Exponential backoff
+      } else {
+        throw err;
+      }
+    }
+  }
+
   const values = response.data.values || [];
-  if (values.length === 0) return [];
+  
+  if (values.length === 0) {
+    if (isIncremental) {
+      console.log('[INCREMENTAL_SYNC_COMPLETE] No new rows found.');
+      lastCacheSyncTime = Date.now();
+      return cachedRawEvents;
+    }
+    return [];
+  }
 
   const normalizeKey = (key) => {
     if (key === undefined || key === null) return '';
     return String(key).trim().toLowerCase().replace(/\s+/g, '_');
   };
-  const headers = values[0].map(h => normalizeKey(h));
-  return values.slice(1).map(row => {
+
+  let newRows = [];
+  if (!isIncremental) {
+    cachedHeaders = values[0].map(h => normalizeKey(h));
+    newRows = values.slice(1);
+    lastProcessedDataRowCount = newRows.length;
+  } else {
+    newRows = values;
+    lastProcessedDataRowCount += newRows.length;
+  }
+
+  const parsedNewRows = newRows.map(row => {
     const result = {};
-    headers.forEach((header, index) => {
+    cachedHeaders.forEach((header, index) => {
       result[header] = row[index] !== undefined ? row[index] : '';
     });
     return result;
   });
+
+  if (isIncremental) {
+    cachedRawEvents = cachedRawEvents.concat(parsedNewRows);
+    console.log(`[INCREMENTAL_SYNC_COMPLETE] Added ${parsedNewRows.length} new rows. Total: ${cachedRawEvents.length}`);
+  } else {
+    cachedRawEvents = parsedNewRows;
+    console.log(`[FULL_SYNC_COMPLETE] Fetched ${parsedNewRows.length} rows.`);
+  }
+
+  lastCacheSyncTime = Date.now();
+  return cachedRawEvents;
 }
 
 function formatCurrency(value) {
@@ -2452,17 +2533,7 @@ async function buildDashboardSheets(s) {
 // Exported getAggregations for external services (like Cart Recovery)
 exports.getAggregations = async () => {
   const s = await sheets();
-  const rawRes = await s.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Raw Events!A2:Z100000' });
-  const rows = rawRes.data.values || [];
-  const headersRes = await s.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Raw Events!A1:Z1' });
-  const headers = headersRes.data.values[0];
-  
-  const mappedRows = rows.map(row => {
-    const obj = {};
-    headers.forEach((h, i) => { obj[h.toLowerCase().replace(/ /g, '_')] = row[i]; });
-    return obj;
-  });
-
+  const mappedRows = await fetchRawEventRows(s);
   return buildAggregations(mappedRows);
 }
 
