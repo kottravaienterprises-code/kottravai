@@ -3613,17 +3613,20 @@ app.post('/api/auth/reset-password-with-otp', async (req, res) => {
         }
 
         // 2. Find user in Supabase by mobile
-        const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-        if (listError) throw listError;
+        const userRes = await db.query(
+            "SELECT id FROM auth.users WHERE raw_user_meta_data->>'mobile' = $1 OR phone = $2",
+            [mobile, `+91${mobile}`]
+        );
 
-        const user = users.find(u => u.user_metadata?.mobile === mobile);
-        if (!user) {
+        if (userRes.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
 
+        const userId = userRes.rows[0].id;
+
         // 3. Update password
         const { error: updateError } = await supabase.auth.admin.updateUserById(
-            user.id,
+            userId,
             { password: newPassword }
         );
 
@@ -3645,15 +3648,16 @@ app.post('/api/auth/get-email', async (req, res) => {
         const { mobile } = req.body;
         if (!mobile) return res.status(400).json({ error: 'Mobile number is required' });
 
-        const { data: { users }, error } = await supabase.auth.admin.listUsers();
-        if (error) throw error;
+        const userRes = await db.query(
+            "SELECT email FROM auth.users WHERE raw_user_meta_data->>'mobile' = $1 OR phone = $2",
+            [mobile, `+91${mobile}`]
+        );
 
-        const user = users.find(u => u.user_metadata?.mobile === mobile);
-        if (!user) {
+        if (userRes.rows.length === 0) {
             return res.status(404).json({ error: 'No account found with this mobile number' });
         }
 
-        res.json({ email: user.email });
+        res.json({ email: userRes.rows[0].email });
     } catch (err) {
         console.error('Email lookup error:', err);
         res.status(500).json({ error: 'Internal lookup error' });
