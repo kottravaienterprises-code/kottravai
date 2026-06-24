@@ -14,12 +14,13 @@ const HeroSlider = () => {
         subtitle?: string;
         buttonText?: string;
         showTextOverlay?: boolean;
+        hotspot?: { className: string };
     }[] = [
             {
-                image: '/hero.webp',
-                mobileImage: '/hero.webp',
+                image: '/kottravai-banner-new.png',
+                mobileImage: '/kottravai-banner-new.png',
                 alt: 'Handcrafted Terracotta Jewellery',
-                link: '/category/handmade-jewellery'
+                link: 'https://wa.me/918807829183'
             },
             {
                 image: '/kottravai-banner.webp',
@@ -49,7 +50,7 @@ const HeroSlider = () => {
 
     useEffect(() => {
         setIsLoaded(true);
-        const timer = setInterval(nextSlide, 5000);
+        const timer = setInterval(nextSlide, 8000);
         return () => clearInterval(timer);
     }, []);
 
@@ -64,28 +65,58 @@ const HeroSlider = () => {
                         className={`absolute inset-0 w-full h-full ${isLoaded ? 'transition-opacity duration-1000 ease-in-out' : ''} ${index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
                             }`}
                     >
-                    <a href={slide.link} className="block w-full h-full">
-                        <picture>
-                            <source 
-                                media="(max-width: 768px)" 
-                                srcSet={slide.mobileImage}
-                                width={1920}
-                                height={1044}
-                            />
-                            <img
-                                src={slide.image}
-                                alt={slide.alt}
-                                width={1920}
-                                height={1044}
-                                className="w-full h-full object-cover"
-                                // First slide = LCP element: eager + high priority
-                                loading={index === 0 ? 'eager' : 'lazy'}
-                                // @ts-ignore - fetchpriority is a valid attribute but types might be missing
-                                fetchpriority={index === 0 ? 'high' : 'low'}
-                                decoding={index === 0 ? 'sync' : 'async'}
-                            />
-                        </picture>
-                    </a>
+                    {slide.hotspot ? (
+                        <div className="block w-full h-full relative">
+                            <picture>
+                                <source 
+                                    media="(max-width: 768px)" 
+                                    srcSet={slide.mobileImage}
+                                    width={1920}
+                                    height={1044}
+                                />
+                                <img
+                                    src={slide.image}
+                                    alt={slide.alt}
+                                    width={1920}
+                                    height={1044}
+                                    className="w-full h-full object-cover"
+                                    loading={index === 0 ? 'eager' : 'lazy'}
+                                    // @ts-ignore
+                                    fetchpriority={index === 0 ? 'high' : 'low'}
+                                    decoding={index === 0 ? 'sync' : 'async'}
+                                />
+                            </picture>
+                            {/* Invisible clickable overlay for the drawn button */}
+                            <a 
+                                href={slide.link} 
+                                className={`absolute z-30 cursor-pointer ${slide.hotspot.className}`}
+                                aria-label={slide.alt}
+                                // To debug the button area, you can temporarily add: "bg-red-500/50" to the className above
+                            ></a>
+                        </div>
+                    ) : (
+                        <a href={slide.link} className="block w-full h-full">
+                            <picture>
+                                <source 
+                                    media="(max-width: 768px)" 
+                                    srcSet={slide.mobileImage}
+                                    width={1920}
+                                    height={1044}
+                                />
+                                <img
+                                    src={slide.image}
+                                    alt={slide.alt}
+                                    width={1920}
+                                    height={1044}
+                                    className="w-full h-full object-cover"
+                                    loading={index === 0 ? 'eager' : 'lazy'}
+                                    // @ts-ignore
+                                    fetchpriority={index === 0 ? 'high' : 'low'}
+                                    decoding={index === 0 ? 'sync' : 'async'}
+                                />
+                            </picture>
+                        </a>
+                    )}
                     {slide.showTextOverlay && (
                         <div className="absolute inset-0 flex items-center pointer-events-none">
                             <div className="container mx-auto px-4 sm:px-8 md:px-12 lg:px-20 pointer-events-auto">
