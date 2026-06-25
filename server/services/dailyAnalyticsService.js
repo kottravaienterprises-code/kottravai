@@ -376,7 +376,7 @@ const generateDailyAnalyticsSummary = async (reportDate = null) => {
 
   // 3. Traffic Source Summary
   const trafficSourceSummary = (agg.utmRows || [])
-    .slice(0, 15)
+    .slice(0, 4)
     .map(s => ({
       source: s.source,
       visitors: s.visitors,
