@@ -1125,9 +1125,10 @@ try {
     let generateDailyAnalyticsSummary;
     let sendDailyAnalyticsEmail;
     let sendWeeklyAnalyticsEmail;
+    let sendTestDailyEmail;
     try {
       ({ generateDailyAnalyticsSummary } = require('./services/dailyAnalyticsService'));
-      ({ sendDailyAnalyticsEmail } = require('./services/dailyEmailSender'));
+      ({ sendDailyAnalyticsEmail, sendTestDailyEmail } = require('./services/dailyEmailSender'));
       ({ sendWeeklyAnalyticsEmail } = require('./services/weeklyEmailSender'));
     } catch(e) {
       console.warn('⚠️ Analytics email services not available:', e.message);
@@ -1150,6 +1151,17 @@ try {
         res.json(result);
       } catch (err) {
         res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.post('/api/analytics/test-daily-email', async (req, res) => {
+      try {
+        if (!sendTestDailyEmail) return res.status(503).json({ success: false, message: 'Service Unavailable' });
+        const { email, reportDate } = req.body;
+        const result = await sendTestDailyEmail(email, reportDate);
+        res.status(result.statusCode || 200).json(result);
+      } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
       }
     });
 

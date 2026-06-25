@@ -88,6 +88,103 @@ module.exports = {
     };
   },
 
+  buildAreaChart(sheetId, title, domainRange, seriesRanges, anchorRow, anchorCol, width = 600, height = 350) {
+    return {
+      addChart: {
+        chart: {
+          spec: {
+            title,
+            basicChart: {
+              chartType: 'AREA',
+              legendPosition: 'BOTTOM_LEGEND',
+              axis: [
+                { position: 'BOTTOM_AXIS', title: 'Date' },
+                { position: 'LEFT_AXIS', title: 'Value' }
+              ],
+              domains: [{ domain: { sourceRange: { sources: [domainRange] } } }],
+              series: seriesRanges.map(s => ({
+                series: { sourceRange: { sources: [s] } },
+                targetAxis: 'LEFT_AXIS'
+              }))
+            }
+          },
+          position: {
+            overlayPosition: {
+              anchorCell: { sheetId, rowIndex: anchorRow, columnIndex: anchorCol },
+              widthPixels: width,
+              heightPixels: height
+            }
+          }
+        }
+      }
+    };
+  },
+
+  buildStackedColumnChart(sheetId, title, domainRange, seriesRanges, anchorRow, anchorCol, width = 600, height = 350) {
+    return {
+      addChart: {
+        chart: {
+          spec: {
+            title,
+            basicChart: {
+              chartType: 'COLUMN',
+              stackedType: 'STACKED',
+              legendPosition: 'RIGHT_LEGEND',
+              axis: [
+                { position: 'BOTTOM_AXIS', title: 'Date' },
+                { position: 'LEFT_AXIS', title: 'Value' }
+              ],
+              domains: [{ domain: { sourceRange: { sources: [domainRange] } } }],
+              series: seriesRanges.map(s => ({
+                series: { sourceRange: { sources: [s] } },
+                targetAxis: 'LEFT_AXIS'
+              }))
+            }
+          },
+          position: {
+            overlayPosition: {
+              anchorCell: { sheetId, rowIndex: anchorRow, columnIndex: anchorCol },
+              widthPixels: width,
+              heightPixels: height
+            }
+          }
+        }
+      }
+    };
+  },
+
+  buildBarChart(sheetId, title, domainRange, seriesRanges, anchorRow, anchorCol, width = 600, height = 350) {
+    return {
+      addChart: {
+        chart: {
+          spec: {
+            title,
+            basicChart: {
+              chartType: 'BAR',
+              legendPosition: 'BOTTOM_LEGEND',
+              axis: [
+                { position: 'BOTTOM_AXIS', title: 'Value' },
+                { position: 'LEFT_AXIS', title: 'Category' }
+              ],
+              domains: [{ domain: { sourceRange: { sources: [domainRange] } } }],
+              series: seriesRanges.map(s => ({
+                series: { sourceRange: { sources: [s] } },
+                targetAxis: 'BOTTOM_AXIS'
+              }))
+            }
+          },
+          position: {
+            overlayPosition: {
+              anchorCell: { sheetId, rowIndex: anchorRow, columnIndex: anchorCol },
+              widthPixels: width,
+              heightPixels: height
+            }
+          }
+        }
+      }
+    };
+  },
+
   createRange(sheetId, startRow, endRow, startCol, endCol) {
     return {
       sheetId,

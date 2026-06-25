@@ -11,7 +11,7 @@ const getSafeNumber = (val) => {
 const formatCur = (val) => `₹${getSafeNumber(val).toFixed(2)}`;
 const formatPct = (val) => `${getSafeNumber(val).toFixed(1)}%`;
 
-const generateDailyAnalyticsSummary = async () => {
+const generateDailyAnalyticsSummary = async (reportDate = null) => {
   console.log('[DAILY_ANALYTICS] Fetching Raw Events');
   const s = await sheets();
   const rows = await fetchRawEventRows(s);
@@ -20,9 +20,14 @@ const generateDailyAnalyticsSummary = async () => {
   const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
   const istNow = new Date(utcNow + (330 * 60000));
   
-  const yesterday = new Date(istNow);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const targetDateStr = yesterday.getFullYear() + '-' + String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getDate()).padStart(2, '0');
+  let targetDateStr;
+  if (reportDate && reportDate !== 'yesterday') {
+    targetDateStr = reportDate;
+  } else {
+    const yesterday = new Date(istNow);
+    yesterday.setDate(yesterday.getDate() - 1);
+    targetDateStr = yesterday.getFullYear() + '-' + String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getDate()).padStart(2, '0');
+  }
   
   console.log(`[DAILY_ANALYTICS] Processing events for date: ${targetDateStr}`);
 
@@ -302,6 +307,130 @@ const generateDailyAnalyticsSummary = async () => {
     ? `Increase budget on Campaign: ${topRevCampaign}`
     : 'Monitor baseline metrics. Ensure WhatsApp Recovery is enabled.';
 
+  // ==========================================
+  // NEW 7-DAY PERFORMANCE SUMMARY CALCULATIONS
+  // ==========================================
+  
+  // 1. 7-Day Trend Dates (IST)
+  const last7Days = [];
+  const targetDateObj = new Date(targetDateStr);
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(targetDateObj);
+    d.setDate(d.getDate() - i);
+    last7Days.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+  }
+
+  // 2. Traffic & Revenue Trend (Last 7 Days)
+  const sevenDayTrafficTrend = [];
+  const sevenDayRevenueTrend = [];
+  let current7DayVisitors = 0, prev7DayVisitors = 0;
+  let current7DayRevenue = 0, prev7DayRevenue = 0;
+  let current7DayOrders = 0;
+  
+  // Calculate rolling 14 days to get growth
+  const rolling14Days = agg.dailyRows.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 14);
+  
+  last7Days.forEach((dStr, idx) => {
+    // Current 7 days
+    const row = rolling14Days.find(r => r.date === dStr) || { date: dStr, visitors: 0, sessions: 0, orders: 0, revenue: 0, purchaseConversionRate: 0 };
+    // Get product and page views by scanning sessions (since dailyRows lacks them natively, using approximations if needed, or 0s)
+    let pViews = 0, pgViews = 0;
+    Array.from(agg.sessionRows || []).forEach(s => {
+      if (s.minTime && new Date(s.minTime).toISOString().startsWith(dStr)) {
+        pViews += (s.productViews || 0);
+        pgViews += (s.events || 0);
+      }
+    });
+
+    sevenDayTrafficTrend.push({
+      date: dStr,
+      visitors: row.visitors,
+      sessions: row.sessions,
+      productViews: pViews,
+      pageViews: pgViews
+    });
+
+    sevenDayRevenueTrend.push({
+      date: dStr,
+      revenue: row.revenue,
+      orders: row.orders,
+      aov: row.orders > 0 ? (row.revenue / row.orders) : 0,
+      conversionRate: row.purchaseConversionRate
+    });
+
+    current7DayVisitors += row.visitors;
+    current7DayRevenue += row.revenue;
+    current7DayOrders += row.orders;
+  });
+
+  // Prev 7 days for growth
+  for (let i = 7; i < 14; i++) {
+    if (rolling14Days[i]) {
+      prev7DayVisitors += rolling14Days[i].visitors;
+      prev7DayRevenue += rolling14Days[i].revenue;
+    }
+  }
+
+  const weeklyGrowthVisitors = prev7DayVisitors > 0 ? ((current7DayVisitors - prev7DayVisitors) / prev7DayVisitors) * 100 : 0;
+  const weeklyGrowthRevenue = prev7DayRevenue > 0 ? ((current7DayRevenue - prev7DayRevenue) / prev7DayRevenue) * 100 : 0;
+
+  // 3. Traffic Source Summary
+  const trafficSourceSummary = (agg.utmRows || [])
+    .slice(0, 15)
+    .map(s => ({
+      source: s.source,
+      visitors: s.visitors,
+      orders: s.orders,
+      revenue: s.revenue,
+      conversionRate: s.visitors > 0 ? (s.orders / s.visitors) * 100 : 0
+    }));
+
+  // 4. Top Products (Top 10)
+  const topProductsSummary = (agg.productRows || [])
+    .slice(0, 10)
+    .map(p => ({
+      product: p.product,
+      views: p.views,
+      addToCarts: p.addToCarts,
+      purchases: p.purchases,
+      revenue: p.revenue,
+      conversionRate: p.views > 0 ? (p.purchases / p.views) * 100 : 0
+    }));
+
+  // 5. Geography Summary
+  const geographySummary = {
+    states: (agg.geography?.states || []).slice(0, 5),
+    cities: (agg.geography?.cities || []).slice(0, 5)
+  };
+
+  // 6. AI Business Insights
+  const aiBusinessInsights = [];
+  if (weeklyGrowthVisitors > 5) aiBusinessInsights.push(`Traffic increased by ${weeklyGrowthVisitors.toFixed(1)}% compared to the previous week.`);
+  else if (weeklyGrowthVisitors < -5) aiBusinessInsights.push(`Traffic decreased by ${Math.abs(weeklyGrowthVisitors).toFixed(1)}% this week.`);
+  
+  if (weeklyGrowthRevenue > 0 && weeklyGrowthVisitors < 0) aiBusinessInsights.push(`Revenue increased despite a lower visitor count, indicating higher quality traffic.`);
+  
+  const topSrcInsight = trafficSourceSummary[0];
+  if (topSrcInsight) aiBusinessInsights.push(`'${topSrcInsight.source}' generated the highest engagement with ${topSrcInsight.visitors} visitors.`);
+  
+  const topConvSrc = [...trafficSourceSummary].sort((a,b)=>b.conversionRate - a.conversionRate)[0];
+  if (topConvSrc && topConvSrc.conversionRate > 0) aiBusinessInsights.push(`'${topConvSrc.source}' generated the highest conversion rate at ${topConvSrc.conversionRate.toFixed(1)}%.`);
+  
+  const topProdInsight = topProductsSummary[0];
+  if (topProdInsight && topProdInsight.product) aiBusinessInsights.push(`'${topProdInsight.product.substring(0,30)}...' remains the top trending product.`);
+
+  // Ensure 5 insights
+  while (aiBusinessInsights.length < 5) aiBusinessInsights.push("Metrics are holding steady with baseline averages.");
+
+  // 7. Top 5 Actions
+  const top5Actions = [
+    topSrcInsight ? `Increase marketing budget and posting frequency on ${topSrcInsight.source}.` : 'Increase social media posting frequency.',
+    `Launch WhatsApp cart recovery campaign for abandoned checkouts.`,
+    (topProdInsight && topProdInsight.product) ? `Promote '${topProdInsight.product.substring(0,25)}...' on the homepage.` : 'Promote highest converting products.',
+    geographySummary.cities[0] ? `Increase localized marketing spend in ${geographySummary.cities[0].city}.` : 'Improve localized marketing campaigns.',
+    `Review and improve Call-To-Actions on the top 5 landing pages.`
+  ];
+
   return {
     date: targetDateStr,
     summary: {
@@ -311,6 +440,25 @@ const generateDailyAnalyticsSummary = async () => {
       totalRevenue: adminRevenue,
       overallConversionRate: uniqueSessions.size > 0 ? (adminOrdersCount / uniqueSessions.size) : 0,
       averageOrderValue: adminOrdersCount > 0 ? (adminRevenue / adminOrdersCount) : 0
+    },
+    sevenDaySummary: {
+      todayVisitors: uniqueVisitors.size,
+      yesterdayVisitors: sevenDayTrafficTrend[6]?.visitors || 0,
+      avg7DayVisitors: Math.round(current7DayVisitors / 7),
+      todayRevenue: adminRevenue,
+      yesterdayRevenue: sevenDayRevenueTrend[6]?.revenue || 0,
+      avg7DayRevenue: current7DayRevenue / 7,
+      weeklyOrders: current7DayOrders,
+      weeklyConversionRate: current7DayVisitors > 0 ? (current7DayOrders / current7DayVisitors) * 100 : 0,
+      weeklyGrowthVisitors,
+      weeklyGrowthRevenue,
+      trafficTrend: sevenDayTrafficTrend,
+      revenueTrend: sevenDayRevenueTrend,
+      trafficSourceSummary,
+      topProducts: topProductsSummary,
+      geographySummary,
+      aiBusinessInsights,
+      top5Actions
     },
     blocks: {
       visitorInsights: {
