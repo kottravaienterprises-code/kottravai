@@ -108,6 +108,57 @@ const buildDailyAnalyticsEmail = (data) => {
     return sign + absVal.toFixed(0);
   };
 
+  const LineChartImage = (dataItems) => {
+    if (!dataItems || dataItems.length === 0) {
+      return `<div style="text-align: center; padding: 20px; font-size: 13px; color: ${textLight}; font-style: italic; background-color: #FFFFFF; border: 1px solid ${borderLight}; border-radius: 6px;">No activity recorded for the selected period.</div>`;
+    }
+    const labels = dataItems.map(d => {
+      const dParts = d.label.split('-');
+      return dParts.length === 3 ? new Date(d.label).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : d.label;
+    });
+    const values = dataItems.map(d => d.value);
+    
+    const chartConfig = {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Visitors',
+          data: values,
+          borderColor: '#54b3b3',
+          backgroundColor: '#54b3b3',
+          borderWidth: 4,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: '#54b3b3',
+          pointBorderWidth: 4,
+          pointRadius: 6,
+          fill: false,
+          tension: 0
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false }, datalabels: { display: false } },
+        scales: {
+          x: {
+            grid: { color: '#d3d3d3', drawBorder: true, lineWidth: 2, drawOnChartArea: true },
+            ticks: { color: '#666666', font: { size: 13, family: 'sans-serif' }, maxRotation: 45, minRotation: 45 }
+          },
+          y: {
+            grid: { color: '#d3d3d3', drawBorder: true, lineWidth: 2, drawOnChartArea: true },
+            ticks: { color: '#666666', font: { size: 13, family: 'sans-serif' } },
+            beginAtZero: true
+          }
+        },
+        layout: { padding: 15 }
+      }
+    };
+    
+    const url = `https://quickchart.io/chart?w=500&h=300&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+    return `<div style="background: #FFFFFF; border: 1px solid ${borderLight}; border-radius: 8px; padding: 25px 20px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); text-align: center;">
+      <img src="${url}" alt="7-Day Traffic Trend" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" />
+    </div>`;
+  };
+
   const EnhancedBarChart = (dataItems, options = {}) => {
     if (!dataItems || dataItems.length === 0) {
       return `<div style="text-align: center; padding: 20px; font-size: 13px; color: ${textLight}; font-style: italic; background-color: #FFFFFF; border: 1px solid ${borderLight}; border-radius: 6px;">No activity recorded for the selected period.</div>`;
@@ -302,15 +353,8 @@ const buildDailyAnalyticsEmail = (data) => {
 
               <!-- 7-DAY TRAFFIC TREND -->
               ${SectionHeader('7-Day Traffic Trend')}
-              ${DataTable(
-                ['Date', 'Visitors', 'Sessions', 'Product Views', 'Page Views'],
-                (s7.trafficTrend || []).map(t => [
-                  t.date,
-                  ProgressBar(t.visitors, maxTraffic, secondaryBrown),
-                  formatNum(t.sessions),
-                  formatNum(t.productViews),
-                  formatNum(t.pageViews)
-                ])
+              ${LineChartImage(
+                (s7.trafficTrend || []).map(t => ({ label: t.date, value: t.visitors }))
               )}
 
               <!-- 7-DAY REVENUE TREND -->
