@@ -389,7 +389,7 @@ const generateDailyAnalyticsSummary = async (reportDate = null) => {
   const topProductsSummary = (agg.productRows || [])
     .slice(0, 10)
     .map(p => ({
-      product: p.product,
+      product: p.productName || 'Unknown Product',
       views: p.views,
       addToCarts: p.addToCarts,
       purchases: p.purchases,
