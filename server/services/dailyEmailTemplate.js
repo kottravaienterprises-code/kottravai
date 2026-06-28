@@ -343,13 +343,7 @@ const buildDailyAnalyticsEmail = (data) => {
                 { label: "Top Product", value: formatStr(topProductName.substring(0, 15)) }
               ])}
 
-              <!-- AI BUSINESS INSIGHTS -->
-              <div style="background-color: ${secondaryBrown}; color: #FFFFFF; border-radius: 6px; padding: 20px; margin-top: 10px; margin-bottom: 25px;">
-                <h3 style="margin: 0 0 15px 0; font-size: 16px; color: ${accentGold}; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 8px;">🤖 AI Business Insights</h3>
-                <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6;">
-                  ${(s7.aiBusinessInsights || []).map(i => `<li style="margin-bottom: 6px;">${i}</li>`).join('')}
-                </ul>
-              </div>
+
 
               <!-- 7-DAY TRAFFIC TREND -->
               ${SectionHeader('7-Day Traffic Trend')}
@@ -416,13 +410,7 @@ const buildDailyAnalyticsEmail = (data) => {
                 </tr>
               </table>
 
-              <!-- EXECUTIVE ACTIONS -->
-              <div style="background-color: #FFFFFF; border: 2px solid ${accentGold}; border-radius: 6px; padding: 20px; margin-top: 10px;">
-                <h3 style="margin: 0 0 15px 0; font-size: 16px; color: ${primaryBrown}; border-bottom: 1px solid ${borderLight}; padding-bottom: 8px;">🎯 Top 5 Recommended Actions</h3>
-                <ol style="margin: 0; padding-left: 20px; font-size: 14px; color: ${textDark}; line-height: 1.6;">
-                  ${(s7.top5Actions || []).map(a => `<li style="margin-bottom: 8px; padding-left: 5px;"><strong>${a}</strong></li>`).join('')}
-                </ol>
-              </div>
+
 
             </td>
           </tr>
