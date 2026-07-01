@@ -137,6 +137,7 @@ app.set('trust proxy', 1);
 
 // Security: Helmet for secure headers
 app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],

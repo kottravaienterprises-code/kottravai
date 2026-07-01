@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const { validateAndRepairKey } = require('../utils/googleKeyValidator');
 const chartBuilder = require('./chartBuilder');
+const db = require('../db');
 
 let SHEET_ID = process.env.GOOGLE_SHEET_ID;
 let CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL;
@@ -144,6 +145,7 @@ const sheets = async () => {
 const EXECUTIVE_DASHBOARD_SHEET = 'Executive Dashboard';
 const VISITOR_INTELLIGENCE_SHEET = 'Visitor Intelligence';
 const TRAFFIC_ANALYTICS_SHEET = 'Traffic Analytics';
+const PRODUCTS_SHEET = 'Products';
 const PRODUCT_ANALYTICS_SHEET = 'Product Analytics';
 const REVENUE_ANALYTICS_SHEET = 'Revenue Analytics';
 const CUSTOMER_ANALYTICS_SHEET = 'Customer Analytics';
@@ -1509,6 +1511,160 @@ async function buildDashboardSheets(s) {
   const rows = await fetchRawEventRows(s);
   console.log(`[RAW_EVENTS_ROWS_FOUND] ${rows.length}`);
   const aggregation = buildAggregations(rows);
+
+  // === PRODUCT PRICING LOOKUP (AUTOMATED FROM DATABASE) ===
+  function normalizeProductName(name) {
+    if (!name) return '';
+    return String(name).trim().toLowerCase().replace(/\s+/g, ' ').replace(/[\u2013\u2014]/g, '-').replace(/[^a-z0-9\s\-]/g, '');
+  }
+  
+  let priceMap = new Map();
+  let missingPriceLog = [];
+  
+  try {
+    let syncStartTime = Date.now();
+    let dbProducts = [];
+    let dbSyncSuccess = false;
+
+    // 1. Fetch authoritative product prices from PostgreSQL DB
+    try {
+        const dbResult = await db.query('SELECT id, name, price FROM products WHERE is_live = TRUE');
+        dbProducts = dbResult.rows;
+        dbSyncSuccess = true;
+    } catch (dbErr) {
+        console.error('[DB_PRICE_SYNC] Failed to fetch products from DB:', dbErr.message);
+    }
+    
+    let sheetProducts = new Map();
+    const prodMetaSheet = refreshed.data.sheets.find(sh => sh.properties.title === PRODUCTS_SHEET);
+    
+    // 2. Ensure Products sheet exists
+    if (!prodMetaSheet) {
+      console.log('[GOOGLE_SHEET] Products sheet not found. Creating it now...');
+      await s.spreadsheets.batchUpdate({
+        spreadsheetId: SHEET_ID,
+        requestBody: { requests: [{ addSheet: { properties: { title: PRODUCTS_SHEET, gridProperties: { frozenRowCount: 1 } } } }] }
+      });
+      await s.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID, range: `${PRODUCTS_SHEET}!A1:C1`,
+        valueInputOption: 'USER_ENTERED', requestBody: { values: [['Product Name', 'Selling Price', 'Status']] }
+      });
+    } else {
+      // 3. Read existing sheet prices
+      const prodRes = await s.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `'${PRODUCTS_SHEET}'!A2:C` });
+      (prodRes.data.values || []).forEach(r => {
+        const name = String(r[0] || '').trim();
+        const price = parseFloat(String(r[1] || '').replace(/[^0-9.-]+/g, ''));
+        const status = String(r[2] || '').trim();
+        if (name) {
+            sheetProducts.set(normalizeProductName(name), {
+                originalName: name,
+                price: isNaN(price) ? 0 : price,
+                status: status || 'Active',
+                foundInSheet: true
+            });
+        }
+      });
+    }
+
+    // 4. Synchronization Logic & Reporting
+    let syncReport = {
+        source: 'PostgreSQL DB -> Google Sheets',
+        totalActiveProducts: dbProducts.length,
+        newProductsAdded: 0,
+        pricesUpdated: 0,
+        markedInactive: 0,
+        missingPrices: 0,
+        syncDurationMs: 0,
+        status: dbSyncSuccess ? 'SUCCESS' : 'FAILURE (Kept last successful sync)'
+    };
+
+    if (dbSyncSuccess) {
+        const dbPriceMap = new Map();
+        dbProducts.forEach(p => {
+            if (p.name && p.price !== null) {
+                dbPriceMap.set(normalizeProductName(p.name), {
+                    originalName: p.name,
+                    price: parseFloat(p.price)
+                });
+            }
+        });
+
+        // Merge DB into Sheet
+        for (const [normName, dbData] of dbPriceMap.entries()) {
+            const dbPrice = dbData.price;
+            
+            if (sheetProducts.has(normName)) {
+                const sheetData = sheetProducts.get(normName);
+                let updated = false;
+                if (sheetData.price !== dbPrice) {
+                    sheetData.price = dbPrice;
+                    updated = true;
+                }
+                if (sheetData.status !== 'Active') {
+                    sheetData.status = 'Active';
+                    updated = true;
+                }
+                if (updated) syncReport.pricesUpdated++;
+            } else {
+                // New product in DB not in sheet
+                sheetProducts.set(normName, {
+                    originalName: dbData.originalName,
+                    price: dbPrice,
+                    status: 'Active',
+                    foundInSheet: false
+                });
+                syncReport.newProductsAdded++;
+            }
+        }
+
+        // Check for unmatched/inactive
+        for (const [normName, sheetData] of sheetProducts.entries()) {
+            if (!dbPriceMap.has(normName) && sheetData.status !== 'Inactive') {
+                sheetData.status = 'Inactive';
+                syncReport.markedInactive++;
+            }
+        }
+
+        // 5. Write Synchronized Data Back to Sheet
+        const updatedValues = [['Product Name', 'Selling Price', 'Status']];
+        for (const data of sheetProducts.values()) {
+            updatedValues.push([data.originalName, data.price, data.status]);
+        }
+
+        await s.spreadsheets.values.update({
+            spreadsheetId: SHEET_ID,
+            range: `'${PRODUCTS_SHEET}'!A1:C`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: updatedValues }
+        });
+    }
+
+    // Always build price map (even if DB failed, it will just use sheet)
+    for (const [normName, sheetData] of sheetProducts.entries()) {
+        if (sheetData.price === 0 || sheetData.price === null) {
+            syncReport.missingPrices++;
+        } else if (sheetData.price > 0) {
+            priceMap.set(normName, { price: sheetData.price, status: sheetData.status });
+        }
+    }
+
+    syncReport.syncDurationMs = Date.now() - syncStartTime;
+
+    console.log('=== PRODUCT PRICE SYNC REPORT ===');
+    console.log(`Price Source: ${syncReport.source}`);
+    console.log(`Total Active Products: ${syncReport.totalActiveProducts}`);
+    console.log(`Products Added: ${syncReport.newProductsAdded}`);
+    console.log(`Products Updated: ${syncReport.pricesUpdated}`);
+    console.log(`Products Marked Inactive: ${syncReport.markedInactive}`);
+    console.log(`Missing Prices: ${syncReport.missingPrices}`);
+    console.log(`Sync Duration: ${syncReport.syncDurationMs}ms`);
+    console.log(`Status: ${syncReport.status}`);
+    console.log('=================================');
+    
+  } catch (e) {
+    console.error('[PRICE_MAP_ERROR] Failed to load or sync Products sheet:', e.message);
+  }
   const ts = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' });
 
   const ndy = (val, formatter) => val === 0 ? 'No Data Yet' : (formatter ? formatter(val) : val);
@@ -1525,6 +1681,76 @@ async function buildDashboardSheets(s) {
     return '🔴 Critical';
   };
 
+  // --- MONETIZATION BACKEND PROCESSING ---
+  const backendMetrics = [];
+  let totProds = 0, totProdViews = 0, totProdViewVal = 0, totCartVal = 0, totCheckoutVal = 0;
+  let totPotRev = 0, totActRev = 0, totRevLost = 0;
+  let highestRev = -1, highestRevProd = 'N/A';
+  let highestViewed = -1, highestViewedProd = 'N/A';
+  let bestConv = -1, bestConvProd = 'N/A';
+  let lowestConv = 100, lowestConvProd = 'N/A';
+
+  missingPriceLog = [];
+
+  aggregation.productRows.forEach(p => {
+    const norm = normalizeProductName(p.productName);
+    const dbInfo = priceMap.has(norm) ? priceMap.get(norm) : null;
+    const price = dbInfo ? dbInfo.price : null;
+    const status = dbInfo ? dbInfo.status : 'Active';
+    
+    if (price === null) missingPriceLog.push(p.productName);
+    const priceVal = price || 0;
+
+    const views = p.views || 0;
+    const pageViews = p.pageViews || 0;
+    const cartPageViews = 0; 
+    const addCarts = p.addToCarts || 0;
+    const checkouts = p.checkouts || 0;
+    const purchases = p.purchases || 0;
+    const actRev = p.revenue || (purchases * priceVal);
+
+    // Calculations
+    const viewVal = views * priceVal;
+    const pageViewVal = pageViews * priceVal;
+    const cartPageVal = cartPageViews * priceVal;
+    const cartVal = addCarts * priceVal;
+    const checkoutVal = checkouts * priceVal;
+    const potRev = checkouts * priceVal;
+    const revLost = Math.max(0, potRev - actRev);
+    const convPct = views > 0 ? purchases / views : 0;
+    const recPct = potRev > 0 ? actRev / potRev : (actRev > 0 ? 1 : 0);
+
+    // Totals
+    totProds++;
+    totProdViews += views;
+    totProdViewVal += viewVal;
+    totCartVal += cartVal;
+    totCheckoutVal += checkoutVal;
+    totPotRev += potRev;
+    totActRev += actRev;
+    totRevLost += revLost;
+
+    // Track Highest/Lowest
+    if (actRev > highestRev) { highestRev = actRev; highestRevProd = p.productName; }
+    if (views > highestViewed) { highestViewed = views; highestViewedProd = p.productName; }
+    if (views > 10) { 
+        if (convPct > bestConv) { bestConv = convPct; bestConvProd = p.productName; }
+        if (convPct < lowestConv) { lowestConv = convPct; lowestConvProd = p.productName; }
+    }
+
+    backendMetrics.push({
+       productName: p.productName, price: priceVal, status,
+       views, viewVal, pageViews, pageViewVal, cartPageViews, cartPageVal,
+       addCarts, cartVal, checkouts, checkoutVal, purchases, actRev,
+       potRev, revLost, convPct, recPct
+    });
+  });
+
+  const avgProductPrice = totProds > 0 ? Array.from(priceMap.values()).reduce((sum, p) => sum + p.price, 0) / priceMap.size : 0;
+  const overallRevRecRate = totPotRev > 0 ? totActRev / totPotRev : (totActRev > 0 ? 1 : 0);
+  const avgConvRate = totProdViews > 0 ? aggregation.summary.totalOrders / totProdViews : 0;
+  const avgProdRev = totProds > 0 ? totActRev / totProds : 0;
+
   // 1. EXECUTIVE DASHBOARD
   const execVals = appendMeta([
     ['KOTTRAVAI EXECUTIVE DASHBOARD'], createEmpty(),
@@ -1537,6 +1763,21 @@ async function buildDashboardSheets(s) {
     ['Orders', ndy(aggregation.summary.totalOrders), getStatus(aggregation.summary.totalOrders, 10, 1)],
     ['Revenue', ndy(aggregation.summary.totalRevenue, formatCurrency), getStatus(aggregation.summary.totalRevenue, 10000, 1000)],
     ['Average Order Value', ndy(aggregation.summary.averageOrderValue, formatCurrency), getStatus(aggregation.summary.averageOrderValue, 1000, 500)],
+    createEmpty(),
+    ['=== MONETIZED PRODUCT ANALYTICS ===', '', ''],
+    ['KPI', 'Value', 'Status'],
+    ['Total Product Views', totProdViews, '🟢'],
+    ['Total Product View Value (₹)', formatCurrency(totProdViewVal), '🟢'],
+    ['Total Product Page Value (₹)', formatCurrency(backendMetrics.reduce((s,x)=>s+x.pageViewVal,0)), '🟢'],
+    ['Total Cart Value (₹)', formatCurrency(totCartVal), '🟢'],
+    ['Total Checkout Value (₹)', formatCurrency(totCheckoutVal), '🟢'],
+    ['Total Potential Revenue (₹)', formatCurrency(totPotRev), '🟢'],
+    ['Total Actual Revenue (₹)', formatCurrency(totActRev), '🟢'],
+    ['Lost Revenue (₹)', formatCurrency(totRevLost), '🔴'],
+    ['Revenue Recovery Rate', formatPercent(overallRevRecRate), '🟡'],
+    ['Average Product Price (₹)', formatCurrency(avgProductPrice), '🟢'],
+    ['Highest Revenue Product', highestRevProd, '🟢'],
+    ['Highest Potential Revenue Product', backendMetrics.sort((a,b)=>b.potRev - a.potRev)[0]?.productName || 'N/A', '🟢'],
     createEmpty()
   ]);
 
@@ -1695,27 +1936,105 @@ async function buildDashboardSheets(s) {
   });
 
   // 2. PRODUCT ANALYTICS
+  const sortMetrics = (arr, key, desc=true) => [...arr].sort((a,b) => desc ? b[key] - a[key] : a[key] - b[key]);
+
+  const top10Rev = sortMetrics(backendMetrics, 'actRev').slice(0, 10);
+  const top10PotRev = sortMetrics(backendMetrics, 'potRev').slice(0, 10);
+  const top10Views = sortMetrics(backendMetrics, 'views').slice(0, 10);
+  const top10CartVal = sortMetrics(backendMetrics, 'cartVal').slice(0, 10);
+  const top10RevLost = sortMetrics(backendMetrics, 'revLost').slice(0, 10);
+  
+  // Filter for meaningful conversion comparison
+  const convEligible = backendMetrics.filter(m => m.views >= 5);
+  const top10Conv = sortMetrics(convEligible.length > 0 ? convEligible : backendMetrics, 'convPct').slice(0, 10);
+  const bot10Conv = sortMetrics(convEligible.length > 0 ? convEligible : backendMetrics, 'convPct', false).slice(0, 10);
+
+  const formatTable = (arr) => arr.map(m => [
+      m.productName, m.price, m.views, m.viewVal, m.addCarts, m.cartVal, m.checkouts, m.checkoutVal, m.purchases, m.actRev, formatPercent(m.convPct)
+  ]);
+  const shortHeaders = ['Product Name', 'Selling Price (₹)', 'Views', 'View Value (₹)', 'Add To Cart', 'Cart Value (₹)', 'Checkout', 'Checkout Value (₹)', 'Purchases', 'Revenue (₹)', 'Conversion %'];
+
   const prodVals = appendMeta([
-    ['PRODUCT ANALYTICS'], createEmpty(),
-    ['CART ANALYTICS KPIs', 'Value'],
-    ['Average Purchase Decision Time (Hours)', ndy(avgOverallDecisionTime)],
-    ['Total Active Carts', totalActive],
-    ['Total Abandoned Carts', totalAbandoned],
-    ['Fastest Converting Product', fastProd ? fastProd.productName : 'N/A'],
-    ['Slowest Converting Product', slowProd ? slowProd.productName : 'N/A'],
+    ['BUSINESS INTELLIGENCE: PRODUCT ANALYTICS'], createEmpty(),
+    ['=== TOP KPI CARDS ==='],
+    ['Total Products', totProds],
+    ['Total Product Views', totProdViews],
+    ['Total Product View Value', formatCurrency(totProdViewVal)],
+    ['Total Cart Value', formatCurrency(totCartVal)],
+    ['Total Checkout Value', formatCurrency(totCheckoutVal)],
+    ['Total Potential Revenue', formatCurrency(totPotRev)],
+    ['Total Actual Revenue', formatCurrency(totActRev)],
+    ['Revenue Lost', formatCurrency(totRevLost)],
+    ['Revenue Recovery Rate', formatPercent(overallRevRecRate)],
+    ['Average Product Price', formatCurrency(avgProductPrice)],
+    ['Highest Revenue Product', highestRevProd],
+    ['Highest Viewed Product', highestViewedProd],
+    ['Best Converting Product', top10Conv[0]?.productName || 'N/A'],
+    ['Lowest Converting Product', bot10Conv[0]?.productName || 'N/A'],
     createEmpty(),
-    ['TOP PRODUCTS', 'Views', 'Add To Cart', 'Purchases', 'Revenue', 'Conv Rate', 'Avg Purchase Decision Time (Hours)', 'Avg Active Cart Age (Hours)', 'Avg Abandoned Cart Age (Hours)', 'Cart Conversion Rate', 'Cart Abandonment Rate'],
-    ...aggregation.productRows.slice(0, 100).map(p => [
-      p.productName, p.views, p.carts, p.purchases, formatCurrency(p.revenue), formatPercent(p.views > 0 ? p.purchases/p.views : 0),
-      ndy(p.avgDecisionTime), ndy(p.avgActiveAge), ndy(p.avgAbandonedAge), formatPercent(p.cartConvRate), formatPercent(p.cartAbandRate)
+    
+    ['=== EXECUTIVE INSIGHTS ==='],
+    ['Insight', 'Details'],
+    ['Highest revenue generating product', highestRevProd],
+    ['Highest viewed product', highestViewedProd],
+    ['Highest potential revenue product', top10PotRev[0]?.productName || 'N/A'],
+    ['Highest revenue loss product', top10RevLost[0]?.productName || 'N/A'],
+    ['Highest cart abandonment product', sortMetrics(backendMetrics, 'addCarts').filter(p => p.purchases===0)[0]?.productName || 'N/A'],
+    ['Best conversion product', top10Conv[0]?.productName || 'N/A'],
+    ['Lowest conversion product', bot10Conv[0]?.productName || 'N/A'],
+    ['Products needing optimisation', bot10Conv.slice(0,3).map(p=>p.productName).join(', ')],
+    ['Products with zero conversions', backendMetrics.filter(p=>p.views>10 && p.purchases===0).length + ' products'],
+    createEmpty(),
+
+    ['=== PRODUCT ANALYTICS TABLE ==='],
+    ['Product Name', 'Selling Price (₹)', 'Product Views', 'Product View Value (₹)', 'Product Page Views', 'Product Page View Value (₹)', 'Cart Page Views', 'Cart Page Value (₹)', 'Add To Cart', 'Cart Value (₹)', 'Checkout', 'Checkout Value (₹)', 'Purchases', 'Actual Revenue (₹)', 'Potential Revenue (₹)', 'Revenue Lost (₹)', 'Conversion %', 'Recovery %', 'Status'],
+    ...sortMetrics(backendMetrics, 'actRev').map(m => [
+        m.productName, m.price, m.views, m.viewVal, m.pageViews, m.pageViewVal, m.cartPageViews, m.cartPageVal,
+        m.addCarts, m.cartVal, m.checkouts, m.checkoutVal, m.purchases, m.actRev,
+        m.potRev, m.revLost, formatPercent(m.convPct), formatPercent(m.recPct), m.status
     ]),
     createEmpty(),
-    ['LOW CONVERSION PRODUCTS', 'Views', 'Purchases', 'Conv Rate'],
-    ...aggregation.productRows.filter(p => (p.views > 0 ? (p.purchases/p.views) : 0) < 0.02).slice(0, 100).map(p => [p.productName, p.views, p.purchases, formatPercent(p.views > 0 ? p.purchases/p.views : 0)]),
-    createEmpty(),
-    ['CATEGORY PERFORMANCE', 'Views', 'Purchases', 'Revenue'],
-    ...catRows.map(([name, stat]) => [name, stat.views, stat.purchases, formatCurrency(stat.revenue)])
+
+    ['=== TOP 10 HIGHEST REVENUE PRODUCTS ==='],
+    shortHeaders, ...formatTable(top10Rev), createEmpty(),
+    
+    ['=== TOP 10 HIGHEST POTENTIAL REVENUE PRODUCTS ==='],
+    shortHeaders, ...formatTable(top10PotRev), createEmpty(),
+
+    ['=== TOP 10 HIGHEST VIEWED PRODUCTS ==='],
+    shortHeaders, ...formatTable(top10Views), createEmpty(),
+
+    ['=== TOP 10 HIGHEST CART VALUE PRODUCTS ==='],
+    shortHeaders, ...formatTable(top10CartVal), createEmpty(),
+
+    ['=== TOP 10 HIGHEST REVENUE LOSS PRODUCTS ==='],
+    shortHeaders, ...formatTable(top10RevLost), createEmpty(),
+
+    ['=== TOP 10 BEST CONVERSION PRODUCTS ==='],
+    shortHeaders, ...formatTable(top10Conv), createEmpty(),
+
+    ['=== BOTTOM 10 LOWEST CONVERSION PRODUCTS ==='],
+    shortHeaders, ...formatTable(bot10Conv), createEmpty(),
+    
+    ['=== SUMMARY SECTION ==='],
+    ['Metric', 'Total'],
+    ['Total Potential Customer Interest Value', formatCurrency(totProdViewVal)],
+    ['Total Cart Value', formatCurrency(totCartVal)],
+    ['Total Checkout Value', formatCurrency(totCheckoutVal)],
+    ['Total Actual Revenue', formatCurrency(totActRev)],
+    ['Lost Revenue Before Purchase', formatCurrency(totRevLost)],
+    ['Overall Funnel Conversion', formatPercent(avgConvRate)],
+    ['Revenue Recovery Rate', formatPercent(overallRevRecRate)],
+    ['Highest Product Revenue', formatCurrency(highestRev)],
+    ['Average Product Revenue', formatCurrency(avgProdRev)],
+    createEmpty()
   ]);
+
+  if (missingPriceLog.length > 0) {
+      prodVals.push(['⚠️ MISSING PRICES LOG — Products below have no Selling Price configured:']);
+      missingPriceLog.forEach(name => prodVals.push(['Price Missing', name]));
+      prodVals.push(createEmpty());
+  }
 
   // 3. TRAFFIC ANALYTICS
   const trafficVals = appendMeta([
@@ -2377,6 +2696,15 @@ async function buildDashboardSheets(s) {
   const execCommandCenterVals = [];
   const execD = aggregation.daily7DayTrend;
   
+  // Compute last7Days locally (same logic as buildAggregations)
+  const _today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const last7Days = [];
+  for (let _i = 7; _i >= 1; _i--) {
+    const _d = new Date(_today);
+    _d.setDate(_d.getDate() - _i);
+    last7Days.push(_d.toISOString().slice(0, 10));
+  }
+
   // Section 1: Executive Summary
   const todaySum = aggregation.executiveSummary.today;
   const yestSum = aggregation.dailyRows.find(r => r.date === last7Days[6]) || { visitors: 0, revenue: 0 };
@@ -2778,14 +3106,86 @@ async function buildDashboardSheets(s) {
        ));
     }
 
-    // 4. Product Analytics Charts
-    if (prodId !== undefined && aggregation.productRows.length > 0) {
-      const pLen = Math.min(10, aggregation.productRows.length);
-      chartRequests.push(chartBuilder.buildColumnChart(prodId, 'Top 10 Viewed Products', 
-          chartBuilder.createRange(prodId, 2, 2 + pLen, 0, 1), 
-          [chartBuilder.createRange(prodId, 2, 2 + pLen, 1, 2)], 
-          2, 7, 500, 300
-       ));
+    // 4. Product Analytics BI Charts (10 Dashboard Charts)
+    if (prodId !== undefined && backendMetrics && backendMetrics.length > 0) {
+      const bLen = backendMetrics.length;
+      
+      const r_rev = 35 + bLen;
+      const len_rev = top10Rev.length;
+      const r_pot = r_rev + len_rev + 3;
+      const len_pot = top10PotRev.length;
+      const r_views = r_pot + len_pot + 3;
+      const len_views = top10Views.length;
+      const r_cart = r_views + len_views + 3;
+      const len_cart = top10CartVal.length;
+      const r_loss = r_cart + len_cart + 3;
+      const len_loss = top10RevLost.length;
+      const r_conv = r_loss + len_loss + 3;
+      const len_conv = top10Conv.length;
+      const r_bot = r_conv + len_conv + 3;
+      const len_bot = bot10Conv.length;
+
+      // Chart 1: Top 10 Products by Revenue (Bar)
+      chartRequests.push(chartBuilder.buildBarChart(prodId, 'Top 10 Products by Revenue', 
+          chartBuilder.createRange(prodId, r_rev, r_rev + len_rev, 0, 1), // Labels: Product Name (Col 0)
+          [chartBuilder.createRange(prodId, r_rev, r_rev + len_rev, 9, 10)], // Values: Revenue (Col 9)
+          2, 10, 500, 320
+      ));
+      
+      // Chart 2: Potential vs Actual Revenue (Stacked Column)
+      chartRequests.push(chartBuilder.buildStackedColumnChart(prodId, 'Potential vs Actual Revenue (Top 10)', 
+          chartBuilder.createRange(prodId, r_rev, r_rev + len_rev, 0, 1), 
+          [
+            chartBuilder.createRange(prodId, r_rev, r_rev + len_rev, 9, 10), // Actual Revenue (Col 9)
+            chartBuilder.createRange(prodId, r_rev, r_rev + len_rev, 7, 8)   // Potential Revenue / Checkout (Col 7)
+          ], 
+          20, 10, 500, 320
+      ));
+
+      // Chart 3: Revenue Recovery vs Loss (Pie)
+      // Using global KPIs: Row 8 is Potential Revenue, Row 9 is Actual Revenue, Row 10 is Revenue Lost
+      chartRequests.push(chartBuilder.buildPieChart(prodId, 'Total Revenue Recovery vs Loss', 
+          chartBuilder.createRange(prodId, 9, 11, 0, 1), // Domain: "Total Actual Revenue", "Revenue Lost"
+          chartBuilder.createRange(prodId, 9, 11, 1, 2), // Values: formatCurrency(totActRev), formatCurrency(totRevLost)
+          38, 10, 500, 320
+      ));
+
+      // Chart 4: Product View Funnel Proxy (Top 10 Most Viewed)
+      chartRequests.push(chartBuilder.buildColumnChart(prodId, 'Top 10 Most Viewed Products', 
+          chartBuilder.createRange(prodId, r_views, r_views + len_views, 0, 1), // Labels: Product Name
+          [chartBuilder.createRange(prodId, r_views, r_views + len_views, 2, 3)], // Values: Views (Col 2)
+          56, 10, 500, 320
+      ));
+      
+      // Chart 5: Top 10 Cart Value Abandonment Products (Column)
+      chartRequests.push(chartBuilder.buildColumnChart(prodId, 'Top 10 Highest Cart Value Products', 
+          chartBuilder.createRange(prodId, r_cart, r_cart + len_cart, 0, 1), 
+          [chartBuilder.createRange(prodId, r_cart, r_cart + len_cart, 5, 6)], // Values: Cart Value (Col 5)
+          74, 10, 500, 320
+      ));
+
+      // Chart 6: Top 10 Revenue Loss Products (Bar)
+      // Since 'Revenue Loss' isn't explicitly in the 11 columns, we use 'Checkout Value' (Col 7) from the RevLost table
+      // as a proxy for the loss magnitude.
+      chartRequests.push(chartBuilder.buildBarChart(prodId, 'Top 10 Revenue Loss Products', 
+          chartBuilder.createRange(prodId, r_loss, r_loss + len_loss, 0, 1), 
+          [chartBuilder.createRange(prodId, r_loss, r_loss + len_loss, 7, 8)], // Values: Checkout Value / Potential Loss
+          92, 10, 500, 320
+      ));
+
+      // Chart 7: Best Converting Products (Bar)
+      chartRequests.push(chartBuilder.buildBarChart(prodId, 'Top 10 Best Converting Products', 
+          chartBuilder.createRange(prodId, r_conv, r_conv + len_conv, 0, 1), 
+          [chartBuilder.createRange(prodId, r_conv, r_conv + len_conv, 8, 9)], // We plot 'Purchases' (Col 8) as Google Sheets auto-parses strings for charts
+          110, 10, 500, 320
+      ));
+
+      // Chart 8: Worst Converting Products (Bar)
+      chartRequests.push(chartBuilder.buildBarChart(prodId, 'Top 10 Lowest Converting Products', 
+          chartBuilder.createRange(prodId, r_bot, r_bot + len_bot, 0, 1), 
+          [chartBuilder.createRange(prodId, r_bot, r_bot + len_bot, 2, 3)], // We plot 'Views' (Col 2) to show magnitude of waste
+          128, 10, 500, 320
+      ));
     }
 
     // 5. Geography Analytics Charts

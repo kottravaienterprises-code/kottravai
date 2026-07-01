@@ -1,0 +1,58 @@
+{
+  "summary": {
+    "totalVisitors": 1607,
+    "totalSessions": 1648,
+    "totalOrders": 0,
+    "totalRevenue": 0,
+    "averageOrderValue": 0,
+    "revenuePerVisitor": 0,
+    "overallConversionRate": 0,
+    "overallRepeatRatio": 0
+  },
+  "geography": {
+    "states": [
+      {
+        "state": "Tamil Nadu",
+        "visitors": 1418,
+        "mobile": 1398,
+        "desktop": 0,
+        "tablet": 0
+      },
+      {
+        "state": "Texas",
+        "visitors": 8,
+        "mobile": 0,
+        "desktop": 0,
+        "tablet": 0
+      },
+      {
+        "state": "Delhi",
+        "visitors": 4,
+        "mobile": 0,
+        "desktop": 0,
+        "tablet": 0
+      }
+    ]
+  },
+  "funnel": {
+    "pageViews": 2067,
+    "productViews": 107,
+    "addToCarts": 3,
+    "checkoutStarted": 1,
+    "guestCheckoutStarted": 1,
+    "otpSent": 0,
+    "otpVerified": 0,
+    "purchases": 0
+  },
+  "guests": {
+    "guestCheckouts": 1,
+    "orders": 0,
+    "revenue": 0,
+    "otpSent": 0,
+    "otpVerified": 0
+  },
+  "lead": {
+    "whatsappClicks": 0,
+    "contactForms": 0
+  }
+}

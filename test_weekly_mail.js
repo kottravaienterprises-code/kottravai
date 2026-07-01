@@ -4,7 +4,7 @@ const { sendWeeklyAnalyticsEmail } = require('./server/services/weeklyEmailSende
 async function runTest() {
   console.log('--- Triggering Weekly Email Test ---');
   // Pass the target email to override the default list
-  const success = await sendWeeklyAnalyticsEmail('santhoshsaram001@gmail.com');
+  const success = await sendWeeklyAnalyticsEmail();
   
   if (success) {
     console.log('✅ Weekly test email dispatched successfully!');
