@@ -40,6 +40,8 @@ const aiCopilotService = require('./services/aiCopilotService');
 const leadService = require('./services/leadService');
 const escalationService = require('./services/escalationService');
 const { sendMetaWhatsAppFreeFormText } = require('./services/metaWhatsappService');
+const { buildSearchTokens, normalizeSearchText } = require('./utils/searchEngine');
+const { logSearchEvent, getPopularSearches } = require('./services/searchAnalyticsService');
 const {
     getB2BAdminTemplate,
     getB2BUserTemplate,
@@ -107,13 +109,34 @@ try {
 
 // --- Performance Cache (Simple In-Memory) ---
 const productCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const searchRouteCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes for browse
+const SEARCH_CACHE_TTL = 60 * 1000; // 60 seconds for search queries
+const SEARCH_ROUTE_CACHE_TTL = 30 * 1000; // 30 seconds for dedicated search routes
+
+let hasProductSkuColumn = false;
+let hasProductTagsColumn = false;
 
 const clearProductCache = () => {
     productCache.clear();
     console.log('🧹 Performance cache completely flushed');
 };
 
+const loadProductSchemaFlags = async () => {
+    try {
+        const result = await db.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'products'"
+        );
+        const columns = result.rows.map(r => r.column_name);
+        hasProductSkuColumn = columns.includes('sku');
+        hasProductTagsColumn = columns.includes('tags');
+        console.log('🧠 Product schema flags:', { hasProductSkuColumn, hasProductTagsColumn });
+    } catch (err) {
+        console.warn('⚠️ Failed to load product schema flags:', err.message);
+    }
+};
+
+loadProductSchemaFlags().catch(err => console.warn('⚠️ loadProductSchemaFlags failed:', err.message));
 
 const affiliateRoutes = require('./routes/affiliates');
 const webhooksRoutes = require('./routes/webhooks');
@@ -483,6 +506,8 @@ const runMigrations = async () => {
 
         // Products table columns
         const productCols = [
+            ['sku', 'VARCHAR(255)'],
+            ['tags', 'TEXT[]'],
             ['is_best_seller', 'BOOLEAN DEFAULT FALSE'],
             ['is_gift_bundle_item', 'BOOLEAN DEFAULT FALSE'],
             ['is_live', 'BOOLEAN DEFAULT TRUE'],
@@ -1217,6 +1242,8 @@ app.get('/api/init-db', async (req, res) => {
             image TEXT NOT NULL,
             slug VARCHAR(255) UNIQUE NOT NULL,
             category_slug VARCHAR(100),
+            sku VARCHAR(255),
+            tags TEXT[],
             short_description TEXT,
             description TEXT,
             key_features TEXT[],
@@ -1452,6 +1479,21 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
         const productSlug = slug || name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
         console.log("💰 [CREATE_PRODUCT] Price:", cleanPrice, "| Slug:", productSlug);
 
+        const normalizeText = (text) => {
+            if (!text) return '';
+            return text
+                .toString()
+                .toLowerCase()
+                .replace(/\bkottravai\b/gi, ' ')
+                .replace(/[^a-z0-9\s]+/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        };
+
+        const normalizedName = normalizeText(name);
+        const normalizedCategory = normalizeText(category);
+        const normalizedDescription = normalizeText(description);
+
         console.log("📡 [CREATE_PRODUCT] Inserting via pg...");
         const result = await db.query(`
             INSERT INTO products (
@@ -1460,14 +1502,15 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
                 is_best_seller, is_gift_bundle_item, is_live, is_custom_request,
                 custom_form_config, default_form_fields, variants, hub,
                 is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type,
-                affiliate_fixed_amount, min_affiliate_level
+                affiliate_fixed_amount, min_affiliate_level,
+                normalized_name, normalized_category, normalized_description
             ) VALUES (
                 $1, $2, $3, $4, $5, $6,
                 $7, $8, $9, $10, $11,
                 $12, $13, $14, $15,
                 $16, $17, $18, $19,
                 $20, $21, $22,
-                $23, $24
+                $23, $24, $25, $26, $27
             ) RETURNING *
         `, [
             name,
@@ -1493,7 +1536,10 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
             affiliate_commission_rate || 0,
             affiliate_payout_type || 'percentage',
             affiliate_fixed_amount || 0,
-            min_affiliate_level || 'Ambassador'
+            min_affiliate_level || 'Ambassador',
+            normalizedName,
+            normalizedCategory,
+            normalizedDescription
         ]);
 
         const data = result.rows[0];
@@ -1526,6 +1572,21 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
 
         const cleanPrice = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : Number(price);
 
+        const normalizeText = (text) => {
+            if (!text) return '';
+            return text
+                .toString()
+                .toLowerCase()
+                .replace(/\bkottravai\b/gi, ' ')
+                .replace(/[^a-z0-9\s]+/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        };
+
+        const normalizedName = normalizeText(name);
+        const normalizedCategory = normalizeText(category);
+        const normalizedDescription = normalizeText(description);
+
         console.log(`📡 [UPDATE_PRODUCT] Updating product ${id} via pg...`);
         const result = await db.query(`
             UPDATE products SET
@@ -1536,8 +1597,9 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
                 is_custom_request = $15, custom_form_config = $16, default_form_fields = $17,
                 variants = $18, hub = $19, is_affiliate_eligible = $20,
                 affiliate_commission_rate = $21, affiliate_payout_type = $22,
-                affiliate_fixed_amount = $23, min_affiliate_level = $24
-            WHERE id = $25
+                affiliate_fixed_amount = $23, min_affiliate_level = $24,
+                normalized_name = $25, normalized_category = $26, normalized_description = $27
+            WHERE id = $28
             RETURNING *
         `, [
             name,
@@ -1564,6 +1626,9 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
             affiliate_payout_type || 'percentage',
             affiliate_fixed_amount || 0,
             min_affiliate_level || 'Ambassador',
+            normalizedName,
+            normalizedCategory,
+            normalizedDescription,
             id
         ]);
 
@@ -2413,8 +2478,163 @@ app.delete('/api/orders/:id', authenticateAdmin, async (req, res) => {
     }
 });
 
+app.get('/api/search', async (req, res) => {
+    const startedAt = Date.now();
+    const q = (req.query.q || req.query.search || '').toString().trim();
+    const limit = Math.min(parseInt(req.query.limit) || 8, 12);
+    const autocomplete = req.query.autocomplete === 'true';
+
+    const cacheKey = JSON.stringify({ q: q.toLowerCase(), limit, autocomplete });
+    const cachedResponse = searchRouteCache.get(cacheKey);
+    if (cachedResponse && Date.now() - cachedResponse.time < SEARCH_ROUTE_CACHE_TTL) {
+        return res.json(cachedResponse.data);
+    }
+
+    try {
+        const normalizedQuery = normalizeSearchText(q);
+        const searchTokens = buildSearchTokens(q);
+        const adminSecret = req.headers['x-admin-secret'] || req.headers['X-Admin-Secret'];
+        const systemSecret = process.env.VITE_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Admin!Kottravai2025%100';
+        const fallbackSecret = 'Admin!Kottravai2025%100e';
+        const isAdmin = !!(adminSecret && (adminSecret === systemSecret || adminSecret === fallbackSecret || adminSecret === 'Admin!Kottravai2025%100'));
+
+        const baseQuery = `
+            SELECT id, name, slug, price, image, category, category_slug, short_description,
+                   normalized_name, normalized_category, normalized_description, created_at
+            FROM products
+            WHERE is_live = TRUE
+        `;
+
+        const searchPattern = `%${normalizedQuery}%`;
+        let queryText = baseQuery;
+        let params = [];
+
+        if (normalizedQuery) {
+            const exactName = normalizedQuery;
+            const startsWithName = `${normalizedQuery}%`;
+            const containsName = `%${normalizedQuery}%`;
+            const nameTokens = searchTokens.map((token) => `normalized_name ILIKE '%${token}%'`).join(' AND ');
+            const categoryTokens = searchTokens.map((token) => `normalized_category ILIKE '%${token}%'`).join(' AND ');
+            const descriptionTokens = searchTokens.map((token) => `normalized_description ILIKE '%${token}%'`).join(' AND ');
+            const nameCondition = searchTokens.length ? `(${nameTokens})` : 'FALSE';
+            const categoryCondition = searchTokens.length ? `(${categoryTokens})` : 'FALSE';
+            const descriptionCondition = searchTokens.length ? `(${descriptionTokens})` : 'FALSE';
+
+            queryText += ` AND (
+                normalized_name = $1 OR
+                normalized_name LIKE $2 OR
+                ${nameCondition} OR
+                normalized_name ILIKE $3 OR
+                ${categoryCondition} OR
+                ${descriptionCondition}
+            )`;
+            params = [exactName, startsWithName, containsName];
+        }
+
+        const limitParamIndex = params.length + 1;
+        queryText += ` ORDER BY created_at DESC LIMIT $${limitParamIndex}`;
+        params.push(limit + 4);
+
+        console.log({
+            reqQuery: req.query,
+            q,
+            sql: queryText,
+            params
+        });
+
+        const result = await db.query(queryText, params);
+        const rows = result.rows || [];
+
+        const scoredResults = rows
+            .map((product) => {
+                const name = (product.name || '').toString();
+                const category = (product.category || '').toString();
+                const normalizedName = (product.normalized_name || '').toString();
+                const normalizedCategory = (product.normalized_category || '').toString();
+                const normalizedDescription = (product.normalized_description || '').toString();
+                const nameLower = name.toLowerCase();
+                const categoryLower = category.toLowerCase();
+                const normalizedNameLower = normalizedName.toLowerCase();
+                const normalizedCategoryLower = normalizedCategory.toLowerCase();
+                const normalizedDescriptionLower = normalizedDescription.toLowerCase();
+                const queryLower = normalizedQuery.toLowerCase();
+                const queryTokens = searchTokens;
+
+                let score = 0;
+                if (queryLower && normalizedNameLower === queryLower) score += 1000;
+                else if (queryLower && normalizedNameLower.startsWith(queryLower)) score += 900;
+                else if (queryLower && normalizedNameLower.includes(queryLower)) score += 800;
+                else if (queryTokens.every((token) => normalizedNameLower.includes(token))) score += 700;
+                else if (queryLower && normalizedCategoryLower.includes(queryLower)) score += 500;
+                else if (queryTokens.every((token) => normalizedCategoryLower.includes(token))) score += 400;
+                else if (queryLower && normalizedDescriptionLower.includes(queryLower)) score += 200;
+                else if (queryTokens.some((token) => normalizedDescriptionLower.includes(token))) score += 100;
+
+                if (queryLower && normalizedNameLower.includes('coffee')) score += 25;
+                if (queryLower && normalizedNameLower.includes('soap')) score += 25;
+                if (queryLower && normalizedNameLower.includes('necklace')) score += 25;
+                if (queryLower && normalizedNameLower.includes('planter')) score += 25;
+
+                const hasAnyToken = queryTokens.some((token) => normalizedNameLower.includes(token) || normalizedCategoryLower.includes(token) || normalizedDescriptionLower.includes(token));
+                if (!hasAnyToken) score -= 1000;
+
+                return { ...product, _score: score };
+            })
+            .filter((product) => product._score > -1000)
+            .sort((a, b) => b._score - a._score || (a.name || '').localeCompare(b.name || ''));
+
+        const suggestions = scoredResults.slice(0, Math.min(limit, 8)).map((product) => ({
+            id: product.id,
+            slug: product.slug,
+            name: product.name,
+            image: product.image,
+            category: product.category,
+            price: product.price
+        }));
+
+        const categories = Array.from(new Set(
+            scoredResults
+                .map((product) => product.category)
+                .filter(Boolean)
+                .slice(0, 4)
+        ));
+
+        const response = {
+            suggestions,
+            products: scoredResults.slice(0, 12),
+            categories,
+            popularSearches: await getPopularSearches(6),
+            totalResults: scoredResults.length,
+            executionTime: Date.now() - startedAt
+        };
+        searchRouteCache.set(cacheKey, { data: response, time: Date.now() });
+
+        const trimmedQuery = q.trim();
+        if (trimmedQuery) {
+            await logSearchEvent({
+                query: trimmedQuery,
+                resultCount: scoredResults.length,
+                zeroResult: scoredResults.length === 0,
+                responseTimeMs: response.executionTime
+            });
+        }
+
+        if (autocomplete) {
+            return res.json({ suggestions, totalResults: suggestions.length, executionTime: response.executionTime });
+        }
+
+        res.json(response);
+    } catch (error) {
+        console.error(error);
+        console.error(error.stack);
+        console.error('💥 Search API Error:', error);
+        res.status(500).json({ error: 'Search fetch failed', details: error.message });
+    }
+});
+
 // Products API
 app.get('/api/products', async (req, res) => {
+    const T0 = Date.now(); // [PERF] 1. Request received
     const cacheKey = JSON.stringify(req.query);
     const cached = productCache.get(cacheKey);
 
@@ -2424,44 +2644,306 @@ app.get('/api/products', async (req, res) => {
     const fallbackSecret = 'Admin!Kottravai2025%100e';
     const isAdmin = !!(adminSecret && (adminSecret === systemSecret || adminSecret === fallbackSecret || adminSecret === 'Admin!Kottravai2025%100'));
 
+    const isSearchRequest = !!(req.query.q || req.query.search);
+    const effectiveTTL = isSearchRequest ? SEARCH_CACHE_TTL : CACHE_TTL;
+
     // Simple cache hit check (non-admins only)
-    if (!isAdmin && cached && (Date.now() - cached.time < CACHE_TTL)) {
+    if (!isAdmin && cached && (Date.now() - cached.time < effectiveTTL)) {
         console.log(`🚀 [CACHE_HIT] Serving products: ${cacheKey}`);
         return res.json(cached.data);
     }
 
     console.log(`[PRODUCTS_DEBUG] Request received: ${JSON.stringify(req.query)}`);
     try {
-        const { category_slug, is_best_seller, hub, q } = req.query;
+        const { category_slug, is_best_seller, hub } = req.query;
+        const q = (req.query.q || req.query.search || '').toString();
         // Increased limit for admins and public users to ensure all products are visible
         const limitVal = parseInt(req.query.limit) || (isAdmin ? 5000 : 1000);
         const offsetVal = parseInt(req.query.offset) || 0;
+        const isAutocompleteRequest = req.query.autocomplete === 'true' || req.query.autocomplete === true || (q.trim().length > 0 && limitVal <= 8);
+        const selectFields = isAutocompleteRequest
+            ? 'SELECT id, name, slug, price, image, category'
+            : (q && q.trim().length > 0)
+                ? `SELECT id, name, slug, price, image, images, category, category_slug,
+               short_description, is_best_seller, is_live, is_custom_request,
+               custom_form_config, default_form_fields, variants, hub,
+               is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type,
+               affiliate_fixed_amount, min_affiliate_level, avg_rating, reviews_count,
+               gst_rate, normalized_name, normalized_category, normalized_description,
+               created_at`
+                : 'SELECT *';
 
         console.log(`📡 [CACHE_MISS] Fetching products (PG): Category=${category_slug || 'ALL'}, SearchQuery="${q || ''}", AdminMode=${isAdmin}, Limit=${limitVal}`);
 
-        let queryText = 'SELECT *';
+        // Search queries use a projection of required fields only to reduce network transfer
+        // Non-search (browse) requests still use SELECT * for full product data
+        let queryText = selectFields;
         let conditions = [];
         let params = [];
+        let searchTokens = [];
 
-        // 🔍 Advanced Search / Fuzzy Logic
+        // 🔍 Advanced Search / Relevance Ranking
         if (q && q.trim().length > 0) {
-            const searchTerm = q.trim();
-            params.push(`%${searchTerm}%`);
-            const pIdx = params.length;
-            
-            // Add relevance ranking using similarity
-            queryText += `, (
-                similarity(name, $${pIdx}) * 3 + 
-                similarity(category, $${pIdx}) * 2 + 
-                similarity(COALESCE(description, ''), $${pIdx})
-            ) as relevance`;
+            const normalizeSearch = (value) => {
+                return value
+                    .toString()
+                    .toLowerCase()
+                    .replace(/\bkottravai\b/g, ' ')
+                    .replace(/[^a-z0-9\s]+/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            };
 
-            conditions.push(`(
-                name ILIKE $${pIdx} OR 
-                category ILIKE $${pIdx} OR 
-                description ILIKE $${pIdx} OR
-                similarity(name, $${pIdx}) > 0.2
-            )`);
+            const escapeRegex = (value) => value.replace(/([.*+?^${}()|[\\]\\])/g, '\\$1');
+            const normalizedQuery = normalizeSearch(q);
+            searchTokens = normalizedQuery
+                .split(' ')
+                .filter(Boolean)
+                .filter(token => token !== 'kottravai');
+
+            if (searchTokens.length > 0) {
+                const exactTerm = normalizedQuery;
+                const startsWithTerm = `${normalizedQuery}%`;
+                const containsPhraseTerm = `%${normalizedQuery}%`;
+
+                // Use persisted normalized columns for performance (added by migration)
+                const normalizedNameExpr = 'normalized_name';
+                const normalizedCategoryExpr = 'normalized_category';
+                const normalizedDescriptionExpr = 'normalized_description';
+                const normalizedSkuExpr = hasProductSkuColumn ? `trim(regexp_replace(replace(lower(COALESCE(sku, '')), 'kottravai', ' '), '[^a-z0-9\\s]+', ' ', 'g'))` : null;
+                const normalizedTagsExpr = hasProductTagsColumn ? `trim(regexp_replace(replace(lower(COALESCE(array_to_string(tags, ' '), '')), 'kottravai', ' '), '[^a-z0-9\\s]+', ' ', 'g'))` : null;
+
+                const primaryProductTypeExpr = `CASE
+                    WHEN ${normalizedNameExpr} LIKE '%coffee mug%' THEN 'coffee mug'
+                    WHEN ${normalizedNameExpr} LIKE '%tea cup%' THEN 'tea cup'
+                    WHEN ${normalizedNameExpr} LIKE '%gift hamper%' THEN 'gift hamper'
+                    WHEN ${normalizedNameExpr} LIKE '%soap holder%' THEN 'soap holder'
+                    WHEN ${normalizedNameExpr} LIKE '%soap%' THEN 'soap'
+                    WHEN ${normalizedNameExpr} LIKE '%necklace%' THEN 'necklace'
+                    WHEN ${normalizedNameExpr} LIKE '%planter%' THEN 'planter'
+                    WHEN ${normalizedNameExpr} LIKE '%mug%' THEN 'mug'
+                    WHEN ${normalizedNameExpr} LIKE '%cup%' THEN 'cup'
+                    ELSE 'other'
+                END`;
+
+                const queryType = (() => {
+                    if (normalizedQuery.includes('coffee mug')) return 'coffee mug';
+                    if (normalizedQuery.includes('tea cup')) return 'tea cup';
+                    if (normalizedQuery.includes('gift hamper')) return 'gift hamper';
+                    if (normalizedQuery.includes('soap holder')) return 'soap holder';
+                    if (normalizedQuery.includes('soap')) return 'soap';
+                    if (normalizedQuery.includes('necklace')) return 'necklace';
+                    if (normalizedQuery.includes('planter')) return 'planter';
+                    return null;
+                })();
+
+                const tokenRegex = (token) => `(^|[^a-z0-9])${escapeRegex(token)}([^a-z0-9]|$)`;
+
+                // Push core params first so parameter indexes are stable
+                params.push(exactTerm);
+                const exactNameIdx = params.length;
+                params.push(startsWithTerm);
+                const startsWithNameIdx = params.length;
+                params.push(containsPhraseTerm);
+                const containsPhraseIdx = params.length;
+                // Inline queryType as a literal since it comes from a controlled list
+                let queryTypeIdx = null;
+                const typeMatchBoost = queryType ? `CASE WHEN ${primaryProductTypeExpr} = '${queryType.replace(/'/g, "''")}' THEN 150 ELSE 0 END` : '0';
+                const typeMismatchPenalty = queryType === 'soap'
+                    ? `CASE WHEN ${normalizedNameExpr} LIKE '%soap holder%' OR ${normalizedNameExpr} LIKE '%gift hamper%' OR ${normalizedNameExpr} LIKE '%bathroom%' THEN -500 WHEN ${primaryProductTypeExpr} <> 'soap' THEN -150 ELSE 0 END`
+                    : queryType === 'coffee mug'
+                        ? `CASE WHEN ${primaryProductTypeExpr} IN ('tea cup','gift hamper') THEN -500 WHEN ${primaryProductTypeExpr} <> 'coffee mug' AND ${primaryProductTypeExpr} <> 'mug' THEN -150 ELSE 0 END`
+                        : '0';
+
+                const nameTokenMatchConds = [];
+                const categoryTokenMatchConds = [];
+                const descriptionTokenMatchConds = [];
+                const skuTokenMatchConds = [];
+                const tagsTokenMatchConds = [];
+
+                for (const token of searchTokens) {
+                    const escaped = token.replace(/'/g, "''");
+                    // Use LIKE '%token%' instead of POSITION() so GIN/pg_trgm indexes are activated
+                    // POSITION() causes sequential scans; LIKE with trigram indexes uses Bitmap Index Scan
+                    nameTokenMatchConds.push(`${normalizedNameExpr} LIKE '%${escaped}%'`);
+                    categoryTokenMatchConds.push(`${normalizedCategoryExpr} LIKE '%${escaped}%'`);
+                    descriptionTokenMatchConds.push(`${normalizedDescriptionExpr} LIKE '%${escaped}%'`);
+                    if (hasProductSkuColumn) skuTokenMatchConds.push(`${normalizedSkuExpr} LIKE '%${escaped}%'`);
+                    if (hasProductTagsColumn) tagsTokenMatchConds.push(`${normalizedTagsExpr} LIKE '%${escaped}%'`);
+                }
+
+                const nameAllTokensWordMatch = `(${nameTokenMatchConds.join(' AND ')})`;
+                const categoryAllTokensWordMatch = `(${categoryTokenMatchConds.join(' AND ')})`;
+                const descriptionAllTokensWordMatch = `(${descriptionTokenMatchConds.join(' AND ')})`;
+                const skuAllTokensWordMatch = hasProductSkuColumn ? `(${skuTokenMatchConds.join(' AND ')})` : 'FALSE';
+                const tagsAllTokensWordMatch = hasProductTagsColumn ? `(${tagsTokenMatchConds.join(' AND ')})` : 'FALSE';
+
+                const exactNameCond = `${normalizedNameExpr} = $${exactNameIdx}`;
+                const startsWithNameCond = `${normalizedNameExpr} LIKE $${startsWithNameIdx}`;
+                const containsNameCond = `${normalizedNameExpr} LIKE $${containsPhraseIdx}`;
+
+                queryText += `, ${primaryProductTypeExpr} AS primary_product_type,
+                (
+                    CASE
+                        WHEN ${exactNameCond} THEN 1000
+                        WHEN ${startsWithNameCond} THEN 900
+                        WHEN ${nameAllTokensWordMatch} THEN 800
+                        WHEN ${containsNameCond} THEN 700
+                        WHEN ${skuAllTokensWordMatch} THEN 500
+                        WHEN ${tagsAllTokensWordMatch} THEN 400
+                        WHEN ${categoryAllTokensWordMatch} THEN 300
+                        WHEN ${descriptionAllTokensWordMatch} THEN 100
+                        ELSE 0
+                    END
+                ) + ${typeMatchBoost} + ${typeMismatchPenalty} AS relevance,
+                CASE
+                    WHEN ${exactNameCond} THEN 'Exact Name'
+                    WHEN ${startsWithNameCond} THEN 'Starts With Name'
+                    WHEN ${nameAllTokensWordMatch} THEN 'All Tokens In Name'
+                    WHEN ${containsNameCond} THEN 'Contains Name'
+                    WHEN ${skuAllTokensWordMatch} THEN 'SKU'
+                    WHEN ${tagsAllTokensWordMatch} THEN 'Tags'
+                    WHEN ${categoryAllTokensWordMatch} THEN 'Category'
+                    WHEN ${descriptionAllTokensWordMatch} THEN 'Description'
+                    ELSE 'Other'
+                END AS matched_field`;
+
+                const strongSearchCondition = `(
+                    ${exactNameCond}
+                    OR ${startsWithNameCond}
+                    OR ${nameAllTokensWordMatch}
+                    OR ${containsNameCond}
+                    OR ${skuAllTokensWordMatch}
+                    OR ${tagsAllTokensWordMatch}
+                    OR ${categoryAllTokensWordMatch}
+                )`;
+
+                conditions.push(strongSearchCondition);
+
+                queryText += ' FROM products';
+                if (!isAdmin) {
+                    conditions.push('is_live = TRUE');
+                }
+
+                if (category_slug) {
+                    params.push(category_slug);
+                    conditions.push(`category_slug = $${params.length}`);
+                }
+
+                if (is_best_seller === 'true') {
+                    conditions.push('is_best_seller = TRUE');
+                }
+
+                if (hub) {
+                    params.push(hub);
+                    conditions.push(`hub = $${params.length}`);
+                }
+
+                if (conditions.length > 0) {
+                    queryText += ' WHERE ' + conditions.join(' AND ');
+                }
+
+                queryText += ' ORDER BY relevance DESC, created_at DESC';
+                params.push(limitVal);
+                queryText += ` LIMIT $${params.length}`;
+                params.push(offsetVal);
+                queryText += ` OFFSET $${params.length}`;
+
+                const T_NORM = Date.now(); // [PERF] 2. After normalization
+                console.log('[DBG_SQL_EXEC] Executing search SQL (len):', queryText.length, 'params_len:', params.length);
+                try {
+                    fs.writeFileSync(path.join(__dirname, `search_debug_main_${Date.now()}.json`), JSON.stringify({ queryText, params }, null, 2));
+                } catch (e) {
+                    console.warn('Could not write debug SQL file:', e && e.message);
+                }
+                const T_SQL_START = Date.now(); // [PERF] 3. Before SQL
+                let result;
+                try {
+                    result = await db.query(queryText, params);
+                } catch (err) {
+                    console.error('🔴 SQL_ERROR (search main):', err && err.message, '\nSQL:', queryText, '\nPARAMS:', params);
+                    throw err;
+                }
+                const T_SQL_END = Date.now(); // [PERF] 4. After SQL
+
+                if (result.rows.length === 0) {
+                    const weakParams = [];
+                    const weakDescriptionConds = [];
+                    for (const token of searchTokens) {
+                        const escaped = token.replace(/'/g, "''");
+                        // Use LIKE for GIN index activation (same as primary search)
+                        weakDescriptionConds.push(`${normalizedDescriptionExpr} LIKE '%${escaped}%'`);
+                    }
+
+                    let weakQueryText = `SELECT id, name, slug, price, image, images, category, category_slug, short_description, is_best_seller, is_live, is_custom_request, custom_form_config, default_form_fields, variants, hub, is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level, avg_rating, reviews_count, gst_rate, normalized_name, normalized_category, normalized_description, created_at, 100 AS relevance, 'Description' AS matched_field FROM products`;
+                    const weakConditions = [
+                        `(${weakDescriptionConds.join(' AND ')})`
+                    ];
+
+                    if (!isAdmin) {
+                        weakConditions.push('is_live = TRUE');
+                    }
+                    if (category_slug) {
+                        weakParams.push(category_slug);
+                        weakConditions.push(`category_slug = $${weakParams.length}`);
+                    }
+                    if (is_best_seller === 'true') {
+                        weakConditions.push('is_best_seller = TRUE');
+                    }
+                    if (hub) {
+                        weakParams.push(hub);
+                        weakConditions.push(`hub = $${weakParams.length}`);
+                    }
+
+                    weakQueryText += ' WHERE ' + weakConditions.join(' AND ');
+                    weakQueryText += ' ORDER BY relevance DESC, created_at DESC';
+                    weakParams.push(limitVal);
+                    weakQueryText += ` LIMIT $${weakParams.length}`;
+                    weakParams.push(offsetVal);
+                    weakQueryText += ` OFFSET $${weakParams.length}`;
+
+                    console.log('[DBG_SQL_EXEC] Executing weak search SQL (len):', weakQueryText.length, 'params_len:', weakParams.length);
+                    console.log('[DBG_SQL_EXEC] SQL:', weakQueryText);
+                    console.log('[DBG_SQL_EXEC] PARAMS:', weakParams);
+                        try {
+                            fs.writeFileSync(path.join(__dirname, `search_debug_weak_${Date.now()}.json`), JSON.stringify({ weakQueryText, weakParams }, null, 2));
+                        } catch (e) {
+                            console.warn('Could not write weak debug SQL file:', e && e.message);
+                        }
+                    let weakResult;
+                    try {
+                        weakResult = await db.query(weakQueryText, weakParams);
+                    } catch (err) {
+                        console.error('🔴 SQL_ERROR (search weak):', err && err.message, '\nSQL:', weakQueryText, '\nPARAMS:', weakParams);
+                        throw err;
+                    }
+                    console.log(`✅ Returned ${weakResult.rows.length} weak description products`);
+                    if (!isAdmin) {
+                        productCache.set(cacheKey, {
+                            data: weakResult.rows,
+                            time: Date.now()
+                        });
+                    }
+                    console.log('[SEARCH_RESULT_SET]', weakResult.rows.map(r => ({ id: r.id, name: r.name, relevance: r.relevance, matched_field: r.matched_field })));
+                    const T_SER_WEAK = Date.now();
+                    const resDataWeak = JSON.stringify(weakResult.rows);
+                    console.log(`[PERF] normalization=${T_NORM-T0}ms | sql=${T_SQL_END-T_SQL_START}ms | serialize=${Date.now()-T_SER_WEAK}ms | total=${Date.now()-T0}ms | rows=${weakResult.rows.length}`);
+                    return res.json(weakResult.rows);
+                }
+
+                console.log(`✅ Returned ${result.rows.length} products to ${isAdmin ? 'ADMIN' : 'PUBLIC'} user`);
+                if (!isAdmin) {
+                    productCache.set(cacheKey, {
+                        data: result.rows,
+                        time: Date.now()
+                    });
+                }
+                console.log('[SEARCH_RESULT_SET]', result.rows.map(r => ({ id: r.id, name: r.name, relevance: r.relevance, matched_field: r.matched_field })));
+                const T_SER = Date.now();
+                const resDataMain = JSON.stringify(result.rows);
+                console.log(`[PERF] normalization=${T_NORM-T0}ms | sql=${T_SQL_END-T_SQL_START}ms | serialize=${Date.now()-T_SER}ms | total=${Date.now()-T0}ms | rows=${result.rows.length}`);
+                return res.json(result.rows);
+            }
         }
 
         queryText += ' FROM products';
@@ -2489,8 +2971,8 @@ app.get('/api/products', async (req, res) => {
             queryText += ' WHERE ' + conditions.join(' AND ');
         }
 
-        // Sorting: If searching, sort by relevance first. Otherwise, by created_at.
-        if (q && q.trim().length > 0) {
+        // Sorting: If search results include relevance, sort by relevance first.
+        if (searchTokens.length > 0) {
             queryText += ' ORDER BY relevance DESC, created_at DESC';
         } else {
             queryText += ' ORDER BY created_at DESC';
@@ -2503,7 +2985,13 @@ app.get('/api/products', async (req, res) => {
         params.push(offsetVal);
         queryText += ` OFFSET $${params.length}`;
 
-        const result = await db.query(queryText, params);
+        let result;
+        try {
+            result = await db.query(queryText, params);
+        } catch (err) {
+            console.error('🔴 SQL_ERROR (final):', err && err.message, '\nSQL:', queryText, '\nPARAMS:', params);
+            throw err;
+        }
 
         console.log(`✅ Returned ${result.rows.length} products to ${isAdmin ? 'ADMIN' : 'PUBLIC'} user`);
 

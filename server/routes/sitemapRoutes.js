@@ -1,6 +1,8 @@
 const express = require('express');
+const path = require('path');
 const router = express.Router();
 const db = require('../db'); // Your Supabase Postgres pool
+const blogPostsData = require(path.resolve(__dirname, '../../src/data/posts.json'));
 
 const HOSTNAME = 'https://www.kottravai.in';
 
@@ -13,54 +15,60 @@ const escapeXML = (str) => {
               .replace(/'/g, '&apos;');
 };
 
+const toUrlSlug = (value) => {
+    if (!value) return '';
+    return String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+};
+
+const formatDate = (value) => {
+    if (!value) return new Date().toISOString();
+    return new Date(value).toISOString();
+};
+
 // 1. Parent Sitemap Index
 router.get('/sitemap.xml', (req, res) => {
     res.header('Content-Type', 'application/xml');
     
-    // Shopify style sitemap index
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
-    <loc>${HOSTNAME}/sitemap_products_1.xml</loc>
+    <loc>${HOSTNAME}/sitemap-products.xml</loc>
   </sitemap>
   <sitemap>
-    <loc>${HOSTNAME}/sitemap_pages_1.xml</loc>
+    <loc>${HOSTNAME}/sitemap-pages.xml</loc>
   </sitemap>
   <sitemap>
-    <loc>${HOSTNAME}/sitemap_collections_1.xml</loc>
+    <loc>${HOSTNAME}/sitemap-categories.xml</loc>
   </sitemap>
   <sitemap>
-    <loc>${HOSTNAME}/sitemap_blogs_1.xml</loc>
+    <loc>${HOSTNAME}/sitemap-blog.xml</loc>
   </sitemap>
 </sitemapindex>`;
     res.send(xml);
 });
 
 // 2. Products Sitemap
-router.get('/sitemap_products_1.xml', async (req, res) => {
+router.get('/sitemap-products.xml', async (req, res) => {
     res.header('Content-Type', 'application/xml');
     
     try {
         const result = await db.query('SELECT slug, name, updated_at FROM products WHERE is_active = true');
         
         let urlset = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
         
         result.rows.forEach(product => {
             const loc = `${HOSTNAME}/product/${product.slug}`;
-            const lastMod = product.updated_at ? new Date(product.updated_at).toISOString() : new Date().toISOString();
+            const lastMod = formatDate(product.updated_at);
             
-            // Note: Since actual image URLs aren't in the products table explicitly without fetching from storage,
-            // we will provide the base product URL structure.
             urlset += `  <url>
     <loc>${escapeXML(loc)}</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>daily</changefreq>
-    <image:image>
-      <image:loc>${HOSTNAME}/images/products/${escapeXML(product.slug)}.jpg</image:loc>
-      <image:title>${escapeXML(product.name)}</image:title>
-      <image:caption>${escapeXML(product.name)}</image:caption>
-    </image:image>
   </url>\n`;
         });
         
@@ -73,18 +81,26 @@ router.get('/sitemap_products_1.xml', async (req, res) => {
     }
 });
 
+router.get('/sitemap_products_1.xml', (req, res) => {
+    res.redirect(301, '/sitemap-products.xml');
+});
+
 // 3. Pages Sitemap
-router.get('/sitemap_pages_1.xml', (req, res) => {
+router.get('/sitemap-pages.xml', (req, res) => {
     res.header('Content-Type', 'application/xml');
     
     const staticPages = [
         '',
+        '/shop',
         '/about',
         '/contact',
         '/b2b',
         '/faqs',
         '/alliance',
+        '/services',
         '/camps',
+        '/advertise',
+        '/gift-cards',
         '/shipping-policy',
         '/refund-policy',
         '/terms-of-service',
@@ -107,8 +123,16 @@ router.get('/sitemap_pages_1.xml', (req, res) => {
     res.send(urlset);
 });
 
-// 4. Collections Sitemap (Categories)
-router.get('/sitemap_collections_1.xml', async (req, res) => {
+router.get('/sitemap_pages_1.xml', (req, res) => {
+    res.redirect(301, '/sitemap-pages.xml');
+});
+
+router.get('/sitemap_index.xml', (req, res) => {
+    res.redirect(301, '/sitemap.xml');
+});
+
+// 4. Categories Sitemap
+router.get('/sitemap-categories.xml', async (req, res) => {
     res.header('Content-Type', 'application/xml');
     
     try {
@@ -127,7 +151,8 @@ router.get('/sitemap_collections_1.xml', async (req, res) => {
 
         result.rows.forEach(row => {
             if (!row.category) return;
-            const slug = row.category.toLowerCase().replace(/\\s+/g, '-');
+            const slug = toUrlSlug(row.category);
+            if (!slug) return;
             const loc = `${HOSTNAME}/category/${slug}`;
             
             urlset += `  <url>
@@ -140,18 +165,20 @@ router.get('/sitemap_collections_1.xml', async (req, res) => {
         urlset += `</urlset>`;
         res.send(urlset);
     } catch (error) {
-        console.error('Error generating collections sitemap:', error.message);
+        console.error('Error generating categories sitemap:', error.message);
         res.send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`);
     }
 });
 
+router.get('/sitemap_collections_1.xml', (req, res) => {
+    res.redirect(301, '/sitemap-categories.xml');
+});
+
 // 5. Blogs Sitemap
-router.get('/sitemap_blogs_1.xml', async (req, res) => {
+router.get('/sitemap-blog.xml', async (req, res) => {
     res.header('Content-Type', 'application/xml');
     
     try {
-        // Assuming there is a blogs table, or just static blog listing
-        // If not, we just return the base blog index
         const now = new Date().toISOString();
         let urlset = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
@@ -162,20 +189,34 @@ router.get('/sitemap_blogs_1.xml', async (req, res) => {
     <changefreq>weekly</changefreq>
   </url>\n`;
 
-        // Attempt to fetch blogs if table exists
+        let entriesAdded = 0;
         try {
             const blogsResult = await db.query('SELECT slug, updated_at FROM blogs WHERE status = $1', ['Published']);
             blogsResult.rows.forEach(blog => {
                 const loc = `${HOSTNAME}/blog/${blog.slug}`;
-                const lastMod = blog.updated_at ? new Date(blog.updated_at).toISOString() : now;
+                const lastMod = formatDate(blog.updated_at || now);
+                urlset += `  <url>
+    <loc>${escapeXML(loc)}</loc>
+    <lastmod>${lastMod}</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>\n`;
+                entriesAdded += 1;
+            });
+        } catch (e) {
+            // Blogs table might not exist or query failed; fall back to static post data.
+        }
+
+        if (entriesAdded === 0 && Array.isArray(blogPostsData)) {
+            blogPostsData.forEach(post => {
+                if (!post?.slug) return;
+                const loc = `${HOSTNAME}/blog/${post.slug}`;
+                const lastMod = formatDate(post.publishDate || now);
                 urlset += `  <url>
     <loc>${escapeXML(loc)}</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>monthly</changefreq>
   </url>\n`;
             });
-        } catch (e) {
-            // Blogs table might not exist, silently ignore and just return /blog
         }
         
         urlset += `</urlset>`;
@@ -184,6 +225,10 @@ router.get('/sitemap_blogs_1.xml', async (req, res) => {
         console.error('Error generating blogs sitemap:', error.message);
         res.send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`);
     }
+});
+
+router.get('/sitemap_blogs_1.xml', (req, res) => {
+    res.redirect(301, '/sitemap-blog.xml');
 });
 
 module.exports = router;

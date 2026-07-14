@@ -234,6 +234,16 @@ const ProductDetails = () => {
         };
     }, [product]);
 
+    const SITE_URL = 'https://www.kottravai.in';
+    const productUrl = typeof window !== 'undefined'
+        ? window.location.href
+        : `${SITE_URL}/product/${product?.slug || ''}`;
+    const productImage = product?.image
+        ? product.image.startsWith('http')
+            ? product.image
+            : `${SITE_URL}${product.image}`
+        : undefined;
+
     const isAdmin = sessionStorage.getItem('kottravai_admin_session') === 'true';
     const isLive = product?.isLive !== false;
 
@@ -360,11 +370,67 @@ const ProductDetails = () => {
         <MainLayout>
             <Helmet>
                 <title>{product.name} - Kottravai</title>
+                <meta name="description" content={product.shortDescription || product.description?.substring(0, 160) || ''} />
+                <link rel="canonical" href={productUrl} />
                 <meta property="og:title" content={`${product.name} - Kottravai`} />
-                <meta property="og:image" content={product.image} />
+                {productImage && <meta property="og:image" content={productImage} />}
                 <meta property="og:type" content="product" />
-                <meta property="og:url" content={window.location.href} />
+                <meta property="og:url" content={productUrl} />
                 <meta property="og:description" content={product.shortDescription || product.description?.substring(0, 160) || ''} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content={`${product.name} - Kottravai`} />
+                <meta name="twitter:description" content={product.shortDescription || product.description?.substring(0, 160) || ''} />
+                {productImage && <meta name="twitter:image" content={productImage} />}
+                <script type="application/ld+json">
+                    {JSON.stringify({
+                        '@context': 'https://schema.org',
+                        '@type': 'Product',
+                        name: product.name,
+                        image: [productImage || product.image, ...(product.images || [])],
+                        description: product.shortDescription || product.description || '',
+                        sku: product.slug,
+                        url: productUrl,
+                        offers: {
+                            '@type': 'Offer',
+                            priceCurrency: 'INR',
+                            price: product.price?.toString() || '0',
+                            availability: product.stock && product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                            url: productUrl
+                        }
+                    })}
+                </script>
+                <script type="application/ld+json">
+                    {JSON.stringify({
+                        '@context': 'https://schema.org',
+                        '@type': 'BreadcrumbList',
+                        itemListElement: [
+                            {
+                                '@type': 'ListItem',
+                                position: 1,
+                                name: 'Home',
+                                item: 'https://www.kottravai.in'
+                            },
+                            {
+                                '@type': 'ListItem',
+                                position: 2,
+                                name: 'Shop',
+                                item: 'https://www.kottravai.in/shop'
+                            },
+                            {
+                                '@type': 'ListItem',
+                                position: 3,
+                                name: product.category || 'Category',
+                                item: `https://www.kottravai.in/category/${product.categorySlug || product.category?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`
+                            },
+                            {
+                                '@type': 'ListItem',
+                                position: 4,
+                                name: product.name,
+                                item: window.location.href
+                            }
+                        ]
+                    })}
+                </script>
             </Helmet>
 
             {isAdmin && !isLive && (
@@ -380,6 +446,17 @@ const ProductDetails = () => {
                     <Link to="/" className="hover:text-[#8E2A8B]">Home</Link>
                     <span className="mx-2">/</span>
                     <Link to="/shop" className="hover:text-[#8E2A8B]">Shop</Link>
+                    {product.category && (
+                        <>
+                            <span className="mx-2">/</span>
+                            <Link
+                                to={`/category/${product.categorySlug || product.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`}
+                                className="hover:text-[#8E2A8B]"
+                            >
+                                {product.category}
+                            </Link>
+                        </>
+                    )}
                     <span className="mx-2">/</span>
                     <span className="text-gray-900">{product.name}</span>
                 </div>

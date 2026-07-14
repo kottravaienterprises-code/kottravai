@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Filter, ShoppingBag, Heart, Search, ChevronDown, X } from 'lucide-react';
@@ -11,7 +11,7 @@ import FilterSidebar from '@/components/shop/FilterSidebar';
 import { getOptimizedImage, IMAGE_SIZES } from '@/utils/imageOptimizer';
 import { API_ENDPOINTS } from '@/config/api';
 import axios from 'axios';
-
+const SITE_URL = 'https://www.kottravai.in';
 const Shop = () => {
     const { slug } = useParams();
     const { addToCart, cart, removeFromCart } = useCart();
@@ -32,9 +32,55 @@ const Shop = () => {
     }, [slug, categories]);
 
     const [products, setProducts] = useState<any[]>([]);
+    const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isFetchingLocal, setIsFetchingLocal] = useState(true);
+    const [searchCompleted, setSearchCompleted] = useState(false);
+    const lastSearchRequestKeyRef = useRef<string | null>(null);
     const [searchParams] = useSearchParams();
-    const searchQuery = searchParams.get('search')?.toLowerCase() || '';
+    const rawSearchQuery = (searchParams.get('q') || searchParams.get('search') || '').trim();
+    const searchQuery = rawSearchQuery.toLowerCase();
+    const isSearchMode = Boolean(searchQuery);
+
+    // Ensure the UI enters a fetching/loading state synchronously when
+    // entering search mode to avoid an initial render that shows the
+    // empty-state before the effect that starts the network request runs.
+    useLayoutEffect(() => {
+        if (isSearchMode) {
+            setIsFetchingLocal(true);
+        } else {
+            // leaving search mode should return to normal local fetching state
+            setIsFetchingLocal(false);
+        }
+    }, [isSearchMode]);
+
+    const searchTokens = useMemo(() => {
+        return rawSearchQuery
+            .toLowerCase()
+            .split(/\s+/)
+            .map(token => token.trim())
+            .filter(Boolean)
+            .filter(token => token !== 'kottravai');
+    }, [rawSearchQuery]);
+
+    const matchesSearchQuery = (product: any) => {
+        if (!searchQuery || searchTokens.length === 0) return true;
+
+        const combinedText = [
+            product.name,
+            product.product_name,
+            product.title,
+            product.category,
+            product.description,
+            product.shortDescription,
+            product.sku,
+            Array.isArray(product.tags) ? product.tags.join(' ') : product.tags
+        ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+
+        return searchTokens.every((token) => combinedText.includes(token));
+    };
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -92,35 +138,103 @@ const Shop = () => {
         }
     }, [contextProducts, productsLoading, searchQuery]);
 
+    useEffect(() => {
+        console.log('[Shop Search Results State]', {
+            rawSearchQuery,
+            searchQuery,
+            searchResultsCount: searchResults.length,
+            searchResultsPreview: searchResults.slice(0, 3).map((product: any) => product.name || product.title || product.product_name)
+        });
+    }, [rawSearchQuery, searchQuery, searchResults]);
+
     // Fetch category specific products with AbortController
     useEffect(() => {
-        const controller = new AbortController();
+        let controller = new AbortController();
 
         const fetchProductsBySlug = async () => {
-            // If we already have products from context and not searching, we can skip initial fetch
-            // or let it proceed if we want fresh category-specific data. 
-            // For now, let's keep it but make it more robust.
-            
+            if (searchQuery) {
+                const requestKey = `${rawSearchQuery}|${searchQuery}`;
+                lastSearchRequestKeyRef.current = requestKey;
+
+                setIsFetchingLocal(true);
+                setSearchCompleted(false);
+                try {
+                    console.log({ stage: 'Shop searchQuery state', count: searchResults.length, sample: searchResults.slice(0, 3) });
+                    console.log("searchQuery", searchQuery);
+                    // Defensive: if the signal is already aborted for any reason,
+                    // create a fresh controller so this request isn't cancelled
+                    if (controller.signal && controller.signal.aborted) {
+                        controller = new AbortController();
+                    }
+                    const response = await axios.get(API_ENDPOINTS.search, {
+                        params: { q: rawSearchQuery, limit: 24 },
+                        signal: controller.signal
+                    });
+                    console.log("API response", response.data);
+                    console.log({ stage: 'Shop API Response', count: Array.isArray(response.data?.products) ? response.data.products.length : 0, sample: Array.isArray(response.data?.products) ? response.data.products.slice(0, 3) : [] });
+                    const payload = response.data && typeof response.data === 'object' ? response.data : {};
+                    const apiResults = Array.isArray(payload.products)
+                        ? payload.products
+                        : Array.isArray(payload.suggestions)
+                            ? payload.suggestions
+                            : [];
+                    console.log('[Shop Search API]', {
+                        url: `${API_ENDPOINTS.search}?q=${encodeURIComponent(rawSearchQuery)}&limit=24`,
+                        query: rawSearchQuery,
+                        returnedRows: apiResults.length,
+                        sample: apiResults.slice(0, 3).map((product: any) => product.name || product.title || product.product_name)
+                    });
+                    const mappedResults = apiResults.map((p: any) => ({
+                        ...p,
+                        name: p.name || p.product_name || p.productName || p.title || 'Unnamed Product',
+                        categorySlug: p.category_slug || p.categorySlug,
+                        shortDescription: p.short_description || p.shortDescription || p.description,
+                        isBestSeller: p.is_best_seller || false,
+                        isLive: p.is_live !== undefined ? p.is_live : true,
+                        keyFeatures: p.key_features || [],
+                        features: p.features || [],
+                        images: p.images || [],
+                        reviews: p.reviews || []
+                    }));
+                    console.log("searchResults", mappedResults);
+                    console.log({ stage: 'Shop setSearchResults', count: mappedResults.length, sample: mappedResults.slice(0, 3) });
+                    setSearchResults(mappedResults);
+                    setSearchCompleted(true);
+                    setProducts([]);
+                } catch (err) {
+                    if ((axios as any).isCancel?.(err) || (err as any)?.code === 'ERR_CANCELED') return;
+                    console.error('Failed to fetch shop search results', err);
+                    setSearchResults([]);
+                    setSearchCompleted(true);
+                    setProducts([]);
+                } finally {
+                    if (lastSearchRequestKeyRef.current === requestKey) {
+                        lastSearchRequestKeyRef.current = null;
+                    }
+                    setIsFetchingLocal(false);
+                }
+                return;
+            }
+
+            setSearchResults([]);
             setIsFetchingLocal(true);
             try {
                 const baseUrl = API_ENDPOINTS.products;
 
                 // For parent categories, fetch all child slugs
                 let urls: string[] = [];
-                if (searchQuery) {
-                    // If searching, we fetch globally with the search term
-                    urls = [`${baseUrl}?q=${encodeURIComponent(searchQuery)}&limit=100`];
-                } else {
-                    urls = validSlugs.length > 1
-                        ? validSlugs.map(s => `${baseUrl}?category_slug=${s}&limit=50`)
-                        : [`${baseUrl}${slug ? `?category_slug=${slug}&limit=50` : '?limit=50'}`];
-                }
+                urls = validSlugs.length > 1
+                    ? validSlugs.map(s => `${baseUrl}?category_slug=${s}&limit=50`)
+                    : [`${baseUrl}${slug ? `?category_slug=${slug}&limit=50` : '?limit=50'}`];
 
+                // Defensive: ensure signal isn't already aborted before launching parallel requests
+                if (controller.signal && controller.signal.aborted) {
+                    controller = new AbortController();
+                }
                 const responses = await Promise.all(
                     urls.map(url => axios.get(url, { signal: controller.signal }))
                 );
 
-                // Safety: Filter out any responses that don't contain an array of products
                 const allProducts = responses
                     .filter(r => r.data && Array.isArray(r.data))
                     .flatMap(r => r.data)
@@ -141,18 +255,15 @@ const Shop = () => {
                     reviews: p.reviews || []
                 }));
 
-                // Only update if we actually got products, or if it's the intended category set
                 if (mappedProducts.length > 0 || !slug) {
                     setProducts(mappedProducts);
                 } else if (contextProducts.length > 0) {
-                    // Fallback to context products if local category fetch returned nothing
-                    // but we know we have products globally.
                     setProducts(contextProducts);
                 } else {
                     setProducts([]);
                 }
             } catch (err) {
-                if (axios.isCancel(err)) return;
+                if ((axios as any).isCancel?.(err) || (err as any)?.code === 'ERR_CANCELED') return;
                 console.error('Failed to fetch shop products', err);
             } finally {
                 setIsFetchingLocal(false);
@@ -161,7 +272,7 @@ const Shop = () => {
 
         fetchProductsBySlug();
         return () => controller.abort();
-    }, [slug, validSlugs, searchQuery]);
+    }, [slug, validSlugs, rawSearchQuery, searchQuery]);
 
     // Derived loading state
     const loading = productsLoading || isFetchingLocal;
@@ -195,64 +306,134 @@ const Shop = () => {
 
     let pageTitle = 'Shop';
     if (searchQuery) {
-        pageTitle = `Search Results: "${searchQuery}"`;
+        pageTitle = `Search Results: "${rawSearchQuery}"`;
     } else if (currentCategory) {
         pageTitle = currentCategory.name;
     }
 
-    // Filter Logic
-    const filteredProducts = products.filter(product => {
-        // Global Visibility Filter: Drafts should not show on shop
-        if (product.isLive === false) return false;
+    const pageDescription = searchQuery
+        ? `Search results for "${rawSearchQuery}" across Kottravai's handcrafted collection.`
+        : currentCategory
+            ? `${currentCategory.name} at Kottravai — handcrafted products, sustainable gifts, and artisan-made essentials.`
+            : 'Shop Kottravai for handcrafted terracotta jewellery, sustainable home decor, natural essentials, and meaningful gifts.';
 
-        // Price Filter
-        const pPrice = Number(product.price);
-        if (isNaN(pPrice) || pPrice < priceRange[0] || pPrice > priceRange[1]) {
-            return false;
-        }
+    const canonicalUrl = typeof window !== 'undefined'
+        ? window.location.href
+        : `${SITE_URL}/shop`;
 
-        // Search Query Filter handled by backend
-        // (Removing local filter to allow fuzzy results from backend)
+    const pageSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: pageTitle,
+        description: pageDescription,
+        url: canonicalUrl
+    };
 
+    const breadcrumbSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+            {
+                '@type': 'ListItem',
+                position: 1,
+                name: 'Home',
+                item: SITE_URL
+            },
+            {
+                '@type': 'ListItem',
+                position: 2,
+                name: 'Shop',
+                item: `${SITE_URL}/shop`
+            },
+            ...(slug && currentCategory ? [{
+                '@type': 'ListItem',
+                position: 3,
+                name: currentCategory.name,
+                item: canonicalUrl
+            }] : [])
+        ]
+    };
 
-        // Category Filter
-        if (slug) {
-            // Check using categorySlug property if available (Robust)
-            if (product.categorySlug) {
-                return validSlugs.includes(product.categorySlug);
+    const displayProducts = isSearchMode ? searchResults : products;
+
+    const filteredProducts = isSearchMode
+        ? displayProducts
+        : displayProducts.filter(product => {
+            // Global Visibility Filter: Drafts should not show on shop
+            if (product.isLive === false) return false;
+
+            // Price Filter
+            const pPrice = Number(product.price);
+            if (isNaN(pPrice) || pPrice < priceRange[0] || pPrice > priceRange[1]) {
+                return false;
             }
 
-            // Fallback: Use Name matching
-            const relevantCategoryNames = categories
-                .filter(c => validSlugs.includes(c.slug))
-                .map(c => c.name);
+            // Search Query Filter is also enforced locally when an active search exists
+            if (searchQuery && !matchesSearchQuery(product)) {
+                return false;
+            }
 
-            const match = relevantCategoryNames.includes(product.category);
-            return match;
-        }
+            // Category Filter
+            if (slug) {
+                // Check using categorySlug property if available (Robust)
+                if (product.categorySlug) {
+                    return validSlugs.includes(product.categorySlug);
+                }
 
-        return true;
-    });
+                // Fallback: Use Name matching
+                const relevantCategoryNames = categories
+                    .filter(c => validSlugs.includes(c.slug))
+                    .map(c => c.name);
+
+                const match = relevantCategoryNames.includes(product.category);
+                return match;
+            }
+
+            return true;
+        });
 
     // Sort Logic
-    const sortedProducts = [...filteredProducts].sort((a, b) => {
-        if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
-        if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
-        if (sortBy === 'best-selling') return (b.salesCount || 0) - (a.salesCount || 0);
-        if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
-        if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
-        if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
-        if (sortBy === 'default') return a.name.localeCompare(b.name); // Default to Alphabetical A-Z
-        return 0;
-    });
+    const sortedProducts = isSearchMode
+        ? [...filteredProducts]
+        : [...filteredProducts].sort((a, b) => {
+            if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
+            if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
+            if (sortBy === 'best-selling') return (b.salesCount || 0) - (a.salesCount || 0);
+            if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
+            if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
+            if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
+            if (sortBy === 'default') return a.name.localeCompare(b.name); // Default to Alphabetical A-Z
+            return 0;
+        });
 
     const getDisplayName = (product: any) => product.product_name || product.productName || product.title || product.name || 'Product';
 
     // Pagination Logic
     const indexOfLastProduct = currentPage * ITEMS_PER_PAGE;
     const indexOfFirstProduct = indexOfLastProduct - ITEMS_PER_PAGE;
-    const currentProducts = sortedProducts.slice(indexOfFirstProduct, indexOfLastProduct);
-    const totalPages = Math.ceil(sortedProducts.length / ITEMS_PER_PAGE);
+    const currentProducts = isSearchMode
+        ? sortedProducts
+        : sortedProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+    const productsToRender = isSearchMode ? searchResults : currentProducts;
+    const totalPages = isSearchMode ? 1 : Math.ceil(sortedProducts.length / ITEMS_PER_PAGE);
+
+    console.log('displayProducts', displayProducts);
+    console.log('filteredProducts', filteredProducts);
+    console.log('currentProducts', currentProducts);
+    console.log('productsToRender', productsToRender);
+    console.log({ stage: 'Shop derived arrays', count: productsToRender.length, sample: productsToRender.slice(0, 3) });
+    console.log('[Shop Search Pipeline]', {
+        url: typeof window !== 'undefined' ? window.location.href : '',
+        searchQuery,
+        rawSearchQuery,
+        searchResultsCount: searchResults.length,
+        displayProductsCount: displayProducts.length,
+        filteredProductsCount: filteredProducts.length,
+        sortedProductsCount: sortedProducts.length,
+        currentProductsCount: currentProducts.length,
+        productsToRenderCount: productsToRender.length,
+        productsToRenderPreview: productsToRender.slice(0, 3).map((product: any) => product.name || product.title || product.product_name)
+    });
 
     const paginate = (pageNumber: number) => {
         setCurrentPage(pageNumber);
@@ -263,6 +444,23 @@ const Shop = () => {
         <MainLayout>
             <Helmet>
                 <title>{pageTitle} - Kottravai</title>
+                <meta name="description" content={pageDescription} />
+                <link rel="canonical" href={canonicalUrl} />
+                <meta property="og:title" content={`${pageTitle} - Kottravai`} />
+                <meta property="og:description" content={pageDescription} />
+                <meta property="og:url" content={canonicalUrl} />
+                <meta property="og:type" content="website" />
+                <meta property="og:image" content={`${SITE_URL}/hero.webp`} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content={`${pageTitle} - Kottravai`} />
+                <meta name="twitter:description" content={pageDescription} />
+                <meta name="twitter:image" content={`${SITE_URL}/hero.webp`} />
+                <script type="application/ld+json">
+                    {JSON.stringify(pageSchema)}
+                </script>
+                <script type="application/ld+json">
+                    {JSON.stringify(breadcrumbSchema)}
+                </script>
             </Helmet>
 
 
@@ -294,14 +492,20 @@ const Shop = () => {
                                     <div key={i} className="bg-gray-100 rounded-xl h-[400px]"></div>
                                 ))}
                             </div>
-                        ) : !isFetchingLocal && products.length === 0 ? (
+                        ) : (
+                            // Show empty state for search only after the search has completed.
+                            (isSearchMode && searchCompleted && searchResults.length === 0) || (!isSearchMode && !isFetchingLocal && productsToRender.length === 0) ? (
                             <div className="flex flex-col items-center justify-center text-center py-20 bg-gray-50 rounded-2xl border border-gray-100">
                                 <div className="bg-white p-6 rounded-full mb-6 relative shadow-sm">
                                     <ShoppingBag size={48} className="text-[#b5128f] opacity-80" />
                                 </div>
-                                <h2 className="text-3xl font-bold text-[#2D1B4E] mb-4">Store Launching Soon</h2>
+                                <h2 className="text-3xl font-bold text-[#2D1B4E] mb-4">
+                                    {searchQuery ? `No products found for "${rawSearchQuery}"` : 'Store Launching Soon'}
+                                </h2>
                                 <p className="text-gray-600 mb-8 max-w-md">
-                                    We are adding products to our inventory. Please check back shortly.
+                                    {searchQuery
+                                        ? 'Try adjusting your search terms or category filters to find what you need.'
+                                        : 'We are adding products to our inventory. Please check back shortly.'}
                                 </p>
                             </div>
                         ) : (
@@ -310,12 +514,14 @@ const Shop = () => {
                                 <div className="flex items-center justify-between mb-10 pb-6 border-b border-gray-50 px-1">
                                     {/* Left: Filters Button */}
                                     <div className="flex-1">
-                                        <button
-                                            onClick={() => setIsFilterOpen(true)}
-                                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-[10px] font-semibold font-montserrat uppercase tracking-widest text-brandBlack hover:text-brandPink hover:border-brandPink transition-all bg-white shadow-sm"
-                                        >
-                                            <Filter size={12} /> Filter
-                                        </button>
+                                        {!searchQuery && (
+                                            <button
+                                                onClick={() => setIsFilterOpen(true)}
+                                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-[10px] font-semibold font-montserrat uppercase tracking-widest text-brandBlack hover:text-brandPink hover:border-brandPink transition-all bg-white shadow-sm"
+                                            >
+                                                <Filter size={12} /> Filter
+                                            </button>
+                                        )}
                                     </div>
 
                                     {/* Center: Breadcrumbs */}
@@ -336,19 +542,21 @@ const Shop = () => {
                                     {/* Right: Sort Button */}
                                     <div className="flex-1 flex justify-end">
                                         <div className="relative">
-                                            <button
-                                                onClick={() => {
-                                                    if (window.innerWidth < 1024) {
-                                                        setIsSortDrawerOpen(true);
-                                                    } else {
-                                                        setIsSortOpen(!isSortOpen);
-                                                    }
-                                                }}
-                                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-[10px] font-semibold font-montserrat uppercase tracking-widest text-brandBlack hover:text-brandPink hover:border-brandPink transition-all bg-white shadow-sm"
-                                            >
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="9" y1="18" x2="15" y2="18" /></svg>
-                                                Sort
-                                            </button>
+                                            {!searchQuery && (
+                                                <button
+                                                    onClick={() => {
+                                                        if (window.innerWidth < 1024) {
+                                                            setIsSortDrawerOpen(true);
+                                                        } else {
+                                                            setIsSortOpen(!isSortOpen);
+                                                        }
+                                                    }}
+                                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-[10px] font-semibold font-montserrat uppercase tracking-widest text-brandBlack hover:text-brandPink hover:border-brandPink transition-all bg-white shadow-sm"
+                                                >
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="9" y1="18" x2="15" y2="18" /></svg>
+                                                    Sort
+                                                </button>
+                                            )}
 
                                             {/* Desktop Sort Popup */}
                                             {isSortOpen && (
@@ -433,9 +641,25 @@ const Shop = () => {
                                     </div>
                                 )}
 
+                                {searchQuery && (
+                                    <div className="mb-6 text-sm font-medium text-gray-600">
+                                        Showing {productsToRender.length} results for "{rawSearchQuery}"
+                                    </div>
+                                )}
+
                                 {/* Product Grid */}
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                                    {currentProducts.map((product) => {
+                                    {(() => {
+                                        console.log('[Shop JSX Before Map]', {
+                                            isSearchMode,
+                                            productsToRenderCount: productsToRender.length,
+                                            firstItems: productsToRender.slice(0, 3).map((product: any) => product.name || product.title || product.product_name)
+                                        });
+                                        console.log({ stage: 'ProductGrid render', count: productsToRender.length, sample: productsToRender.slice(0, 3) });
+                                        return null;
+                                    })()}
+                                    {productsToRender.map((product) => {
+                                        console.log({ stage: 'ProductCard render', count: 1, sample: [(product.name || product.title || product.product_name || '').toString()] });
                                         const isInCart = Array.isArray(cart) && cart.some(item => item.id === product.id);
                                         return (
                                             <div key={product.id} className="group flex flex-col bg-white rounded-lg overflow-hidden border border-gray-100/50 relative">
@@ -657,7 +881,7 @@ const Shop = () => {
                                     </div>
                                 )}
                             </>
-                        )}
+                        ))}
                     </div>
                 </div>
             </div>

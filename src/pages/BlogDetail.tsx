@@ -151,6 +151,13 @@ const BlogDetail = () => {
                     </div>
                     
                     <div className="relative container mx-auto px-4 max-w-4xl text-center z-10">
+                        <div className="mb-6 flex flex-wrap items-center gap-2 text-sm font-bold uppercase tracking-widest text-white/70">
+                            <Link to="/" className="hover:text-white/90">Home</Link>
+                            <span>/</span>
+                            <Link to="/blog" className="hover:text-white/90">Blog</Link>
+                            <span>/</span>
+                            <span className="text-white">{post.title}</span>
+                        </div>
                         <Link to="/blog" className="inline-flex items-center text-white/70 hover:text-white mb-8 transition-colors text-sm font-bold uppercase tracking-widest">
                             <ArrowLeft size={16} className="mr-2" /> Back to Journal
                         </Link>

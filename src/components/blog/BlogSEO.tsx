@@ -8,18 +8,57 @@ interface BlogSEOProps {
 }
 
 const BlogSEO: React.FC<BlogSEOProps> = ({ post, isList = false }) => {
-    const siteUrl = 'https://kottravai.com'; // Replace with actual production URL when known
+    const siteUrl = 'https://www.kottravai.in';
 
     if (isList) {
+        const pageUrl = `${siteUrl}/blog`;
+        const pageSchema = {
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: 'Kottravai Blog',
+            description: 'Discover stories about artisan craftsmanship, sustainable living, women entrepreneurship, and eco-friendly home decor.',
+            url: pageUrl
+        };
+
+        const breadcrumbSchema = {
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+                {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: 'Home',
+                    item: siteUrl
+                },
+                {
+                    '@type': 'ListItem',
+                    position: 2,
+                    name: 'Blog',
+                    item: pageUrl
+                }
+            ]
+        };
+
         return (
             <Helmet>
                 <title>Kottravai Blog | Handcrafted Stories & Sustainable Living</title>
                 <meta name="description" content="Discover stories about artisan craftsmanship, sustainable living, women entrepreneurship, and eco-friendly home decor." />
-                <link rel="canonical" href={`${siteUrl}/blog`} />
+                <link rel="canonical" href={pageUrl} />
                 <meta property="og:title" content="Kottravai Blog | Handcrafted Stories & Sustainable Living" />
                 <meta property="og:description" content="Discover stories about artisan craftsmanship, sustainable living, women entrepreneurship, and eco-friendly home decor." />
-                <meta property="og:url" content={`${siteUrl}/blog`} />
+                <meta property="og:url" content={pageUrl} />
                 <meta property="og:type" content="website" />
+                <meta property="og:image" content={`${siteUrl}/hero.webp`} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content="Kottravai Blog | Handcrafted Stories & Sustainable Living" />
+                <meta name="twitter:description" content="Discover stories about artisan craftsmanship, sustainable living, women entrepreneurship, and eco-friendly home decor." />
+                <meta name="twitter:image" content={`${siteUrl}/hero.webp`} />
+                <script type="application/ld+json">
+                    {JSON.stringify(pageSchema)}
+                </script>
+                <script type="application/ld+json">
+                    {JSON.stringify(breadcrumbSchema)}
+                </script>
             </Helmet>
         );
     }
@@ -113,7 +152,7 @@ const BlogSEO: React.FC<BlogSEOProps> = ({ post, isList = false }) => {
             <meta property="article:published_time" content={post.publishDate} />
             <meta property="article:author" content={post.author} />
             <meta property="article:section" content={post.category} />
-            {post.tags.map(tag => (
+            {(post.tags || []).map(tag => (
                 <meta property="article:tag" content={tag} key={tag} />
             ))}
 

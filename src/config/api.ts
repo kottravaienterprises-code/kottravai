@@ -8,7 +8,7 @@ export const normalizeUrl = (url: string) => {
     return url.replace(/([^:]\/)\/+/g, "$1");
 };
 
-let rawApiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+let rawApiUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "" : "http://localhost:5000");
 
 export const API_BASE = rawApiUrl.replace(/\/api$/, "");
 
@@ -16,6 +16,7 @@ export const API_BASE = rawApiUrl.replace(/\/api$/, "");
 export const API_ENDPOINTS = {
     chat: normalizeUrl(`${API_BASE}/api/chat`),
     products: normalizeUrl(`${API_BASE}/api/products`),
+    search: normalizeUrl(`${API_BASE}/api/search`),
     orders: normalizeUrl(`${API_BASE}/api/orders`),
     auth: normalizeUrl(`${API_BASE}/api/auth`),
     analytics: normalizeUrl(`${API_BASE}/api/ai-analytics/metrics`), // Standardized in Phase 8

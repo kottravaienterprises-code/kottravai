@@ -15,70 +15,238 @@ const Header = () => {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [liveResults, setLiveResults] = useState<any[]>([]);
+    const [popularSearches, setPopularSearches] = useState<string[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
     const searchRef = useRef<HTMLDivElement>(null);
+    const searchCacheRef = useRef<Map<string, any[]>>(new Map());
+    const searchAbortControllerRef = useRef<AbortController | null>(null);
     const { cartCount } = useCart();
     const { isAuthenticated, user, openLoginModal } = useAuth();
     const navigate = useNavigate();
 
-    // Live Search Logic (Debounced)
+    const closeAutocomplete = () => {
+        searchAbortControllerRef.current?.abort();
+        searchAbortControllerRef.current = null;
+        setIsSearching(false);
+        setLiveResults([]);
+        setActiveSuggestionIndex(-1);
+    };
+
+    const resetSearchState = () => {
+        closeAutocomplete();
+        setIsSearchOpen(false);
+        setSearchQuery('');
+    };
+
     useEffect(() => {
-        if (!searchQuery.trim() || !isSearchOpen) {
-            setLiveResults([]);
+        if (!isSearchOpen) return;
+        if (searchQuery.trim()) return;
+        if (popularSearches.length > 0) return;
+
+        axios.get(API_ENDPOINTS.search, { params: { limit: 6 } })
+            .then((response) => {
+                const payload = response.data && typeof response.data === 'object' ? response.data : {};
+                const terms = Array.isArray(payload.popularSearches)
+                    ? payload.popularSearches
+                        .map((item: any) => typeof item === 'string' ? item : item?.query)
+                        .filter(Boolean)
+                        .slice(0, 6)
+                    : [];
+                setPopularSearches(terms);
+            })
+            .catch(() => setPopularSearches([]));
+    }, [isSearchOpen, popularSearches.length, searchQuery]);
+
+    const handleSearchSubmit = (e?: React.FormEvent | undefined) => {
+        e?.preventDefault();
+        const trimmedQuery = searchQuery.trim();
+
+        if (!trimmedQuery) {
+            resetSearchState();
             return;
         }
 
-        const delayDebounceFn = setTimeout(async () => {
-            setIsSearching(true);
-            try {
-                const response = await axios.get(`${API_ENDPOINTS.products}?q=${encodeURIComponent(searchQuery)}&limit=6`);
-                if (response.data && Array.isArray(response.data)) {
-                    setLiveResults(response.data);
-                } else {
-                    setLiveResults([]);
-                }
-            } catch (err) {
-                console.error('Live search failed', err);
-                setLiveResults([]);
-            } finally {
-                setIsSearching(false);
-            }
-        }, 400);
+        analytics.trackEvent('search', {
+            search_term: trimmedQuery,
+            result_count: liveResults.length,
+            is_live_search: false
+        });
 
-        return () => clearTimeout(delayDebounceFn);
+        console.log('[Header Search]', {
+            submittedQuery: trimmedQuery,
+            generatedUrl: `/shop?q=${encodeURIComponent(trimmedQuery)}`
+        });
+        console.log({ stage: 'Header Search Input', count: trimmedQuery.length, sample: [trimmedQuery] });
+        console.log({ stage: 'Router Navigation', count: 1, sample: [`/shop?q=${encodeURIComponent(trimmedQuery)}`] });
+
+        navigate(`/shop?q=${encodeURIComponent(trimmedQuery)}`);
+        resetSearchState();
+    };
+
+    const handleSearchToggle = () => {
+        if (isSearchOpen) {
+            if (searchQuery.trim()) {
+                handleSearchSubmit();
+            } else {
+                resetSearchState();
+            }
+            return;
+        }
+
+        setIsSearchOpen(true);
+    };
+
+    const handleSuggestionSelect = (product: any) => {
+        analytics.trackEvent('site_search_click', {
+            search_term: searchQuery.trim(),
+            clicked_product_name: product.name,
+            clicked_product_id: product.id
+        }, 'SearchAnalytics');
+
+        navigate(`/product/${product.slug}`);
+        resetSearchState();
+    };
+
+    const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const nextValue = e.target.value;
+        setSearchQuery(nextValue);
+
+        if (!nextValue.trim()) {
+            closeAutocomplete();
+            return;
+        }
+
+        if (nextValue.trim().length < 2) {
+            closeAutocomplete();
+        }
+    };
+
+    const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        const trimmedQuery = searchQuery.trim();
+        const shouldShowSuggestions = isSearchOpen && trimmedQuery.length >= 2;
+
+        if (e.key === 'ArrowDown') {
+            if (!shouldShowSuggestions || liveResults.length === 0) return;
+            e.preventDefault();
+            setActiveSuggestionIndex((prevIndex) => (prevIndex + 1) % liveResults.length);
+            return;
+        }
+
+        if (e.key === 'ArrowUp') {
+            if (!shouldShowSuggestions || liveResults.length === 0) return;
+            e.preventDefault();
+            setActiveSuggestionIndex((prevIndex) => prevIndex <= 0 ? liveResults.length - 1 : prevIndex - 1);
+            return;
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (activeSuggestionIndex >= 0 && liveResults[activeSuggestionIndex]) {
+                handleSuggestionSelect(liveResults[activeSuggestionIndex]);
+                return;
+            }
+            handleSearchSubmit();
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeAutocomplete();
+            setIsSearchOpen(false);
+        }
+    };
+
+    // Live Search Logic (Debounced)
+    useEffect(() => {
+        const trimmedQuery = searchQuery.trim();
+        if (!isSearchOpen || trimmedQuery.length < 2) {
+            closeAutocomplete();
+            return;
+        }
+
+        const cacheKey = trimmedQuery.toLowerCase();
+        const cachedResults = searchCacheRef.current.get(cacheKey);
+        if (cachedResults) {
+            setLiveResults(cachedResults);
+            setIsSearching(false);
+            setActiveSuggestionIndex(-1);
+            return;
+        }
+
+        const delayDebounceFn = window.setTimeout(() => {
+            searchAbortControllerRef.current?.abort();
+            let controller = new AbortController();
+            searchAbortControllerRef.current = controller;
+
+            setIsSearching(true);
+            setActiveSuggestionIndex(-1);
+
+            // Defensive: if signal is already aborted, recreate controller
+            if (controller.signal && controller.signal.aborted) {
+                controller = new AbortController();
+                searchAbortControllerRef.current = controller;
+            }
+
+            axios.get(API_ENDPOINTS.search, {
+                params: {
+                    q: trimmedQuery,
+                    limit: 8,
+                    autocomplete: true
+                },
+                signal: controller.signal
+            })
+                .then((response) => {
+                    const payload = response.data && typeof response.data === 'object' ? response.data : {};
+                    const results = Array.isArray(payload.suggestions) ? payload.suggestions.slice(0, 8) : [];
+                    searchCacheRef.current.set(cacheKey, results);
+                    setLiveResults(results);
+                })
+                .catch((err) => {
+                    if ((axios as any).isCancel?.(err) || (err as any)?.code === 'ERR_CANCELED') return;
+                    console.error('Live search failed', err);
+                    setLiveResults([]);
+                })
+                .finally(() => {
+                    if (searchAbortControllerRef.current === controller) {
+                        searchAbortControllerRef.current = null;
+                        setIsSearching(false);
+                    }
+                });
+        }, 280);
+
+        return () => {
+            window.clearTimeout(delayDebounceFn);
+            searchAbortControllerRef.current?.abort();
+        };
     }, [searchQuery, isSearchOpen]);
 
     // Close search on escape or outside click
     useEffect(() => {
         const handleOutsideClick = (e: MouseEvent) => {
             if (isSearchOpen && searchRef.current && !searchRef.current.contains(e.target as Node)) {
+                closeAutocomplete();
                 setIsSearchOpen(false);
             }
         };
 
-        const handleEscKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setIsSearchOpen(false);
-        };
-
         if (isSearchOpen) {
             document.addEventListener('mousedown', handleOutsideClick);
-            document.addEventListener('keydown', handleEscKey);
         }
 
-        return () => {
-            document.removeEventListener('mousedown', handleOutsideClick);
-            document.removeEventListener('keydown', handleEscKey);
-        };
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
     }, [isSearchOpen]);
 
     const highlightText = (text: string, query: string) => {
-        if (!query.trim()) return text;
-        const parts = text.split(new RegExp(`(${query})`, 'gi'));
+        const trimmedQuery = query.trim();
+        if (!trimmedQuery || !text) return <>{text}</>;
+        const escapedQuery = trimmedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const parts = text.split(new RegExp(`(${escapedQuery})`, 'gi'));
         return (
             <span>
                 {parts.map((part, i) => (
-                    part.toLowerCase() === query.toLowerCase() ? (
-                        <mark key={i} className="bg-brandPink/20 text-brandPink font-bold rounded-sm px-0.5">{part}</mark>
+                    part.toLowerCase() === trimmedQuery.toLowerCase() ? (
+                        <mark key={`${part}-${i}`} className="bg-brandPink/20 text-brandPink font-bold rounded-sm px-0.5">{part}</mark>
                     ) : (
                         part
                     )
@@ -97,21 +265,6 @@ const Header = () => {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
-
-    const handleSearchSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (searchQuery.trim()) {
-            analytics.trackEvent('search', {
-                search_term: searchQuery.trim(),
-                result_count: liveResults.length,
-                is_live_search: false
-            });
-            
-            navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
-            setIsSearchOpen(false);
-            setSearchQuery('');
-        }
-    };
 
     const toggleMobileSubMenu = (label: string) => {
         setExpandedMobileMenu(expandedMobileMenu === label ? null : label);
@@ -223,8 +376,9 @@ const Header = () => {
 
                     <button
                         className={`hover:text-primary transition-colors p-1 ${isSearchOpen ? 'text-primary' : ''}`}
-                        onClick={() => setIsSearchOpen(!isSearchOpen)}
+                        onClick={handleSearchToggle}
                         data-search-toggle="true"
+                        aria-label="Open search"
                     >
                         <Search size={20} className="md:w-[20px] md:h-[20px]" />
                     </button>
@@ -275,85 +429,118 @@ const Header = () => {
                         <input
                             type="text"
                             placeholder="Find handcrafted treasures..."
-                            className="w-full h-14 pl-14 pr-14 bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-[#b5128f]/20 focus:border-[#b5128f] text-base text-[#2D1B4E] shadow-sm transition-all"
+                            className="w-full h-14 pl-14 pr-24 bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-[#b5128f]/20 focus:border-[#b5128f] text-base text-[#2D1B4E] shadow-sm transition-all"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={handleSearchInputChange}
+                            onKeyDown={handleSearchInputKeyDown}
+                            onFocus={() => setIsSearchOpen(true)}
+                            aria-autocomplete="list"
+                            aria-expanded={Boolean(isSearchOpen && searchQuery.trim().length >= 2)}
+                            aria-controls="header-search-suggestions"
+                            aria-label="Search products"
                         />
+                        <button
+                            type="submit"
+                            className="absolute right-12 top-1/2 -translate-y-1/2 rounded-full p-2 text-brandPink hover:bg-brandPink/10 transition-colors"
+                            aria-label="Search products"
+                        >
+                            <Search size={18} />
+                        </button>
                         <button
                             type="button"
                             onClick={() => {
-                                setIsSearchOpen(false);
-                                setSearchQuery('');
-                                setLiveResults([]);
+                                resetSearchState();
                             }}
                             className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"
+                            aria-label="Clear search"
                         >
                             <X size={20} />
                         </button>
                     </form>
 
                     {/* LIVE RESULTS DROPDOWN */}
-                    {searchQuery.trim() && (liveResults.length > 0 || isSearching) && (
-                        <div className="absolute left-0 right-0 top-full mt-2 mx-4 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-300">
+                    {searchQuery.trim().length >= 2 && (
+                        <div id="header-search-suggestions" role="listbox" className="absolute left-0 right-0 top-full mt-2 mx-4 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-300">
                             {isSearching && liveResults.length === 0 ? (
                                 <div className="p-8 text-center text-gray-400 text-sm italic">
                                     Searching our artisans' collection...
                                 </div>
-                            ) : (
+                            ) : liveResults.length > 0 ? (
                                 <div className="max-h-[400px] overflow-y-auto">
                                     <div className="p-4 border-b border-gray-50 bg-gray-50/30">
                                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Quick Matches</span>
                                     </div>
-                                    {liveResults.map((product) => (
-                                        <Link
-                                            key={product.id}
-                                            to={`/product/${product.slug}`}
-                                            onClick={() => {
-                                                analytics.trackEvent('site_search_click', {
-                                                    search_term: searchQuery.trim(),
-                                                    clicked_product_name: product.name,
-                                                    clicked_product_id: product.id
-                                                }, 'SearchAnalytics');
-                                                setIsSearchOpen(false);
-                                                setSearchQuery('');
-                                            }}
-                                            className="flex items-center gap-4 p-4 hover:bg-[#F8F0FF] transition-colors group border-b border-gray-50 last:border-0"
-                                        >
-                                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                                                <img 
-                                                    src={getOptimizedImage(product.image, IMAGE_SIZES.THUMBNAIL)} 
-                                                    alt={product.name}
-                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                                                />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-bold text-[#2D1B4E] truncate group-hover:text-[#b5128f] transition-colors">
-                                                    {highlightText(product.name, searchQuery)}
-                                                </h4>
-                                                <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                                                    {highlightText(product.category, searchQuery)}
-                                                </p>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-sm font-black text-[#2D1B4E]">₹{Number(product.price).toLocaleString('en-IN')}</span>
-                                            </div>
-                                        </Link>
-                                    ))}
+                                    {liveResults.map((product, index) => {
+                                        const isActive = index === activeSuggestionIndex;
+                                        return (
+                                            <Link
+                                                key={product.id}
+                                                to={`/product/${product.slug}`}
+                                                onClick={() => handleSuggestionSelect(product)}
+                                                onMouseEnter={() => setActiveSuggestionIndex(index)}
+                                                className={`flex items-center gap-4 p-4 transition-colors group border-b border-gray-50 last:border-0 ${isActive ? 'bg-[#F8F0FF]' : 'hover:bg-[#F8F0FF]'}`}
+                                                role="option"
+                                                aria-selected={isActive}
+                                            >
+                                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                                    <img 
+                                                        src={getOptimizedImage(product.image, IMAGE_SIZES.THUMBNAIL)} 
+                                                        alt={product.name}
+                                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                                    />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="text-sm font-bold text-[#2D1B4E] truncate group-hover:text-[#b5128f] transition-colors">
+                                                        {highlightText(product.name, searchQuery)}
+                                                    </h4>
+                                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+                                                        {highlightText(product.category || 'Product', searchQuery)}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-sm font-black text-[#2D1B4E]">₹{Number(product.price).toLocaleString('en-IN')}</span>
+                                                </div>
+                                            </Link>
+                                        );
+                                    })}
                                     <button
+                                        type="button"
                                         onClick={handleSearchSubmit}
                                         className="w-full p-4 text-center text-xs font-bold text-[#b5128f] hover:bg-[#b5128f] hover:text-white transition-all bg-gray-50/50"
                                     >
                                         View all results for "{searchQuery}"
                                     </button>
                                 </div>
+                            ) : (
+                                <div className="p-8 text-center z-[100]">
+                                    <p className="text-gray-500 text-sm font-medium">No matching products found.</p>
+                                    <p className="text-xs text-gray-400 mt-1">Try a different keyword or browse our categories.</p>
+                                </div>
                             )}
                         </div>
                     )}
 
-                    {searchQuery.trim() && !isSearching && liveResults.length === 0 && (
-                        <div className="absolute left-0 right-0 top-full mt-2 mx-4 bg-white rounded-2xl shadow-xl border border-gray-100 p-8 text-center z-[100]">
-                            <p className="text-gray-500 text-sm font-medium">No products match your search.</p>
-                            <p className="text-xs text-gray-400 mt-1">Try a different keyword or browse our categories.</p>
+                    {!searchQuery.trim() && popularSearches.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-2 mx-4 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[100]">
+                            <div className="p-4 border-b border-gray-50 bg-gray-50/30">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Popular Searches</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+                                {popularSearches.map((term) => (
+                                    <button
+                                        key={term}
+                                        type="button"
+                                        onClick={() => {
+                                            setSearchQuery(term);
+                                            setActiveSuggestionIndex(-1);
+                                            setIsSearchOpen(true);
+                                        }}
+                                        className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-left text-sm text-gray-700 hover:border-brandPink hover:text-brandPink transition-colors"
+                                    >
+                                        {term}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>

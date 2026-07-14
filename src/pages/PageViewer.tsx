@@ -4,6 +4,7 @@ import pagesData from '@/data/pages.json';
 import MainLayout from '@/layouts/MainLayout';
 import NotFound from '@/pages/NotFound';
 
+const SITE_URL = 'https://www.kottravai.in';
 
 const PageViewer = ({ slugUri }: { slugUri?: string }) => {
     const { slug: paramSlug } = useParams();
@@ -15,11 +16,65 @@ const PageViewer = ({ slugUri }: { slugUri?: string }) => {
         return <NotFound />;
     }
 
+    const pageUrl = typeof window !== 'undefined'
+        ? window.location.href
+        : `${SITE_URL}/${page.slug}`;
+
+    const pageImage = page.featured_image
+        ? page.featured_image.startsWith('http')
+            ? page.featured_image
+            : `${SITE_URL}${page.featured_image}`
+        : undefined;
+
+    const pageSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: page.meta_title || page.title,
+        description: page.meta_description || '',
+        url: pageUrl,
+        ...(pageImage ? { image: pageImage } : {})
+    };
+
+    const breadcrumbSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+            {
+                '@type': 'ListItem',
+                position: 1,
+                name: 'Home',
+                item: SITE_URL
+            },
+            {
+                '@type': 'ListItem',
+                position: 2,
+                name: page.title,
+                item: pageUrl
+            }
+        ]
+    };
+
     return (
         <MainLayout>
             <Helmet>
                 <title>{page.meta_title || page.title}</title>
                 <meta name="description" content={page.meta_description || ''} />
+                <link rel="canonical" href={pageUrl} />
+                <meta property="og:title" content={page.meta_title || page.title} />
+                <meta property="og:description" content={page.meta_description || ''} />
+                <meta property="og:url" content={pageUrl} />
+                <meta property="og:type" content="website" />
+                {pageImage && <meta property="og:image" content={pageImage} />}
+                <meta name="twitter:card" content="summary_large_image" />
+                {pageImage && <meta name="twitter:image" content={pageImage} />}
+                <meta name="twitter:title" content={page.meta_title || page.title} />
+                <meta name="twitter:description" content={page.meta_description || ''} />
+                <script type="application/ld+json">
+                    {JSON.stringify(pageSchema)}
+                </script>
+                <script type="application/ld+json">
+                    {JSON.stringify(breadcrumbSchema)}
+                </script>
             </Helmet>
 
             {page.featured_image && (

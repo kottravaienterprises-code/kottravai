@@ -1,4 +1,8 @@
 User-agent: *
+Disallow: /api/
+Disallow: /admin
+Disallow: /affiliate
+Disallow: /webhooks
 Allow: /
 
 Sitemap: https://www.kottravai.in/sitemap.xml

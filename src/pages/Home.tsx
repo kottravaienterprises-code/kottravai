@@ -2,6 +2,8 @@ import { lazy, Suspense, useState, useEffect, useRef, ReactNode } from 'react';
 import { Helmet } from 'react-helmet-async';
 import MainLayout from '@/layouts/MainLayout';
 
+const SITE_URL = 'https://www.kottravai.in';
+
 // ─── ABOVE FOLD: load eagerly (LCP-critical, first paint) ────────────────────
 import HeroSlider from '@/components/home/HeroSlider';
 import CategoryRow from '@/components/home/CategoryRow';
@@ -71,8 +73,40 @@ const Home = () => {
     return (
         <MainLayout>
             <Helmet>
-                <title>Kottravai | Handmade Crafts, Eco Products &amp; Traditional Food Mixes.</title>
+                <title>Kottravai | Handmade Crafts, Eco Products & Traditional Food Mixes</title>
                 <meta name="description" content="Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, and essential care products. Shop our exclusive collection today." />
+                <link rel="canonical" href={`${SITE_URL}/`} />
+                <meta property="og:title" content="Kottravai | Handmade Crafts, Eco Products & Traditional Food Mixes" />
+                <meta property="og:description" content="Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, and essential care products. Shop our exclusive collection today." />
+                <meta property="og:url" content={`${SITE_URL}/`} />
+                <meta property="og:type" content="website" />
+                <meta property="og:image" content={`${SITE_URL}/hero.webp`} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content="Kottravai | Handmade Crafts, Eco Products & Traditional Food Mixes" />
+                <meta name="twitter:description" content="Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, and essential care products. Shop our exclusive collection today." />
+                <meta name="twitter:image" content={`${SITE_URL}/hero.webp`} />
+                <script type="application/ld+json">
+                    {JSON.stringify({
+                        '@context': 'https://schema.org',
+                        '@type': 'Organization',
+                        name: 'Kottravai',
+                        url: SITE_URL,
+                        logo: `${SITE_URL}/logo.png`
+                    })}
+                </script>
+                <script type="application/ld+json">
+                    {JSON.stringify({
+                        '@context': 'https://schema.org',
+                        '@type': 'WebSite',
+                        url: SITE_URL,
+                        name: 'Kottravai',
+                        potentialAction: {
+                            '@type': 'SearchAction',
+                            target: `${SITE_URL}/shop?q={q}`,
+                            'query-input': 'required name=q'
+                        }
+                    })}
+                </script>
                 <link rel="preload" as="image" href="/hero.webp" fetchPriority="high" />
             </Helmet>
 
