@@ -61,7 +61,7 @@
     },
     {
       "source": "/((?!api|assets|robots.txt|sitemap.xml|sitemap_.*\\.xml|favicon.png|logo.png|.*\\.).*)",
-      "destination": "/index.html"
+      "destination": "/api/index.js"
     }
   ]
 }

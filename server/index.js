@@ -5240,20 +5240,129 @@ app.post('/api/verify-ink', upload.single('image'), async (req, res) => {
     }
 });
 
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
-// Skip this on Vercel as static serving is handled by vercel.json rewrites
-if (!process.env.VERCEL) {
-    app.use((req, res, next) => {
-        if (!req.path.startsWith('/api/')) {
-            // Using a dynamic folder name to prevent Vercel's bundler from crawling 'dist'
-            const buildFolder = 'dist';
-            res.sendFile(path.join(__dirname, `../${buildFolder}/index.html`));
-        } else {
-            res.status(404).json({ error: 'API route not found' });
+// Helper function to check if a file exists in the dist folder
+const distPath = path.join(__dirname, '../dist');
+const fileExists = (filePath) => {
+    try {
+        return fs.existsSync(path.join(distPath, filePath));
+    } catch (e) {
+        return false;
+    }
+};
+
+// List of valid static routes (from src/App.tsx)
+const validStaticRoutes = new Set([
+    '/',
+    '/shop',
+    '/cart',
+    '/checkout',
+    '/order-success',
+    '/account',
+    '/about',
+    '/alliance',
+    '/b2b',
+    '/faqs',
+    '/services',
+    '/contact',
+    '/camps',
+    '/affiliate/dashboard',
+    '/shipping-policy',
+    '/refund-policy',
+    '/terms-of-service',
+    '/privacy-policy',
+    '/blog',
+    '/advertise',
+    '/gift-cards',
+    '/admin/login',
+    '/admin'
+]);
+
+// Helper to check if a route is valid
+const isValidRoute = async (reqPath) => {
+    // 1. Check static routes first
+    if (validStaticRoutes.has(reqPath)) return true;
+
+    // 2. Check dynamic routes with regex and database lookups
+    const productMatch = reqPath.match(/^\/product\/([^/]+)$/);
+    if (productMatch) {
+        const slug = productMatch[1];
+        try {
+            const result = await db.query('SELECT id FROM products WHERE slug = $1 AND is_live = TRUE LIMIT 1', [slug]);
+            return result.rows.length > 0;
+        } catch (e) {
+            console.error('Error checking product slug:', e);
+            return false;
         }
-    });
-}
+    }
+
+    const categoryMatch = reqPath.match(/^\/category\/([^/]+)$/);
+    if (categoryMatch) {
+        // For category/:slug, we'll assume it's valid for now (can add DB check later)
+        return true;
+    }
+
+    const hubMatch = reqPath.match(/^\/hubs\/([^/]+)$/);
+    if (hubMatch) return true;
+
+    const artisanMatch = reqPath.match(/^\/artisans\/([^/]+)$/);
+    if (artisanMatch) return true;
+
+    const blogMatch = reqPath.match(/^\/blog\/([^/]+)$/);
+    if (blogMatch) {
+        const slug = blogMatch[1];
+        try {
+            // Check if blog post exists (using the same method as blogService)
+            const { data } = await supabase.from('blog_posts').select('id').eq('slug', slug).eq('published', true).single();
+            return !!data;
+        } catch (e) {
+            console.error('Error checking blog slug:', e);
+            return false;
+        }
+    }
+
+    const pageMatch = reqPath.match(/^\/([^/]+)$/);
+    if (pageMatch) {
+        const slug = pageMatch[1];
+        // Check src/data/pages.json
+        try {
+            const pagesData = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/data/pages.json'), 'utf-8'));
+            return pagesData.some(page => page.slug === slug);
+        } catch (e) {
+            console.error('Error checking page slug:', e);
+            return false;
+        }
+    }
+
+    // If none of the above, invalid route
+    return false;
+};
+
+// The "catchall" handler: for any request that doesn't match one above
+app.use(async (req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API route not found' });
+    }
+
+    // Check if it's a static file (has extension)
+    const hasExtension = req.path.includes('.');
+    if (hasExtension) {
+        // Let express.static handle it if the file exists
+        const filePath = req.path.startsWith('/') ? req.path.slice(1) : req.path;
+        if (fileExists(filePath)) {
+            return next();
+        } else {
+            return res.status(404).sendFile(path.join(distPath, 'index.html'));
+        }
+    }
+
+    // Check if it's a valid React route
+    const isValid = await isValidRoute(req.path);
+    const statusCode = isValid ? 200 : 404;
+
+    // Using a dynamic folder name to prevent Vercel's bundler from crawling 'dist'
+    const buildFolder = 'dist';
+    res.status(statusCode).sendFile(path.join(__dirname, `../${buildFolder}/index.html`));
+});
 
 /**
  * --- GLOBAL ERROR HANDLER ---

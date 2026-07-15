@@ -56,7 +56,7 @@ router.get('/sitemap-products.xml', async (req, res) => {
     res.header('Content-Type', 'application/xml');
     
     try {
-        const result = await db.query('SELECT slug, name, updated_at FROM products WHERE is_active = true');
+        const result = await db.query('SELECT slug, name, updated_at FROM products WHERE is_live = true');
         
         let urlset = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
@@ -136,7 +136,7 @@ router.get('/sitemap-categories.xml', async (req, res) => {
     res.header('Content-Type', 'application/xml');
     
     try {
-        const result = await db.query('SELECT DISTINCT category FROM products WHERE is_active = true');
+        const result = await db.query('SELECT DISTINCT category FROM products WHERE is_live = true');
         
         const now = new Date().toISOString();
         let urlset = `<?xml version="1.0" encoding="UTF-8"?>
@@ -191,7 +191,7 @@ router.get('/sitemap-blog.xml', async (req, res) => {
 
         let entriesAdded = 0;
         try {
-            const blogsResult = await db.query('SELECT slug, updated_at FROM blogs WHERE status = $1', ['Published']);
+            const blogsResult = await db.query('SELECT slug, updated_at FROM blog_posts WHERE published = true');
             blogsResult.rows.forEach(blog => {
                 const loc = `${HOSTNAME}/blog/${blog.slug}`;
                 const lastMod = formatDate(blog.updated_at || now);
@@ -203,7 +203,7 @@ router.get('/sitemap-blog.xml', async (req, res) => {
                 entriesAdded += 1;
             });
         } catch (e) {
-            // Blogs table might not exist or query failed; fall back to static post data.
+            // blog_posts table might not exist or query failed; fall back to static post data.
         }
 
         if (entriesAdded === 0 && Array.isArray(blogPostsData)) {
