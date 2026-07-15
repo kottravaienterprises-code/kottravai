@@ -1400,6 +1400,7 @@ async function fetchRawEventRows(s) {
   }
 
   console.log('[CACHE_MISS] Fetching raw events from Google Sheets');
+  const fetchStart = Date.now();
   
   let fetchRange = DEFAULT_RANGE;
   let isIncremental = false;
@@ -1443,6 +1444,8 @@ async function fetchRawEventRows(s) {
   }
 
   const values = response.data.values || [];
+  const fetchDuration = Date.now() - fetchStart;
+  console.log(`[GOOGLE_SHEETS] Fetched values length=${values.length} in ${fetchDuration}ms (range=${fetchRange})`);
   
   if (values.length === 0) {
     if (isIncremental) {
@@ -1476,6 +1479,9 @@ async function fetchRawEventRows(s) {
     return result;
   });
 
+  const parseDuration = Date.now() - fetchStart - fetchDuration;
+  console.log(`[GOOGLE_SHEETS] Parsed ${parsedNewRows.length} rows in ${parseDuration}ms`);
+
   if (isIncremental) {
     cachedRawEvents = cachedRawEvents.concat(parsedNewRows);
     console.log(`[INCREMENTAL_SYNC_COMPLETE] Added ${parsedNewRows.length} new rows. Total: ${cachedRawEvents.length}`);
@@ -1487,6 +1493,72 @@ async function fetchRawEventRows(s) {
   lastCacheSyncTime = Date.now();
   return cachedRawEvents;
 }
+
+// Fetch only rows that match a target date (YYYY-MM-DD) in the Timestamp column.
+// This reduces transfer when the raw sheet contains many historical rows.
+async function fetchRawEventRowsForDate(s, targetDateStr) {
+  const start = Date.now();
+  console.log(`[DATE_FILTER_FETCH] Fetching rows for date ${targetDateStr}`);
+
+  // 1. Read only the Timestamp column (A) to identify matching row indices.
+  const tsRes = await s.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${RAW_EVENTS_SHEET_TITLE}!A2:A`,
+    valueRenderOption: 'UNFORMATTED_VALUE'
+  });
+  const timestamps = (tsRes.data.values || []).map(r => (r && r[0]) ? String(r[0]).trim() : '');
+
+  let firstIdx = -1, lastIdx = -1;
+  for (let i = 0; i < timestamps.length; i++) {
+    const ts = timestamps[i];
+    if (!ts) continue;
+    // Accept values that start with date string (ISO or YYYY-MM-DD) or contain date at start
+    if (ts.startsWith(targetDateStr)) {
+      if (firstIdx === -1) firstIdx = i;
+      lastIdx = i;
+    } else {
+      // Also handle ISO datetime like 2024-07-01T...
+      if (ts.indexOf('T') > 0 && ts.substring(0, 10) === targetDateStr) {
+        if (firstIdx === -1) firstIdx = i;
+        lastIdx = i;
+      }
+    }
+  }
+
+  if (firstIdx === -1) {
+    console.log(`[DATE_FILTER_FETCH] No rows found for ${targetDateStr}`);
+    return [];
+  }
+
+  const startRow = firstIdx + 2; // account for header row and 0-based index
+  const endRow = lastIdx + 2;
+  const range = `${RAW_EVENTS_SHEET_TITLE}!A${startRow}:AG${endRow}`;
+  console.log(`[DATE_FILTER_FETCH] Fetching range ${range} (rows ${startRow}-${endRow})`);
+
+  const res = await s.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range });
+  const values = res.data.values || [];
+
+  // Build objects using cached headers if available; otherwise fetch headers first
+  let headers = cachedHeaders;
+  if (!headers || headers.length === 0) {
+    const headerRes = await s.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${RAW_EVENTS_SHEET_TITLE}!A1:AG1` });
+    headers = (headerRes.data.values && headerRes.data.values[0]) ? headerRes.data.values[0].map(h => String(h).trim().toLowerCase().replace(/\s+/g, '_')) : [];
+    cachedHeaders = headers;
+  }
+
+  const parsed = values.map(row => {
+    const obj = {};
+    headers.forEach((h, idx) => {
+      obj[h] = row[idx] !== undefined ? row[idx] : '';
+    });
+    return obj;
+  });
+
+  console.log(`[DATE_FILTER_FETCH] Retrieved ${parsed.length} rows for ${targetDateStr} in ${Date.now() - start}ms`);
+  return parsed;
+}
+
+exports.fetchRawEventRowsForDate = fetchRawEventRowsForDate;
 
 function formatCurrency(value) {
   const num = getSafeNumber(value);
@@ -3275,6 +3347,57 @@ exports.getAggregations = async () => {
   const mappedRows = await fetchRawEventRows(s);
   return buildAggregations(mappedRows);
 }
+
+// Lightweight aggregation reader: fetches precomputed summary sheets (smaller) instead of scanning Raw Events.
+exports.getAggregationsLight = async (s) => {
+  try {
+    if (!s) s = await sheets();
+    const start = Date.now();
+
+    const readSheet = async (sheetName) => {
+      try {
+        const res = await s.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${sheetName}!A1:Z200` });
+        const vals = res.data.values || [];
+        if (vals.length < 2) return { headers: [], rows: [] };
+        const headers = vals[2] || vals[0] || [];
+        const data = vals.slice(3).map(r => r.map(c => (c === undefined ? '' : c)));
+        return { headers, rows: data };
+      } catch (e) {
+        return { headers: [], rows: [] };
+      }
+    };
+
+    const daily = await readSheet(DAILY_REPORT_SHEET);
+    const product = await readSheet(PRODUCT_ANALYTICS_SHEET);
+    const utm = await readSheet(TRAFFIC_SOURCE_INTELLIGENCE_SHEET);
+    const cart = await readSheet(CART_INTELLIGENCE_SHEET);
+    const pr = await readSheet(PRODUCT_RECOMMENDATION_SHEET);
+
+    const toObjects = (hdrs, rows) => {
+      if (!hdrs || hdrs.length === 0) return [];
+      const keys = hdrs.map(h => String(h).trim().toLowerCase().replace(/\s+/g,'_'));
+      return rows.map(r => {
+        const obj = {};
+        keys.forEach((k, i) => { obj[k] = r[i] !== undefined ? r[i] : ''; });
+        return obj;
+      });
+    };
+
+    const aggregation = {
+      dailyRows: toObjects(daily.headers, daily.rows),
+      productRows: toObjects(product.headers, product.rows),
+      utmRows: toObjects(utm.headers, utm.rows),
+      cartInstances: toObjects(cart.headers, cart.rows),
+      productRecommendationMetrics: toObjects(pr.headers, pr.rows)
+    };
+
+    console.log(`[AGG_LIGHT] getAggregationsLight completed in ${Date.now() - start}ms`);
+    return aggregation;
+  } catch (err) {
+    console.error('[AGG_LIGHT_ERROR]', err.message || err);
+    return { dailyRows: [], productRows: [], utmRows: [], cartInstances: [], productRecommendationMetrics: [] };
+  }
+};
 
 const DASHBOARD_BUILD_INTERVAL = 5 * 60 * 1000;
 let isBuildingDashboard = false;

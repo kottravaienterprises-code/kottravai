@@ -15,7 +15,9 @@ const initDailyAnalyticsJob = () => {
   cron.schedule('0 10 * * *', async () => {
     console.log('[DAILY_REPORT_START] Triggering scheduled daily analytics email...');
     try {
+      const jobStart = Date.now();
       const result = await sendDailyAnalyticsEmail();
+      console.log(`[DAILY_REPORT] Job completed in ${Date.now() - jobStart}ms`);
       if (result.success) {
         console.log('[DAILY_REPORT_SUCCESS] Email sent successfully for date:', result.date);
       } else {

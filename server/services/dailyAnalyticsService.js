@@ -1,4 +1,4 @@
-const { sheets, fetchRawEventRows } = require('./googleSheetsService');
+const { sheets, fetchRawEventRows, fetchRawEventRowsForDate } = require('./googleSheetsService');
 const db = require('../db');
 const googleSheetsService = require('./googleSheetsService');
 
@@ -12,9 +12,8 @@ const formatCur = (val) => `₹${getSafeNumber(val).toFixed(2)}`;
 const formatPct = (val) => `${getSafeNumber(val).toFixed(1)}%`;
 
 const generateDailyAnalyticsSummary = async (reportDate = null) => {
-  console.log('[DAILY_ANALYTICS] Fetching Raw Events');
-  const s = await sheets();
-  const rows = await fetchRawEventRows(s);
+  const overallStart = Date.now();
+  console.log('[DAILY_ANALYTICS] Starting daily analytics summary');
 
   const now = new Date();
   const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -28,11 +27,27 @@ const generateDailyAnalyticsSummary = async (reportDate = null) => {
     yesterday.setDate(yesterday.getDate() - 1);
     targetDateStr = yesterday.getFullYear() + '-' + String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getDate()).padStart(2, '0');
   }
-  
+
   console.log(`[DAILY_ANALYTICS] Processing events for date: ${targetDateStr}`);
 
-  // Fetch global aggregations for history (MTD, 7D, AI Alerts)
-  const agg = await googleSheetsService.getAggregations();
+  const s = await sheets();
+  console.log('[DAILY_ANALYTICS] Sheets API initialized');
+
+  // Fetch only yesterday's raw event rows to reduce transfer and processing time
+  const fetchStart = Date.now();
+  const rows = await fetchRawEventRowsForDate(s, targetDateStr).catch(async (err) => {
+    console.error('[DAILY_ANALYTICS] Date-filtered fetch failed, falling back to full fetch:', err.message || err);
+    return await fetchRawEventRows(s);
+  });
+  console.log(`[DAILY_ANALYTICS] Fetched ${rows.length} rows for ${targetDateStr} in ${Date.now() - fetchStart}ms`);
+
+  // Fetch global aggregations for history (MTD, 7D, AI Alerts) using lightweight reader
+  const aggStart = Date.now();
+  const agg = await googleSheetsService.getAggregationsLight(s).catch(async (e) => {
+    console.warn('[DAILY_ANALYTICS] getAggregationsLight failed, falling back to full getAggregations:', e.message || e);
+    return await googleSheetsService.getAggregations();
+  });
+  console.log(`[DAILY_ANALYTICS] Aggregations fetched in ${Date.now() - aggStart}ms`);
   const waRows = await googleSheetsService.fetchWhatsAppPerformance(s);
 
   // Core Variables
@@ -56,6 +71,7 @@ const generateDailyAnalyticsSummary = async (reportDate = null) => {
   
   try {
     // We fetch all orders that happened on the target date in IST
+    const dbStart = Date.now();
     const dbQuery = `
       SELECT id, total, customer_email 
       FROM orders 
@@ -63,6 +79,7 @@ const generateDailyAnalyticsSummary = async (reportDate = null) => {
         AND status != 'Cancelled' AND status != 'Refunded'
     `;
     const res = await db.query(dbQuery, [targetDateStr]);
+    console.log(`[DAILY_ANALYTICS] DB orders query completed in ${Date.now() - dbStart}ms`);
     adminOrdersCount = res.rows.length;
     adminRevenue = res.rows.reduce((sum, row) => sum + Number(row.total || 0), 0);
     res.rows.forEach(r => {
@@ -89,6 +106,7 @@ const generateDailyAnalyticsSummary = async (reportDate = null) => {
   const visitorFirstPurchase = new Map();
 
   // Pass 1: Global Visitor History
+  const pass1Start = Date.now();
   rows.forEach(row => {
     const tsStr = row['timestamp'] || '';
     if (tsStr.length >= 10) {
@@ -106,8 +124,10 @@ const generateDailyAnalyticsSummary = async (reportDate = null) => {
       }
     }
   });
+  console.log(`[DAILY_ANALYTICS] Pass 1 (visitor history) completed in ${Date.now() - pass1Start}ms`);
 
   // Pass 2: Yesterday's Metrics
+  const pass2Start = Date.now();
   rows.forEach(row => {
     const timestampStr = row['timestamp'] || '';
     if (!timestampStr.startsWith(targetDateStr)) return;
@@ -222,6 +242,7 @@ const generateDailyAnalyticsSummary = async (reportDate = null) => {
        journeyAttr.set(journeyKey, journeyAttr.get(journeyKey) + revAmt);
     }
   });
+  console.log(`[DAILY_ANALYTICS] Pass 2 (yesterday metrics) completed in ${Date.now() - pass2Start}ms`);
 
   // Calculate Insights
   

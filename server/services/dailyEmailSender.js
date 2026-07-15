@@ -19,10 +19,14 @@ const sendDailyAnalyticsEmail = async () => {
     }
 
     // 1. Generate Summary
+    const genStart = Date.now();
     const summary = await generateDailyAnalyticsSummary();
+    console.log(`[DAILY_ANALYTICS] Summary generation completed in ${Date.now() - genStart}ms`);
 
     // 2. Build HTML
+    const htmlStart = Date.now();
     const htmlContent = buildDailyAnalyticsEmail(summary);
+    console.log(`[DAILY_ANALYTICS] HTML generation completed in ${Date.now() - htmlStart}ms`);
 
     // 3. Format Date for Subject (DD MMM YYYY)
     const displayDate = new Date(summary.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -39,12 +43,14 @@ const sendDailyAnalyticsEmail = async () => {
     while (!emailSent && attempts < 2) {
       try {
         attempts++;
+        const sendStart = Date.now();
         await sendEmail({
           to: toAddress,
           subject: subject,
           html: htmlContent,
           type: 'contact' // Use default contact reply-to alias
         });
+        console.log(`[DAILY_ANALYTICS] Email send attempt ${attempts} completed in ${Date.now() - sendStart}ms`);
         emailSent = true;
         console.log('[DAILY_ANALYTICS] Email Sent Successfully');
       } catch (err) {

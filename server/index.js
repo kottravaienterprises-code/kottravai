@@ -1170,15 +1170,19 @@ try {
       }
     });
 
-    app.all('/api/analytics/send-daily-report', async (req, res) => {
-      try {
-        if (!sendDailyAnalyticsEmail) return res.status(503).json({ error: 'Service Unavailable' });
-        const result = await sendDailyAnalyticsEmail();
-        res.json(result);
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
+        app.all('/api/analytics/send-daily-report', async (req, res) => {
+            const start = Date.now();
+            try {
+                if (!sendDailyAnalyticsEmail) return res.status(503).json({ error: 'Service Unavailable' });
+                console.log('[CRON_ENDPOINT] /api/analytics/send-daily-report invoked');
+                const result = await sendDailyAnalyticsEmail();
+                console.log(`[CRON_ENDPOINT] Completed in ${Date.now() - start}ms`);
+                res.json(result);
+            } catch (err) {
+                console.error('[CRON_ENDPOINT] Error during send-daily-report:', err.message);
+                res.status(500).json({ error: err.message });
+            }
+        });
 
     app.post('/api/analytics/test-daily-email', async (req, res) => {
       try {
@@ -2282,16 +2286,6 @@ app.get('/api/public/recent-sales', async (req, res) => {
             { name: 'Divya Bharathi', city: 'Trichy' },
             { name: 'Manikandan P.', city: 'Tuticorin' },
             { name: 'Lakshmi Narayanan', city: 'Theni' }
-        ];
-
-        const internationalSales = [
-            { name: 'John Stevenson', city: 'New York, USA' },
-            { name: 'Sarah Mitchell', city: 'London, UK' },
-            { name: 'Ahmed Al-Farsi', city: 'Dubai, UAE' },
-            { name: 'Priya Kapoor', city: 'Singapore' },
-            { name: 'David Lawson', city: 'Sydney, Australia' },
-            { name: 'Emma Wagner', city: 'Berlin, Germany' },
-            { name: 'Michael Chen', city: 'Toronto, Canada' }
         ];
 
         const productsResult = await db.query("SELECT name, images, category FROM products WHERE is_live = TRUE AND category != 'Essential Care' LIMIT 20");
