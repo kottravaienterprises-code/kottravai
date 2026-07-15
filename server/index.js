@@ -5531,7 +5531,7 @@ const injectMetadata = async (filePath, reqPath, statusCode, res) => {
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}" />
   <meta name="twitter:description" content="${desc.replace(/"/g, '&quot;')}" />
-  <meta name="twitter:image" content="${ogImage}" />${extraTags}`;
+  <meta name="twitter:image" content="${ogImage}" />${statusCode === 404 ? '\n  <meta name="robots" content="noindex, nofollow" />' : ''}${extraTags}`;
 
         html = html.replace('</head>', `${headAdditions}\n</head>`);
 
