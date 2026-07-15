@@ -40,6 +40,26 @@
       "destination": "/api/sitemap.xml"
     },
     {
+      "source": "/sitemap-index.xml",
+      "destination": "/api/sitemap-index.xml"
+    },
+    {
+      "source": "/sitemap-products.xml",
+      "destination": "/api/sitemap-products.xml"
+    },
+    {
+      "source": "/sitemap-pages.xml",
+      "destination": "/api/sitemap-pages.xml"
+    },
+    {
+      "source": "/sitemap-categories.xml",
+      "destination": "/api/sitemap-categories.xml"
+    },
+    {
+      "source": "/sitemap-blog.xml",
+      "destination": "/api/sitemap-blog.xml"
+    },
+    {
       "source": "/sitemap_products_1.xml",
       "destination": "/api/sitemap_products_1.xml"
     },
