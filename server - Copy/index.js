@@ -2014,16 +2014,6 @@ app.get('/api/public/recent-sales', async (req, res) => {
             { name: 'Lakshmi Narayanan', city: 'Theni' }
         ];
 
-        const internationalSales = [
-            { name: 'John Stevenson', city: 'New York, USA' },
-            { name: 'Sarah Mitchell', city: 'London, UK' },
-            { name: 'Ahmed Al-Farsi', city: 'Dubai, UAE' },
-            { name: 'Priya Kapoor', city: 'Singapore' },
-            { name: 'David Lawson', city: 'Sydney, Australia' },
-            { name: 'Emma Wagner', city: 'Berlin, Germany' },
-            { name: 'Michael Chen', city: 'Toronto, Canada' }
-        ];
-
         const productsResult = await db.query("SELECT name, images, category FROM products WHERE is_live = TRUE AND category != 'Essential Care' LIMIT 20");
         const availableProducts = productsResult.rows;
 

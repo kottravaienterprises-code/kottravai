@@ -27,7 +27,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     return (
         <div className="flex flex-col min-h-screen">
             <Header />
-            <main className={`flex-grow ${isHome || isB2B || isHub || isContact || isShippingPolicy || isRefundPolicy || isTerms || isPrivacy ? 'pt-0' : 'pt-4 md:pt-6'}`}>
+            <main className={`flex-grow pb-24 ${isHome || isB2B || isHub || isContact || isShippingPolicy || isRefundPolicy || isTerms || isPrivacy ? 'pt-0' : 'pt-4 md:pt-6'}`}>
                 {children}
             </main>
             <Footer />
