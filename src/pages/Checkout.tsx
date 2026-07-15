@@ -698,7 +698,7 @@ const Checkout = () => {
                                         className="mt-1 w-5 h-5 rounded border-gray-300 text-[#8E2A8B] focus:ring-[#8E2A8B]"
                                     />
                                     <label htmlFor="terms" className="text-sm text-gray-600">
-                                        I have read and agree to the <Link to="/terms" className="text-[#8E2A8B] hover:underline">Terms and Conditions</Link>.
+                                        I have read and agree to the <Link to="/terms-of-service" className="text-[#8E2A8B] hover:underline">Terms and Conditions</Link>.
                                     </label>
                                 </div>
                             </div>

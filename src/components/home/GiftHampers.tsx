@@ -21,7 +21,7 @@ const GiftHampers = () => {
                     <p className="text-[11px] md:text-sm font-black text-[#8E2A8B] uppercase tracking-[0.4em] mb-2">Special Collections</p>
                     <h2 className="text-4xl md:text-6xl font-black text-[#1A1A1A] tracking-tight font-outfit">Curated Gift Hampers</h2>
                     <div className="flex justify-center mt-4">
-                        <Link to="/category/signature-kits" className="group flex items-center gap-2 text-[#8E2A8B] font-bold uppercase tracking-[0.2em] text-[10px] hover:gap-4 transition-all pb-1 border-b-2 border-[#8E2A8B]/20 hover:border-[#8E2A8B]">
+                        <Link to="/category/hampers" className="group flex items-center gap-2 text-[#8E2A8B] font-bold uppercase tracking-[0.2em] text-[10px] hover:gap-4 transition-all pb-1 border-b-2 border-[#8E2A8B]/20 hover:border-[#8E2A8B]">
                             View All Collections <ArrowRight size={14} />
                         </Link>
                     </div>
