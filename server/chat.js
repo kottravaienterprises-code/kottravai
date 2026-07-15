@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const db = require('./db');
 const supabase = require('./supabase');
 const crypto = require('crypto');
 const { trackRagInteraction } = require('./thozhi_monitoring');
@@ -9,6 +10,36 @@ const productService = require('./services/productService');
 const chatAnalytics = require('./services/chatAnalytics');
 const aiMonitoring = require('./utils/aiMonitoring');
 const userPreferenceService = require('./services/userPreferenceService');
+
+// --- Ensure chat_escalations table exists ---
+(async () => {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS chat_escalations (
+                id SERIAL PRIMARY KEY,
+                session_id VARCHAR(255) NOT NULL,
+                customer_name VARCHAR(255),
+                customer_email VARCHAR(255),
+                customer_phone VARCHAR(100),
+                contact_raw VARCHAR(500),
+                reason TEXT,
+                history JSONB,
+                status VARCHAR(50) DEFAULT 'open',
+                agent_notes TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                resolved_at TIMESTAMP WITH TIME ZONE
+            )
+        `);
+        // Add columns if upgrading from older schema
+        await db.query(`ALTER TABLE chat_escalations ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(100)`).catch(() => {});
+        await db.query(`ALTER TABLE chat_escalations ADD COLUMN IF NOT EXISTS contact_raw VARCHAR(500)`).catch(() => {});
+        console.log('✅ [ESCALATION] chat_escalations table ready');
+    } catch (err) {
+        console.error('❌ [ESCALATION] Failed to create chat_escalations table:', err.message);
+    }
+})();
+
+
 
 // --- Phase 10 Trace & Diagnostics ---
 const MAX_CONCURRENT = 20;
@@ -153,6 +184,484 @@ router.post('/', async (req, res) => {
     console.log("✅ [RCA] QUERY_NORMALIZED:", normalized);
     const cacheKey = getCacheKey(normalized);
 
+    const sessionState = conversationalState.get(sessionId) || null;
+
+    // --- Order Tracking Intent Detection & Handling ---
+    const trackingKeywords = ["track", "order status", "where is my order", "order #", "order id", "shipment"];
+    const isTrackingIntent = trackingKeywords.some(keyword => normalized.includes(keyword));
+    const isWaitingForTracking = sessionState?.waiting_for_tracking_info;
+    
+    if (isTrackingIntent || isWaitingForTracking) {
+        console.log("📦 [TRACKING] ORDER_TRACKING_REQUEST_DETECTED");
+        
+        let orderId = null;
+        let email = null;
+        let phone = null;
+
+        // Extract Order ID (Razorpay format 'order_xxxx', UUID, or general digits)
+        const razorpayMatch = message.match(/order_[a-zA-Z0-9]+/i);
+        const uuidMatch = message.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+        const genericMatch = message.match(/(?:kt-)?\b\d{4,15}\b/i);
+
+        if (razorpayMatch) {
+            orderId = razorpayMatch[0];
+        } else if (uuidMatch) {
+            orderId = uuidMatch[0];
+        } else if (genericMatch) {
+            orderId = genericMatch[0];
+        }
+
+        // Extract Email
+        const emailMatch = message.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        if (emailMatch) {
+            email = emailMatch[0];
+        }
+
+        // Extract Phone (last 10 digits of any 10-12 digit sequence)
+        const phoneMatch = message.match(/\b\d{10,12}\b/);
+        if (phoneMatch) {
+            phone = phoneMatch[0].slice(-10);
+        }
+
+        // Merge with session state
+        const activeOrderId = orderId || sessionState?.trackingOrderId || null;
+        const activeEmail = email || sessionState?.trackingEmail || null;
+        const activePhone = phone || sessionState?.trackingPhone || null;
+
+        if (activeOrderId && (activeEmail || activePhone)) {
+            try {
+                console.log(`🔍 [TRACKING] DB Lookup for Order: ${activeOrderId} | Verification: ${activeEmail || activePhone}`);
+                
+                let queryStr = `SELECT * FROM orders WHERE (order_id = $1 OR id::text = $1)`;
+                let params = [activeOrderId];
+
+                if (activeEmail && activePhone) {
+                    queryStr += " AND (customer_email ILIKE $2 OR customer_phone LIKE '%' || $3)";
+                    params.push(activeEmail, activePhone);
+                } else if (activeEmail) {
+                    queryStr += " AND customer_email ILIKE $2";
+                    params.push(activeEmail);
+                } else {
+                    queryStr += " AND customer_phone LIKE '%' || $2";
+                    params.push(activePhone);
+                }
+
+                const orderRes = await db.query(queryStr, params);
+
+                if (orderRes.rows.length > 0) {
+                    const order = orderRes.rows[0];
+                    let reply = `📦 **Order Status for #${order.order_id || order.id}**\n\n`;
+                    reply += `*   **Status:** ${order.status}\n`;
+                    reply += `*   **Order Date:** ${new Date(order.created_at).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}\n`;
+                    reply += `*   **Customer:** ${order.customer_name}\n`;
+                    reply += `*   **Shipping Address:** ${order.address}, ${order.city} - ${order.pincode}\n`;
+                    reply += `*   **Total Amount:** ₹${parseFloat(order.total).toLocaleString('en-IN')}\n\n`;
+
+                    if (Array.isArray(order.items)) {
+                        reply += `**Items Ordered:**\n`;
+                        order.items.forEach(item => {
+                            reply += `*   ${item.name} (x${item.quantity}) - ₹${item.price * item.quantity}\n`;
+                        });
+                        reply += `\n`;
+                    }
+
+                    // Shiprocket Tracking Integration
+                    if (order.shipment_id) {
+                        try {
+                            console.log(`📡 [TRACKING] Calling Shiprocket for shipment ID: ${order.shipment_id}`);
+                            const shiprocketService = require('./services/shiprocketService');
+                            const trackingData = await shiprocketService.trackShipment(order.shipment_id);
+                            const shipmentTrack = trackingData[order.shipment_id];
+                            
+                            if (shipmentTrack && shipmentTrack.tracking_data) {
+                                const trackInfo = shipmentTrack.tracking_data;
+                                const shipmentStatus = trackInfo.track_status || trackInfo.status;
+                                const etd = trackInfo.etd || trackInfo.edd;
+
+                                reply += `🚚 **Live Shipment Tracking (via Shiprocket):**\n`;
+                                reply += `*   **Courier Status:** ${shipmentStatus || 'In Transit'}\n`;
+                                if (trackInfo.courier_name) reply += `*   **Carrier:** ${trackInfo.courier_name}\n`;
+                                if (trackInfo.awb_code) reply += `*   **AWB Code:** ${trackInfo.awb_code}\n`;
+                                if (etd) reply += `*   **Estimated Delivery:** ${new Date(etd).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}\n`;
+                                if (trackInfo.scans && trackInfo.scans.length > 0) {
+                                    const latestScan = trackInfo.scans[0];
+                                    reply += `*   **Latest Scan:** ${latestScan.activity} at ${latestScan.location} (${new Date(latestScan.date).toLocaleDateString()})\n`;
+                                }
+                            } else {
+                                reply += `🚚 **Courier Info:** Shipment is registered with courier (ID: ${order.shipment_id}). Live status updates will appear shortly.`;
+                            }
+                        } catch (shipErr) {
+                            console.error("❌ [TRACKING] Shiprocket fetch failed:", shipErr.message);
+                            reply += `🚚 **Courier Info:** Shipment ID: ${order.shipment_id} (Live updates currently unavailable. Please check back later).`;
+                        }
+                    } else {
+                        reply += `ℹ️ **Shipping Info:** Your order is currently being processed in our warehouse and has not been dispatched yet. We will notify you with the tracking details as soon as it is shipped!`;
+                    }
+
+                    // Clean tracking state on successful lookup
+                    conversationalState.delete(sessionId);
+
+                    activeRequests--;
+                    return res.json({ reply, confidence: "HIGH" });
+                } else {
+                    console.log(`❌ [TRACKING] Order not found:`, { activeOrderId, activeEmail, activePhone });
+                    activeRequests--;
+                    return res.json({
+                        reply: "I couldn't find an order matching those details. Please double-check your **Order ID** and the **Email** or **Phone number** associated with it and try again.",
+                        confidence: "HIGH"
+                    });
+                }
+            } catch (dbErr) {
+                console.error("❌ [TRACKING] Database lookup failed:", dbErr.message);
+                activeRequests--;
+                return res.status(500).json({ reply: "I encountered an error while searching for your order. Please try again in a few moments." });
+            }
+        } else {
+            // Store intermediate state to handle multi-turn input gathering
+            conversationalState.set(sessionId, {
+                waiting_for_tracking_info: true,
+                trackingOrderId: activeOrderId,
+                trackingEmail: activeEmail,
+                trackingPhone: activePhone,
+                lastTimestamp: Date.now()
+            });
+
+            let promptMessage = "";
+            if (!activeOrderId) {
+                promptMessage = "I'd be happy to check your order status! Please enter your **Order ID** (for example, `order_OpX12345` or your receipt number).";
+            } else {
+                promptMessage = `To verify order **${activeOrderId}**, please enter the **Email** or **Phone number** associated with the purchase.`;
+            }
+
+            activeRequests--;
+            return res.json({
+                reply: promptMessage,
+                confidence: "HIGH"
+            });
+        }
+    }
+
+    // --- Add to Cart Intent Detection & Handling ---
+    const cartKeywords = ["add to cart", "add to basket", "put in cart", "buy this", "add this to cart", "add it to cart", "add to my cart", "add to cart."];
+    const isCartIntent = cartKeywords.some(keyword => normalized.includes(keyword)) || (normalized.startsWith("add ") && normalized.includes("cart"));
+    
+    if (isCartIntent) {
+        console.log("🛒 [CART] ADD_TO_CART_REQUEST_DETECTED");
+        
+        let targetProduct = null;
+        let quantity = 1;
+
+        // Try to extract quantity (e.g. "add 2 handcrafted cups" or "add 5 idli podi")
+        const qtyMatch = message.match(/\b(\d+)\b/);
+        if (qtyMatch) {
+            const val = parseInt(qtyMatch[1], 10);
+            if (val > 0 && val <= 100) {
+                quantity = val;
+            }
+        }
+
+        // Try to find target product:
+        // Case A: Contextual reference (user says "this", "it", "that", "them" or similar)
+        const isContextual = normalized.includes("this") || normalized.includes(" it ") || normalized.endsWith(" it") || normalized.includes("that") || normalized.includes("them");
+        
+        if (isContextual && sessionState?.lastProducts && sessionState.lastProducts.length > 0) {
+            const firstId = sessionState.lastProducts[0];
+            const allActive = await productService.getAllActiveProducts();
+            targetProduct = allActive.find(p => p.id === firstId);
+        }
+
+        // Case B: Search reference (strip keywords and match against the product catalog)
+        if (!targetProduct) {
+            let cleanQuery = message.toLowerCase()
+                .replace(/add to cart/g, "")
+                .replace(/add to basket/g, "")
+                .replace(/put in cart/g, "")
+                .replace(/buy this/g, "")
+                .replace(/add/g, "")
+                .replace(/to cart/g, "")
+                .replace(/to my cart/g, "")
+                .replace(/in my cart/g, "")
+                .replace(/\b\d+\b/g, "") // remove quantity numbers
+                .replace(/[^\w\s]/g, " ")
+                .trim();
+
+            if (cleanQuery.length > 2) {
+                console.log(`🛒 [CART] Searching for product matching: "${cleanQuery}"`);
+                const allActive = await productService.getAllActiveProducts();
+                
+                const tokens = cleanQuery.split(" ").filter(t => t.length > 2 && !STOP_WORDS.includes(t));
+                const scored = allActive.map(p => {
+                    const searchable = `${p.name} ${p.category}`.toLowerCase();
+                    let score = 0;
+                    tokens.forEach(t => {
+                        if (searchable.includes(t)) score += 1;
+                    });
+                    if (p.name.toLowerCase().includes(cleanQuery)) score += 5;
+                    return { ...p, score };
+                }).filter(p => p.score > 0);
+
+                if (scored.length > 0) {
+                    scored.sort((a, b) => b.score - a.score);
+                    targetProduct = scored[0];
+                }
+            }
+        }
+
+        if (targetProduct) {
+            console.log(`🛒 [CART] Successfully matched product: "${targetProduct.name}" (ID: ${targetProduct.id})`);
+            activeRequests--;
+
+            const replyText = `I've added ${quantity} x **${targetProduct.name}** to your cart! You can see it in your cart now. Would you like to check out or explore more products?`;
+
+            return res.json({
+                reply: replyText,
+                confidence: "HIGH",
+                actions: [
+                    {
+                        type: "ADD_TO_CART",
+                        productId: targetProduct.id,
+                        quantity: quantity
+                    }
+                ]
+            });
+        } else {
+            console.log("🛒 [CART] Product match failed");
+            activeRequests--;
+            return res.json({
+                reply: "I couldn't quite figure out which product you'd like to add to your cart. Could you please specify the name of the product?",
+                confidence: "HIGH"
+            });
+        }
+    }
+
+    // --- Guided Gifting / Shopping Quiz ---
+    // Quiz flow: entry → step1 (occasion) → step2 (budget) → step3 (recipient) → results
+    const quizStartKeywords = ["gifting quiz", "gift quiz", "help me choose", "help me pick", "gift advisor", "suggest a gift", "help find a gift", "not sure what to buy", "recommend something", "quiz"];
+    const isQuizStart = quizStartKeywords.some(kw => normalized.includes(kw)) ||
+        (normalized.includes("gift") && (normalized.includes("recommend") || normalized.includes("help") || normalized.includes("suggest")));
+    const isInQuiz = sessionState?.quiz_step != null;
+
+    if (isQuizStart && !isInQuiz) {
+        console.log("🎁 [QUIZ] GIFTING_QUIZ_STARTED");
+        conversationalState.set(sessionId, {
+            quiz_step: 1,
+            quiz_data: {},
+            lastTimestamp: Date.now()
+        });
+        activeRequests--;
+        return res.json({
+            reply: "🎁 Welcome to the **Kottravai Gift Advisor**! I'll help you find the perfect handmade gift in just 3 quick questions.\n\n**Step 1 of 3:** What is the occasion?",
+            confidence: "HIGH",
+            options: [
+                { label: "🎂 Birthday", value: "__quiz_occasion_birthday" },
+                { label: "💍 Wedding / Engagement", value: "__quiz_occasion_wedding" },
+                { label: "🪔 Festival (Diwali, Pongal...)", value: "__quiz_occasion_festival" },
+                { label: "🙏 Return Gift / Pooja", value: "__quiz_occasion_return_gift" },
+                { label: "💝 Just Because / Surprise", value: "__quiz_occasion_surprise" }
+            ]
+        });
+    }
+
+    if (isInQuiz) {
+        console.log(`🎁 [QUIZ] QUIZ_IN_PROGRESS, step=${sessionState.quiz_step}, msg="${message}"`);
+        const quizData = sessionState.quiz_data || {};
+
+        if (sessionState.quiz_step === 1) {
+            // Capture occasion from either button value or natural text
+            let occasion = message.replace("__quiz_occasion_", "");
+            if (message.startsWith("__quiz_occasion_")) {
+                const occasionMap = {
+                    birthday: "Birthday", wedding: "Wedding / Engagement",
+                    festival: "Festival", return_gift: "Return Gift / Pooja", surprise: "Surprise"
+                };
+                occasion = occasionMap[occasion] || occasion;
+            }
+            conversationalState.set(sessionId, {
+                quiz_step: 2,
+                quiz_data: { ...quizData, occasion },
+                lastTimestamp: Date.now()
+            });
+            activeRequests--;
+            return res.json({
+                reply: `Great choice for a **${occasion}** occasion! 🎉\n\n**Step 2 of 3:** What is your budget?`,
+                confidence: "HIGH",
+                options: [
+                    { label: "💰 Under ₹300", value: "__quiz_budget_300" },
+                    { label: "🛍️ ₹300 – ₹700", value: "__quiz_budget_700" },
+                    { label: "🎀 ₹700 – ₹1,500", value: "__quiz_budget_1500" },
+                    { label: "✨ ₹1,500 – ₹3,000", value: "__quiz_budget_3000" },
+                    { label: "👑 Premium (₹3,000+)", value: "__quiz_budget_premium" }
+                ]
+            });
+        }
+
+        if (sessionState.quiz_step === 2) {
+            // Capture budget
+            let minPrice = 300;
+            let maxPrice = 700;
+            let budgetLabel = "₹300–₹700";
+            if (message.includes("300")) { minPrice = 0; maxPrice = 300; budgetLabel = "under ₹300"; }
+            else if (message.includes("700")) { minPrice = 300; maxPrice = 700; budgetLabel = "₹300–₹700"; }
+            else if (message.includes("1500") || message.includes("1,500")) { minPrice = 700; maxPrice = 1500; budgetLabel = "₹700–₹1,500"; }
+            else if (message.includes("3000") || message.includes("3,000")) { minPrice = 1500; maxPrice = 3000; budgetLabel = "₹1,500–₹3,000"; }
+            else if (message.includes("premium")) { minPrice = 3000; maxPrice = 999999; budgetLabel = "Premium (₹3,000+)"; }
+
+            conversationalState.set(sessionId, {
+                quiz_step: 3,
+                quiz_data: { ...quizData, minPrice, maxPrice, budgetLabel },
+                lastTimestamp: Date.now()
+            });
+            activeRequests--;
+            return res.json({
+                reply: `Perfect! Budget set to **${budgetLabel}**. 💫\n\n**Step 3 of 3:** Who is this gift for?`,
+                confidence: "HIGH",
+                options: [
+                    { label: "👩 Woman / Sister / Mother", value: "__quiz_for_woman" },
+                    { label: "👨 Man / Brother / Father", value: "__quiz_for_man" },
+                    { label: "👶 Child / Family", value: "__quiz_for_child" },
+                    { label: "👫 Couple", value: "__quiz_for_couple" },
+                    { label: "🏢 Corporate / Team", value: "__quiz_for_corporate" }
+                ]
+            });
+        }
+
+        if (sessionState.quiz_step === 3) {
+            // Capture recipient
+            let recipient = "someone special";
+            if (message.includes("woman") || message.includes("sister") || message.includes("mother")) recipient = "women";
+            else if (message.includes("man") || message.includes("brother") || message.includes("father")) recipient = "men";
+            else if (message.includes("child") || message.includes("family")) recipient = "family";
+            else if (message.includes("couple")) recipient = "couples";
+            else if (message.includes("corporate") || message.includes("team")) recipient = "corporate";
+
+            const { occasion, minPrice, maxPrice, budgetLabel } = { ...quizData, ...sessionState.quiz_data };
+
+            console.log(`🎁 [QUIZ] FINDING_RESULTS: occasion=${occasion}, minPrice=${minPrice}, maxPrice=${maxPrice}, recipient=${recipient}`);
+
+            // Fetch matching products
+            const allActive = await productService.getAllActiveProducts();
+
+            // Calculate matching score for each product
+            let candidates = allActive.map(p => {
+                let score = 0;
+                const price = Number(p.price) || 0;
+                
+                // 1. Price check (essential fit)
+                if (price >= minPrice && price <= maxPrice) {
+                    score += 100;
+                } else if (price <= maxPrice && price >= (minPrice - 150)) {
+                    // Slight leeway below minPrice gets a smaller boost
+                    score += 40;
+                } else {
+                    // Out of price bounds completely
+                    return null;
+                }
+
+                const nameLower = (p.name || "").toLowerCase();
+                const catLower = (p.category || "").toLowerCase();
+
+                // 2. Occasion Boosting
+                const occ = (occasion || "").toLowerCase();
+                if (occ.includes("wedding") || occ.includes("marriage") || occ.includes("engagement")) {
+                    if (catLower.includes("bridal") || catLower.includes("jewel") || catLower.includes("hamper") || nameLower.includes("necklace") || nameLower.includes("traditional")) {
+                        score += 30;
+                    }
+                } else if (occ.includes("festival") || occ.includes("diwali") || occ.includes("pongal")) {
+                    if (catLower.includes("festival") || catLower.includes("jewel") || nameLower.includes("festive") || nameLower.includes("dhoop") || nameLower.includes("lamp") || nameLower.includes("pooja") || nameLower.includes("temple")) {
+                        score += 30;
+                    }
+                } else if (occ.includes("return") || occ.includes("pooja") || occ.includes("housewarming")) {
+                    if (catLower.includes("coconut") || catLower.includes("fiber") || nameLower.includes("dhoop") || nameLower.includes("holder") || nameLower.includes("basket") || price < 500) {
+                        score += 30;
+                    }
+                } else if (occ.includes("birthday") || occ.includes("anniversary")) {
+                    if (catLower.includes("hamper") || nameLower.includes("gift") || nameLower.includes("cup") || nameLower.includes("mug") || catLower.includes("jewel")) {
+                        score += 30;
+                    }
+                }
+
+                // 3. Recipient Matching and Filtering
+                if (recipient === "women") {
+                    if (nameLower.includes("men's") || nameLower.includes("for men")) {
+                        return null;
+                    }
+                    if (catLower.includes("jewel") || catLower.includes("bridal") || catLower.includes("wear") || nameLower.includes("necklace") || nameLower.includes("earrings") || nameLower.includes("pendant")) {
+                        score += 40;
+                    }
+                } else if (recipient === "men") {
+                    if (catLower.includes("jewel") || catLower.includes("bridal") || nameLower.includes("earrings") || nameLower.includes("necklace") || nameLower.includes("pendant")) {
+                        return null;
+                    }
+                    if (nameLower.includes("wine") || nameLower.includes("mug") || nameLower.includes("holder") || nameLower.includes("stand") || nameLower.includes("desk")) {
+                        score += 40;
+                    }
+                } else if (recipient === "family") {
+                    if (catLower.includes("hamper") || catLower.includes("mix") || catLower.includes("podi") || nameLower.includes("basket") || nameLower.includes("family")) {
+                        score += 40;
+                    }
+                } else if (recipient === "couples") {
+                    if (nameLower.includes("set") || nameLower.includes("pair") || catLower.includes("hamper") || nameLower.includes("showpiece") || nameLower.includes("nativity")) {
+                        score += 40;
+                    }
+                } else if (recipient === "corporate") {
+                    if (nameLower.includes("holder") || nameLower.includes("organizer") || catLower.includes("fiber") || catLower.includes("hamper") || nameLower.includes("box")) {
+                        score += 40;
+                    }
+                }
+
+                // 4. Best seller bonus
+                if (p.is_best_seller) {
+                    score += 15;
+                }
+
+                return { product: p, score };
+            })
+            .filter((c) => c !== null && c.score > 0);
+
+            // Sort by match score descending
+            candidates.sort((a, b) => b.score - a.score);
+
+            // Select top 3 candidates ensuring category diversity
+            const top = [];
+            const seenCategories = new Set();
+            for (const candidate of candidates) {
+                const cat = candidate.product.category || "General";
+                if (!seenCategories.has(cat)) {
+                    top.push(candidate.product);
+                    seenCategories.add(cat);
+                }
+                if (top.length === 3) break;
+            }
+            // If we have less than 3 distinct categories, fill up with the remaining highest scoring candidates
+            if (top.length < 3) {
+                for (const candidate of candidates) {
+                    if (!top.some(p => p.id === candidate.product.id)) {
+                        top.push(candidate.product);
+                    }
+                    if (top.length === 3) break;
+                }
+            }
+
+            // Clear quiz state
+            conversationalState.delete(sessionId);
+
+            if (top.length > 0) {
+                const productTags = top.map(p => `[PRODUCT:${p.id}]`).join('\n');
+                activeRequests--;
+                return res.json({
+                    reply: `✨ Based on your answers, here are my top picks for **${occasion}** gifting (budget: **${budgetLabel}**) for **${recipient}**! These are all handcrafted with love from Kottravai.\n\n${productTags}\n\nWould you like to explore more options or add any of these to your cart?`,
+                    confidence: "HIGH"
+                });
+            } else {
+                activeRequests--;
+                return res.json({
+                    reply: `I couldn't find exact matches for your preferences right now, but let me show you our best handcrafted gift collections! You can also browse our **Hampers** and **Handicrafts** sections for wonderful gifting options.`,
+                    confidence: "MEDIUM"
+                });
+            }
+        }
+    }
+
     let context = "";
     let similarityScores = [];
     let fallbackUsed = false;
@@ -164,7 +673,6 @@ router.post('/', async (req, res) => {
 
     // 1. Refinement Intelligence (Phase 11)
     const isRefinementQuery = refinementPatterns.some(p => normalized.includes(p));
-    const sessionState = conversationalState.get(sessionId) || null;
 
     if (isRefinementQuery) {
         console.log("🔍 [REFINEMENT] REFINEMENT_INTENT_DETECTED");
@@ -420,6 +928,7 @@ router.post('/', async (req, res) => {
             // Save state for next turn
             conversationalState.set(sessionId, {
                 lastDomain: detectedDomain || previousDomain,
+                lastProducts: topMatches.map(p => p.id),
                 lastTimestamp: Date.now()
             });
 
@@ -639,6 +1148,128 @@ Guidelines:
         res.status(500).json({ 
             reply: "I'm having a little trouble right now. Please try again or refine your question." 
         });
+    }
+});
+
+// ─── Escalation Routes ────────────────────────────────────────────────────────
+
+// POST /api/chat/escalate – customer triggers a live support handover
+router.post('/escalate', async (req, res) => {
+    const { sessionId = 'anonymous', customerName, customerEmail, customerPhone, contactRaw, reason, history = [] } = req.body;
+    console.log(`🆘 [ESCALATION] New escalation request | session=${sessionId} | contact=${contactRaw || customerEmail || customerPhone || 'none'}`);
+
+    try {
+        const result = await db.query(
+            `INSERT INTO chat_escalations (session_id, customer_name, customer_email, customer_phone, contact_raw, reason, history, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'open') RETURNING id`,
+            [
+                sessionId,
+                customerName || 'Anonymous',
+                customerEmail || null,
+                customerPhone || null,
+                contactRaw || customerEmail || customerPhone || null,
+                reason || 'Customer requested support',
+                JSON.stringify(history)
+            ]
+        );
+        const escalationId = result.rows[0].id;
+        console.log(`✅ [ESCALATION] Saved as #${escalationId} | contact=${contactRaw}`);
+
+        // Clear existing session state so AI doesn't intercept follow-up messages as quiz/tracking
+        conversationalState.delete(sessionId);
+
+        const contactLine = contactRaw ? ` We have your contact: **${contactRaw}**.` : '';
+        return res.json({
+            success: true,
+            escalationId,
+            reply: `Your request has been received! 🙏 A Kottravai support member will be with you shortly.${contactLine} Your ticket number is **#${escalationId}**.\n\nYou can also reach us directly on WhatsApp at **+91 88078 29183**.`,
+            confidence: 'HIGH'
+        });
+    } catch (err) {
+        console.error('❌ [ESCALATION] DB insert failed:', err.message);
+        return res.status(500).json({ success: false, error: 'Failed to save escalation request.' });
+    }
+});
+
+// GET /api/chat/admin/escalations – admin fetches all open/recent escalations
+router.get('/admin/escalations', async (req, res) => {
+    const adminSecret = req.headers['x-admin-secret'];
+    const validSecrets = [
+        process.env.VITE_ADMIN_PASSWORD,
+        process.env.ADMIN_PASSWORD,
+        'Admin!Kottravai2025%100',
+        'Admin!Kottravai2025%100e'
+    ].filter(Boolean);
+
+    if (!adminSecret || !validSecrets.includes(adminSecret)) {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const result = await db.query(
+            `SELECT id, session_id, customer_name, customer_email, customer_phone, contact_raw, reason, status, agent_notes, created_at, resolved_at
+             FROM chat_escalations
+             ORDER BY created_at DESC
+             LIMIT 100`
+        );
+        return res.json({ success: true, escalations: result.rows });
+    } catch (err) {
+        console.error('❌ [ESCALATION] Fetch failed:', err.message);
+        return res.status(500).json({ error: 'Failed to fetch escalations.' });
+    }
+});
+
+// GET /api/chat/admin/escalations/:id – admin fetches full conversation history
+router.get('/admin/escalations/:id', async (req, res) => {
+    const adminSecret = req.headers['x-admin-secret'];
+    const validSecrets = [
+        process.env.VITE_ADMIN_PASSWORD,
+        process.env.ADMIN_PASSWORD,
+        'Admin!Kottravai2025%100',
+        'Admin!Kottravai2025%100e'
+    ].filter(Boolean);
+
+    if (!adminSecret || !validSecrets.includes(adminSecret)) {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const result = await db.query(
+            `SELECT * FROM chat_escalations WHERE id = $1`,
+            [req.params.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Escalation not found' });
+        return res.json({ success: true, escalation: result.rows[0] });
+    } catch (err) {
+        console.error('❌ [ESCALATION] Single fetch failed:', err.message);
+        return res.status(500).json({ error: 'Failed to fetch escalation.' });
+    }
+});
+
+// PATCH /api/chat/admin/escalations/:id/resolve – agent marks a ticket as resolved
+router.patch('/admin/escalations/:id/resolve', async (req, res) => {
+    const adminSecret = req.headers['x-admin-secret'];
+    const validSecrets = [
+        process.env.VITE_ADMIN_PASSWORD,
+        process.env.ADMIN_PASSWORD,
+        'Admin!Kottravai2025%100',
+        'Admin!Kottravai2025%100e'
+    ].filter(Boolean);
+
+    if (!adminSecret || !validSecrets.includes(adminSecret)) {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const { agentNotes } = req.body;
+    try {
+        await db.query(
+            `UPDATE chat_escalations SET status = 'resolved', agent_notes = $1, resolved_at = NOW() WHERE id = $2`,
+            [agentNotes || '', req.params.id]
+        );
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('❌ [ESCALATION] Resolve failed:', err.message);
+        return res.status(500).json({ error: 'Failed to resolve escalation.' });
     }
 });
 

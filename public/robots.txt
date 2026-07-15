@@ -1,8 +1,31 @@
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Googlebot-News
+Allow: /
+
+User-agent: Googlebot-Mobile
+Allow: /
+
+User-agent: bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
 User-agent: *
 Disallow: /api/
-Disallow: /admin
-Disallow: /affiliate
-Disallow: /webhooks
+Disallow: /admin/
+Disallow: /admin-dashboard/
+Disallow: /affiliate/
+Disallow: /webhooks/
+Disallow: /checkout/
+Disallow: /order-success/
+Disallow: /*?*   # Disallow parameters to avoid duplicate crawling
 Allow: /
 
 Sitemap: https://www.kottravai.in/sitemap.xml
+Sitemap: https://www.kottravai.in/sitemap-index.xml

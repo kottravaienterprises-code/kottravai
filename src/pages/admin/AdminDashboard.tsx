@@ -751,6 +751,13 @@ const AdminDashboard = () => {
     }
   };
 
+  useEffect(() => {
+    const isAdmin = sessionStorage.getItem("kottravai_admin_session") === "true";
+    if (isAdmin) {
+      fetchAffiliateApplications();
+    }
+  }, []);
+
   const handleUpdateAffiliateStatus = async (id: string, status: string) => {
     if (isAffiliateActionLoading) return;
 
@@ -2372,6 +2379,11 @@ const AdminDashboard = () => {
                       />
                     </div>
                     <span className="text-sm">{item.label}</span>
+                    {item.view === "affiliates" && affiliateApplications.filter(app => app.status?.toLowerCase() === "pending").length > 0 && (
+                      <span className="bg-[#b5128f] text-white text-[10px] font-black px-2 py-0.5 rounded-full ml-1 animate-pulse">
+                        {affiliateApplications.filter(app => app.status?.toLowerCase() === "pending").length}
+                      </span>
+                    )}
                   </div>
                   {view === item.view && (
                     <div className="h-1.5 w-1.5 rounded-full bg-[#8E2A8B] shadow-[0_0_8px_#8E2A8B]"></div>
@@ -4696,6 +4708,11 @@ const AdminDashboard = () => {
                                 <p className="text-[10px] text-gray-400 font-bold uppercase">
                                   {app.email}
                                 </p>
+                                {app.phone && (
+                                  <p className="text-[10px] text-gray-500 font-bold">
+                                    {app.phone}
+                                  </p>
+                                )}
                                 <p className="text-[9px] text-[#8E2A8B] font-bold">
                                   {app.city || "No City"}
                                 </p>

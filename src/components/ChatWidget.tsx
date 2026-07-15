@@ -3,6 +3,7 @@ import { X, Send, Sparkles, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useProducts } from '@/context/ProductContext';
+import { useCart } from '@/context/CartContext';
 import analytics from '@/utils/analyticsService';
 import { API_ENDPOINTS } from '@/config/api';
 
@@ -20,12 +21,16 @@ const ChatWidget = () => {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([]);
     const { products } = useProducts();
+    const { addToCart } = useCart();
     const navigate = useNavigate();
     const [isTyping, setIsTyping] = useState(false);
     const chatId = useRef(`session-${Math.random().toString(36).substring(2, 11)}`);
     const messageRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
     const [showTeaser, setShowTeaser] = useState(false);
     const [teaserText, setTeaserText] = useState("");
+    // Escalation contact-collection flow
+    const [escalationStep, setEscalationStep] = useState<null | 'ask_contact'>(null);
+    const pendingEscalationReason = useRef<string>('Customer requested live support');
     const [typingText, setTypingText] = useState("Thozhi is thinking...");
 
     const teaserMessages = [
@@ -85,10 +90,11 @@ const ChatWidget = () => {
                     sender: 'bot',
                     type: 'options',
                     options: [
-                        { label: 'Shop Collections', value: 'I want to shop' },
-                        { label: 'Track Order', value: 'Track my order' },
-                        { label: 'Best Sellers', value: 'Show me best sellers' },
-                        { label: 'FAQs', value: 'I have a question' }
+                        { label: '🎁 Gift Advisor Quiz', value: 'gifting quiz' },
+                        { label: '🛍️ Shop Collections', value: 'I want to shop' },
+                        { label: '📦 Track Order', value: 'Track my order' },
+                        { label: '⭐ Best Sellers', value: 'Show me best sellers' },
+                        { label: '🆘 Speak to Support', value: '__escalate__' }
                     ]
                 }
             ]);
@@ -145,6 +151,22 @@ const ChatWidget = () => {
             if (!response.ok) throw new Error('API_ERROR');
 
             const data = await response.json();
+
+            // Execute chatbot actions (such as ADD_TO_CART)
+            if (data.actions && Array.isArray(data.actions)) {
+                data.actions.forEach((act: any) => {
+                    if (act.type === 'ADD_TO_CART') {
+                        const targetProd = products.find(p => p.id === act.productId || p.original_id === act.productId);
+                        if (targetProd) {
+                            console.log("🛒 ChatWidget adding product to cart:", targetProd.name, "Quantity:", act.quantity);
+                            addToCart(targetProd, act.quantity);
+                        } else {
+                            console.warn("⚠️ ChatWidget action referenced unknown product ID:", act.productId);
+                        }
+                    }
+                });
+            }
+
             const fallbackText = "I couldn’t find exact matches right now, but you might enjoy exploring our traditional mixes, healthy food collections, or handcrafted gifts. Here are some options you might like!";
             const replyText = data.reply || fallbackText;
 
@@ -167,8 +189,10 @@ const ChatWidget = () => {
                 id: Date.now().toString(),
                 text: cleanText || fallbackText,
                 sender: 'bot',
-                type: matchedProducts.length > 0 ? 'product-list' : 'text',
-                products: matchedProducts.length > 0 ? matchedProducts : undefined
+                // Priority: options (quiz buttons) > product-list > text
+                type: data.options?.length ? 'options' : (matchedProducts.length > 0 ? 'product-list' : 'text'),
+                products: matchedProducts.length > 0 ? matchedProducts : undefined,
+                options: data.options?.length ? data.options : undefined
             };
 
             setMessages(prev => [...prev, botMsg]);
@@ -185,10 +209,85 @@ const ChatWidget = () => {
         }
     };
 
+    const sendEscalation = async (contact: string, reason?: string) => {
+        setEscalationStep(null);
+        setIsTyping(true);
+        setTypingText('Connecting you to support...');
+
+        const history = messages.slice(-12).map(m => ({
+            role: m.sender === 'bot' ? 'assistant' : 'user',
+            content: m.text
+        }));
+
+        // Parse contact: detect phone vs email
+        const isEmail = contact.includes('@');
+        const isPhone = /^[\d\s\+\-]{7,15}$/.test(contact.trim());
+
+        try {
+            const response = await fetch(API_ENDPOINTS.chatEscalate, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: chatId.current,
+                    customerEmail: isEmail ? contact.trim() : undefined,
+                    customerPhone: isPhone ? contact.trim() : undefined,
+                    customerName: (!isEmail && !isPhone) ? contact.trim() : undefined,
+                    contactRaw: contact.trim(),
+                    reason: reason || pendingEscalationReason.current,
+                    history
+                })
+            });
+            const data = await response.json();
+            const botMsg: Message = {
+                id: Date.now().toString(),
+                text: data.reply || 'Your request has been received. A support member will contact you shortly.',
+                sender: 'bot',
+                type: 'text'
+            };
+            setMessages(prev => [...prev, botMsg]);
+        } catch {
+            const botMsg: Message = {
+                id: Date.now().toString(),
+                text: 'Your escalation request was noted. Please reach us directly on WhatsApp: +91 88078 29183.',
+                sender: 'bot',
+                type: 'text'
+            };
+            setMessages(prev => [...prev, botMsg]);
+        } finally {
+            setIsTyping(false);
+        }
+    };
+
+    // Start the escalation by asking for contact info first
+    const startEscalationFlow = (reason: string) => {
+        pendingEscalationReason.current = reason;
+        setEscalationStep('ask_contact');
+        const botMsg: Message = {
+            id: Date.now().toString(),
+            text: 'No worries! To connect you with our support team, please share your **phone number or email address** so we can reach you. 📞',
+            sender: 'bot',
+            type: 'text'
+        };
+        setMessages(prev => [...prev, botMsg]);
+    };
+
     const handleSend = (textOverride?: string) => {
         const messageText = textOverride || input;
         if (!messageText.trim() || isTyping) return;
-        
+
+        // If we're waiting for contact info for escalation, intercept
+        if (escalationStep === 'ask_contact') {
+            const userMsg: Message = {
+                id: Date.now().toString(),
+                text: messageText,
+                sender: 'user'
+            };
+            setMessages(prev => [...prev, userMsg]);
+            if (!textOverride) setInput('');
+            sendEscalation(messageText);
+            return;
+        }
+
         setIsTyping(true);
 
         const userMsg: Message = {
@@ -205,6 +304,19 @@ const ChatWidget = () => {
     };
 
     const handleOptionClick = (value: string) => {
+        // Escalation special route — collect contact info first
+        if (value === '__escalate__') {
+            const userMsg: Message = {
+                id: Date.now().toString(),
+                text: '🆘 Speak to Support',
+                sender: 'user'
+            };
+            setMessages(prev => [...prev, userMsg]);
+            startEscalationFlow('Customer clicked Speak to Support');
+            analytics.trackEvent('chat_escalated');
+            return;
+        }
+
         // Option values are now plain text sent directly to AI
         if (value.startsWith('select_product_')) {
             const productId = value.replace('select_product_', '');
@@ -217,6 +329,55 @@ const ChatWidget = () => {
         }
 
         handleSend(value);
+    };
+
+    const formatMessageText = (text: string) => {
+        if (!text) return '';
+        const lines = text.split('\n');
+        return lines.map((line, index) => {
+            const trimmed = line.trim();
+            // Check if bullet point (e.g. * Item or - Item)
+            const isBullet = trimmed.startsWith('*') || trimmed.startsWith('-');
+            let cleanLine = line;
+            if (isBullet) {
+                // Find first non-bullet character index
+                const startIdx = trimmed.search(/[^*-\s]/);
+                cleanLine = startIdx !== -1 ? trimmed.substring(startIdx) : trimmed.replace(/^[*\-\s]+/, '');
+            }
+
+            // Simple regex parser for bold text (**text**)
+            const parts: React.ReactNode[] = [];
+            let lastIndex = 0;
+            const boldRegex = /\*\*([^*]+)\*\*/g;
+            let match;
+
+            while ((match = boldRegex.exec(cleanLine)) !== null) {
+                const before = cleanLine.substring(lastIndex, match.index);
+                const boldText = match[1];
+                if (before) parts.push(before);
+                parts.push(<strong key={match.index} className="font-extrabold text-[#2D1B4E]">{boldText}</strong>);
+                lastIndex = boldRegex.lastIndex;
+            }
+            const after = cleanLine.substring(lastIndex);
+            if (after) parts.push(after);
+
+            const content = parts.length > 0 ? parts : cleanLine;
+
+            if (isBullet) {
+                return (
+                    <div key={index} className="flex items-start gap-1.5 ml-2 my-1">
+                        <span className="text-[#b5128f] font-bold select-none mt-0.5">•</span>
+                        <span className="flex-1 whitespace-pre-wrap text-[#2D1B4E]">{content}</span>
+                    </div>
+                );
+            }
+
+            return (
+                <div key={index} className={`whitespace-pre-wrap ${index > 0 ? 'mt-1.5' : ''}`}>
+                    {content}
+                </div>
+            );
+        });
     };
 
     return (
@@ -327,7 +488,7 @@ const ChatWidget = () => {
                                                     <span>Verified Traditional Recommendation</span>
                                                 </div>
                                             )}
-                                            {msg.text}
+                                            {formatMessageText(msg.text)}
                                         </div>
 
                                         {msg.type === 'product-list' && msg.products && (

@@ -112,8 +112,7 @@ class AIProviderService {
                 ...history.map(h => ({ role: h.role, content: h.content })),
                 { role: "user", content: userMessage }
             ],
-            max_tokens: 1000,
-            response_format: { type: "json_object" } // Enforce JSON output for Groq
+            max_tokens: 1000
         });
         console.log("✅ [RCA] GROQ_API_SUCCESS");
         return { text: response.choices[0].message.content, provider: 'groq' };

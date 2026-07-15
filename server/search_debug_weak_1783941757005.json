@@ -1,7 +1,0 @@
-{
-  "weakQueryText": "SELECT id, name, slug, price, image, images, category, category_slug, short_description, is_best_seller, is_live, is_custom_request, custom_form_config, default_form_fields, variants, hub, is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level, avg_rating, reviews_count, gst_rate, normalized_name, normalized_category, normalized_description, created_at, 100 AS relevance, 'Description' AS matched_field FROM products WHERE (normalized_description LIKE '%kott%') AND is_live = TRUE ORDER BY relevance DESC, created_at DESC LIMIT $1 OFFSET $2",
-  "weakParams": [
-    8,
-    0
-  ]
-}

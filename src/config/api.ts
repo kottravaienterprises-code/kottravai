@@ -15,6 +15,8 @@ export const API_BASE = rawApiUrl.replace(/\/api$/, "");
 // Standardized Enterprise API Endpoints
 export const API_ENDPOINTS = {
     chat: normalizeUrl(`${API_BASE}/api/chat`),
+    chatEscalate: normalizeUrl(`${API_BASE}/api/chat/escalate`),
+    chatAdminEscalations: normalizeUrl(`${API_BASE}/api/chat/admin/escalations`),
     products: normalizeUrl(`${API_BASE}/api/products`),
     search: normalizeUrl(`${API_BASE}/api/search`),
     orders: normalizeUrl(`${API_BASE}/api/orders`),

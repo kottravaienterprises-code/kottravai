@@ -30,7 +30,7 @@ const formatDate = (value) => {
 };
 
 // 1. Parent Sitemap Index
-router.get('/sitemap.xml', (req, res) => {
+router.get(['/sitemap.xml', '/sitemap-index.xml'], (req, res) => {
     res.header('Content-Type', 'application/xml');
     
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -56,14 +56,14 @@ router.get('/sitemap-products.xml', async (req, res) => {
     res.header('Content-Type', 'application/xml');
     
     try {
-        const result = await db.query('SELECT slug, name, updated_at FROM products WHERE is_live = true');
+        const result = await db.query('SELECT slug, name, created_at FROM products WHERE is_live = true');
         
         let urlset = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
         
         result.rows.forEach(product => {
             const loc = `${HOSTNAME}/product/${product.slug}`;
-            const lastMod = formatDate(product.updated_at);
+            const lastMod = formatDate(product.created_at);
             
             urlset += `  <url>
     <loc>${escapeXML(loc)}</loc>

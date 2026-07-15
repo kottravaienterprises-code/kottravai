@@ -5029,6 +5029,18 @@ const sitemapRoutes = require('./routes/sitemapRoutes');
 app.use('/', sitemapRoutes);
 app.use('/api', sitemapRoutes);
 
+// Serve robots.txt from the public folder dynamically
+app.get('/robots.txt', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/robots.txt'));
+});
+
+// Pre-render metadata & schemas for home page
+app.get('/', async (req, res) => {
+    const buildFolder = 'dist';
+    const indexFilePath = path.join(__dirname, `../${buildFolder}/index.html`);
+    await injectMetadata(indexFilePath, req.path, 200, res);
+});
+
 app.use(express.static(path.join(__dirname, '../dist')));
 
 
@@ -5287,7 +5299,7 @@ const isValidRoute = async (reqPath) => {
     if (productMatch) {
         const slug = productMatch[1];
         try {
-            const result = await db.query('SELECT id FROM products WHERE slug = $1 AND is_live = TRUE LIMIT 1', [slug]);
+            const result = await db.query('SELECT id FROM products WHERE LOWER(slug) = LOWER($1) AND is_live = TRUE LIMIT 1', [slug]);
             return result.rows.length > 0;
         } catch (e) {
             console.error('Error checking product slug:', e);
@@ -5297,7 +5309,6 @@ const isValidRoute = async (reqPath) => {
 
     const categoryMatch = reqPath.match(/^\/category\/([^/]+)$/);
     if (categoryMatch) {
-        // For category/:slug, we'll assume it's valid for now (can add DB check later)
         return true;
     }
 
@@ -5311,9 +5322,12 @@ const isValidRoute = async (reqPath) => {
     if (blogMatch) {
         const slug = blogMatch[1];
         try {
-            // Check if blog post exists (using the same method as blogService)
-            const { data } = await supabase.from('blog_posts').select('id').eq('slug', slug).eq('published', true).single();
-            return !!data;
+            const postsPath = path.join(__dirname, '../src/data/posts.json');
+            if (fs.existsSync(postsPath)) {
+                const posts = JSON.parse(fs.readFileSync(postsPath, 'utf8'));
+                return posts.some(p => p.slug === slug);
+            }
+            return false;
         } catch (e) {
             console.error('Error checking blog slug:', e);
             return false;
@@ -5337,6 +5351,197 @@ const isValidRoute = async (reqPath) => {
     return false;
 };
 
+// Helper to inject SEO meta tags and structured data dynamically for JavaScript SEO
+const injectMetadata = async (filePath, reqPath, statusCode, res) => {
+    try {
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).send('Not Found');
+        }
+
+        let html = fs.readFileSync(filePath, 'utf8');
+
+        let title = 'Kottravai | Revival of Heritage';
+        let desc = 'Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.';
+        let ogImage = 'https://www.kottravai.in/hero.webp';
+        let canon = `https://www.kottravai.in${reqPath}`;
+        let extraTags = '';
+
+        // Match routes
+        const productMatch = reqPath.match(/^\/product\/([^/]+)$/);
+        const blogMatch = reqPath.match(/^\/blog\/([^/]+)$/);
+        const categoryMatch = reqPath.match(/^\/category\/([^/]+)$/);
+
+        if (productMatch) {
+            const slug = productMatch[1];
+            try {
+                // Fetch product details from DB
+                const prodQuery = await db.query('SELECT name, description, price, images FROM products WHERE slug = $1 AND is_live = true LIMIT 1', [slug]);
+                if (prodQuery.rows.length > 0) {
+                    const product = prodQuery.rows[0];
+                    title = `${product.name} - Kottravai`;
+                    desc = product.description ? product.description.substring(0, 160) : desc;
+                    
+                    let imageArray = [];
+                    if (Array.isArray(product.images) && product.images.length > 0) {
+                        ogImage = product.images[0];
+                        imageArray = product.images;
+                    } else {
+                        imageArray = [ogImage];
+                    }
+                    
+                    // Product Schema
+                    const productSchema = {
+                        '@context': 'https://schema.org',
+                        '@type': 'Product',
+                        'name': product.name,
+                        'image': imageArray,
+                        'description': product.description || '',
+                        'sku': slug,
+                        'url': canon,
+                        'offers': {
+                            '@type': 'Offer',
+                            'priceCurrency': 'INR',
+                            'price': product.price ? product.price.toString() : '0',
+                            'availability': 'https://schema.org/InStock',
+                            'url': canon
+                        }
+                    };
+                    
+                    // Breadcrumb Schema
+                    const breadcrumbSchema = {
+                        '@context': 'https://schema.org',
+                        '@type': 'BreadcrumbList',
+                        'itemListElement': [
+                            { '@type': 'ListItem', 'position': 1, 'name': 'Home', 'item': 'https://www.kottravai.in' },
+                            { '@type': 'ListItem', 'position': 2, 'name': 'Shop', 'item': 'https://www.kottravai.in/shop' },
+                            { '@type': 'ListItem', 'position': 3, 'name': product.name, 'item': canon }
+                        ]
+                    };
+
+                    extraTags += `\n  <script type="application/ld+json">${JSON.stringify(productSchema)}</script>`;
+                    extraTags += `\n  <script type="application/ld+json">${JSON.stringify(breadcrumbSchema)}</script>`;
+                }
+            } catch (err) {
+                console.error('Error fetching product metadata for injection:', err.message);
+            }
+        } else if (blogMatch) {
+            const slug = blogMatch[1];
+            try {
+                // Fetch blog details from local posts.json since blog_posts table doesn't exist in DB
+                const postsPath = path.join(__dirname, '../src/data/posts.json');
+                if (fs.existsSync(postsPath)) {
+                    const posts = JSON.parse(fs.readFileSync(postsPath, 'utf8'));
+                    const post = posts.find(p => p.slug === slug);
+                    if (post) {
+                        title = post.seoTitle || post.title;
+                        desc = post.metaDescription || desc;
+                        if (post.featuredImage) {
+                            ogImage = post.featuredImage.startsWith('http') ? post.featuredImage : `https://www.kottravai.in${post.featuredImage}`;
+                        }
+
+                        // BlogPosting Schema
+                        const blogSchema = {
+                            '@context': 'https://schema.org',
+                            '@type': 'BlogPosting',
+                            'headline': title,
+                            'description': desc,
+                            'image': ogImage,
+                            'author': { '@type': 'Person', 'name': post.author || 'Kottravai Editorial' },
+                            'publisher': {
+                                '@type': 'Organization',
+                                'name': 'Kottravai',
+                                'logo': { '@type': 'ImageObject', 'url': 'https://www.kottravai.in/logo.png' }
+                            },
+                            'datePublished': post.publishDate || new Date().toISOString()
+                        };
+
+                        // Breadcrumb Schema
+                        const breadcrumbSchema = {
+                            '@context': 'https://schema.org',
+                            '@type': 'BreadcrumbList',
+                            'itemListElement': [
+                                { '@type': 'ListItem', 'position': 1, 'name': 'Home', 'item': 'https://www.kottravai.in' },
+                                { '@type': 'ListItem', 'position': 2, 'name': 'Blog', 'item': 'https://www.kottravai.in/blog' },
+                                { '@type': 'ListItem', 'position': 3, 'name': title, 'item': canon }
+                            ]
+                        };
+
+                        extraTags += `\n  <script type="application/ld+json">${JSON.stringify(blogSchema)}</script>`;
+                        extraTags += `\n  <script type="application/ld+json">${JSON.stringify(breadcrumbSchema)}</script>`;
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching blog metadata for injection:', err.message);
+            }
+        } else if (categoryMatch) {
+            const slug = categoryMatch[1];
+            const categoryName = slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            title = `${categoryName} | Handcrafted Sustainable Collections - Kottravai`;
+            desc = `Discover high-quality, authentic handcrafted ${categoryName} products. Sustainably sourced and lovingly made by local traditional artisans.`;
+
+            // Breadcrumb Schema
+            const breadcrumbSchema = {
+                '@context': 'https://schema.org',
+                '@type': 'BreadcrumbList',
+                'itemListElement': [
+                    { '@type': 'ListItem', 'position': 1, 'name': 'Home', 'item': 'https://www.kottravai.in' },
+                    { '@type': 'ListItem', 'position': 2, 'name': 'Shop', 'item': 'https://www.kottravai.in/shop' },
+                    { '@type': 'ListItem', 'position': 3, 'name': categoryName, 'item': canon }
+                ]
+            };
+            extraTags += `\n  <script type="application/ld+json">${JSON.stringify(breadcrumbSchema)}</script>`;
+        } else {
+            // General Organization & WebSite Schemas for landing / index pages
+            const orgSchema = {
+                '@context': 'https://schema.org',
+                '@type': 'Organization',
+                'name': 'Kottravai',
+                'url': 'https://www.kottravai.in',
+                'logo': 'https://www.kottravai.in/logo.png',
+                'sameAs': [
+                    'https://instagram.com/kottravai',
+                    'https://facebook.com/kottravai'
+                ]
+            };
+            const websiteSchema = {
+                '@context': 'https://schema.org',
+                '@type': 'WebSite',
+                'url': 'https://www.kottravai.in',
+                'potentialAction': {
+                    '@type': 'SearchAction',
+                    'target': 'https://www.kottravai.in/shop?search={search_term_string}',
+                    'query-input': 'required name=search_term_string'
+                }
+            };
+            extraTags += `\n  <script type="application/ld+json">${JSON.stringify(orgSchema)}</script>`;
+            extraTags += `\n  <script type="application/ld+json">${JSON.stringify(websiteSchema)}</script>`;
+        }
+
+        // Apply metadata injection modifications
+        html = html.replace(/<title>.*?<\/title>/i, `<title>${title}</title>`);
+        html = html.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/i, `<meta name="description" content="${desc.replace(/"/g, '&quot;')}" />`);
+
+        let headAdditions = `
+  <link rel="canonical" href="${canon}" />
+  <meta property="og:title" content="${title.replace(/"/g, '&quot;')}" />
+  <meta property="og:description" content="${desc.replace(/"/g, '&quot;')}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:url" content="${canon}" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}" />
+  <meta name="twitter:description" content="${desc.replace(/"/g, '&quot;')}" />
+  <meta name="twitter:image" content="${ogImage}" />${extraTags}`;
+
+        html = html.replace('</head>', `${headAdditions}\n</head>`);
+
+        res.status(statusCode).send(html);
+    } catch (err) {
+        console.error('💥 [HTML_INJECTION_FAILURE] Falling back to static sendFile:', err.message);
+        res.status(statusCode).sendFile(filePath);
+    }
+};
+
 // The "catchall" handler: for any request that doesn't match one above
 app.use(async (req, res, next) => {
     if (req.path.startsWith('/api/')) {
@@ -5351,7 +5556,9 @@ app.use(async (req, res, next) => {
         if (fileExists(filePath)) {
             return next();
         } else {
-            return res.status(404).sendFile(path.join(distPath, 'index.html'));
+            const indexFilePath = path.join(distPath, 'index.html');
+            await injectMetadata(indexFilePath, req.path, 404, res);
+            return;
         }
     }
 
@@ -5359,9 +5566,9 @@ app.use(async (req, res, next) => {
     const isValid = await isValidRoute(req.path);
     const statusCode = isValid ? 200 : 404;
 
-    // Using a dynamic folder name to prevent Vercel's bundler from crawling 'dist'
     const buildFolder = 'dist';
-    res.status(statusCode).sendFile(path.join(__dirname, `../${buildFolder}/index.html`));
+    const indexFilePath = path.join(__dirname, `../${buildFolder}/index.html`);
+    await injectMetadata(indexFilePath, req.path, statusCode, res);
 });
 
 /**
