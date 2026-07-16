@@ -3,7 +3,6 @@ const router = express.Router();
 const db = require('./db');
 const supabase = require('./supabase');
 const crypto = require('crypto');
-const { trackRagInteraction } = require('./thozhi_monitoring');
 const { embeddingCache, responseCache, normalizeQuery, getCacheKey } = require('./utils/aiCache');
 const aiProvider = require('./services/aiProvider');
 const productService = require('./services/productService');
@@ -40,6 +39,64 @@ const userPreferenceService = require('./services/userPreferenceService');
 })();
 
 
+
+const LOCAL_FAQS = [
+  {
+    q: "How do I place an order on Kottravai?",
+    keywords: ["place order", "how to buy", "how to order", "order from kottravai", "place an order", "checkout", "how buy", "purchase"],
+    a: "Ordering from Kottravai is simple! Browse our handcrafted collections, add your favorite items to the cart, and proceed to checkout. You’ll receive an order confirmation via email and SMS once the payment is successful."
+  },
+  {
+    q: "What payment methods do you accept?",
+    keywords: ["payment methods", "accept payment", "pay with", "payment options", "credit card", "upi", "net banking", "cash on delivery", "cod", "payment"],
+    a: "We accept secure online payments including:\n• UPI (Google Pay, PhonePe, Paytm, etc.)\n• Credit & Debit Cards (Visa, Mastercard, RuPay)\n• Net Banking\n\nAll transactions are secured with SSL encryption through our payment gateway. We do not support Cash on Delivery (COD) at the moment."
+  },
+  {
+    q: "How long does delivery take?",
+    keywords: ["delivery time", "shipping time", "how long", "shipping duration", "deliver within", "days to deliver", "delivery duration", "dispatch time"],
+    a: "Orders are typically delivered within 5–10 business days depending on your delivery address. Since our products are lovingly handcrafted by rural women artisans, some items may require additional preparation time before dispatch."
+  },
+  {
+    q: "Do you ship across India?",
+    keywords: ["ship to", "shipping locations", "ship across india", "deliver to my location", "outside tamil nadu", "pan india", "delivery address"],
+    a: "Yes! We ship across India. For bulk orders, custom hampers, or corporate inquiries, feel free to contact us before placing your order."
+  },
+  {
+    q: "What is your return policy?",
+    keywords: ["return policy", "replace product", "damaged product", "refund policy", "returns", "exchange", "cancel order", "cancellation"],
+    a: "We accept returns only for damaged products or incorrect items delivered. Please raise a request within 48 hours of delivery with supporting unboxing images/videos via our contact form or support email."
+  },
+  {
+    q: "When will I receive my refund?",
+    keywords: ["refund time", "receive refund", "refund processed", "money back", "refund duration"],
+    a: "Once approved, refunds are processed back to the original payment method within 7–10 working days."
+  },
+  {
+    q: "What materials are used in Kottravai handicrafts?",
+    keywords: ["materials used", "organic materials", "eco-friendly materials", "coconut shells", "palm leaves", "clay", "natural fibers", "terracotta", "banana fiber"],
+    a: "Our products are crafted using natural, sustainable, and eco-friendly materials such as:\n• Coconut shells\n• Banana fibers\n• Palm leaves\n• Clay & Terracotta\n\nEach piece is handmade by skilled rural women artisans in Tamil Nadu."
+  },
+  {
+    q: "How do I care for handmade products?",
+    keywords: ["care instructions", "how to clean", "maintain products", "care for handmade", "washing", "cleaning"],
+    a: "• Clean gently with a dry or slightly damp cloth.\n• Avoid prolonged exposure to water, high moisture, or direct sunlight.\n• Handmade items may have minor natural variations—this is part of their unique charm!"
+  },
+  {
+    q: "Who makes Kottravai products?",
+    keywords: ["who makes", "who crafts", "who are the artisans", "women empowerment", "rural women", "artisan hub"],
+    a: "Kottravai works directly with rural women artisans across Tamil Nadu. By sourcing directly from them, we help these traditional craftspeople earn a sustainable livelihood and support women empowerment."
+  },
+  {
+    q: "How does my purchase make an impact?",
+    keywords: ["social impact", "empowerment", "women support", "why kottravai", "social cause"],
+    a: "Every purchase supports rural women artisans, preserves traditional crafting techniques, and encourages eco-friendly living. Your order contributes directly to rural economic growth and women empowerment."
+  },
+  {
+    q: "How can I contact Kottravai for support?",
+    keywords: ["contact details", "email id", "phone number", "support team", "customer care", "help line", "phone", "email", "whatsapp", "number"],
+    a: "You can reach our customer support team via:\n• Email: support@kottravai.in\n• Phone/WhatsApp: +91 97870 30811\n\nWe respond to all inquiries within 24–48 hours."
+  }
+];
 
 // --- Phase 10 Trace & Diagnostics ---
 const MAX_CONCURRENT = 20;
@@ -710,6 +767,78 @@ router.post('/', async (req, res) => {
             activeRequests--;
             return res.json({ reply, confidence: "HIGH" });
         }
+
+        // 2.6 Local FAQ Matcher (RAG-less Knowledgebase Engine)
+        let matchedFAQ = null;
+        for (const faq of LOCAL_FAQS) {
+            const matchedKeyword = faq.keywords.find(keyword => normalized.includes(keyword));
+            if (matchedKeyword || normalized.includes(faq.q.toLowerCase())) {
+                matchedFAQ = faq;
+                break;
+            }
+        }
+
+        if (matchedFAQ) {
+            console.log("✅ [KNOWLEDGEBASE] FAQ_MATCH_FOUND:", matchedFAQ.q);
+            activeRequests--;
+            return res.json({
+                reply: matchedFAQ.a,
+                confidence: "HIGH",
+                intelligence: { intent: 'faq', matched_question: matchedFAQ.q }
+            });
+        }
+
+        // 2.7 Local Product Catalog Keyword Matcher
+        const localQueryTokens = normalized.split(" ").filter(word => word.length > 2 && !STOP_WORDS.includes(word));
+        if (localQueryTokens.length > 0) {
+            const allProducts = await productService.getAllActiveProducts();
+            
+            const scoredProducts = allProducts.map(p => {
+                const searchable = `${p.name} ${p.category} ${p.description}`.toLowerCase();
+                let score = 0;
+                localQueryTokens.forEach(token => {
+                    if (searchable.includes(token)) score += 1;
+                });
+                
+                if (p.name.toLowerCase().includes(normalized)) score += 3;
+                
+                return { ...p, score };
+            }).filter(p => p.score > 0);
+
+            if (scoredProducts.length > 0) {
+                scoredProducts.sort((a, b) => b.score - a.score);
+                const matchedProducts = scoredProducts.slice(0, 3);
+                const matchedProductIds = matchedProducts.map(p => p.id);
+
+                console.log(`✅ [KNOWLEDGEBASE] PRODUCT_MATCH_FOUND: Matched ${matchedProducts.length} items`);
+                
+                const productTags = matchedProducts.map(p => `[PRODUCT:${p.id}]`).join('\n');
+                const replyText = `Vanakkam! Based on your interest in our collections, here are some recommendations from our catalog:\n\n${productTags}\n\nWould you like to add any of these to your cart or explore more?`;
+
+                conversationalState.set(sessionId, {
+                    lastCategory: matchedProducts[0].category,
+                    lastProducts: matchedProductIds,
+                    lastQuery: normalized,
+                    lastTimestamp: Date.now()
+                });
+
+                activeRequests--;
+                return res.json({
+                    reply: replyText,
+                    confidence: "HIGH",
+                    intelligence: { intent: 'product_lookup', matched_count: matchedProducts.length }
+                });
+            }
+        }
+
+        // 2.8 Local Fallback Reply
+        console.log("⚠️ [KNOWLEDGEBASE] NO_DIRECT_MATCHES_FOUND");
+        activeRequests--;
+        return res.json({
+            reply: "Vanakkam! I'm Thozhi, your Kottravai companion. I couldn't find an exact match for your question. You can ask me about our **delivery status**, **shipping policy**, **payment options**, or explore our popular collections like **Health Mixes** or **Handcrafted Jewellery**! You can also request to **speak with support**.",
+            confidence: "LOW",
+            intelligence: { intent: 'fallback', success_score: 0.5 }
+        });
 
         // 2.6 Hard Security Boundaries (Phase 12 Security)
         const isRestrictedQuery = RESTRICTED_QUERIES.some(keyword => normalized.includes(keyword));
