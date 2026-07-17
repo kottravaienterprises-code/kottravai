@@ -2288,6 +2288,14 @@ app.get('/api/public/recent-sales', async (req, res) => {
             { name: 'Lakshmi Narayanan', city: 'Theni' }
         ];
 
+        const internationalSales = [
+            { name: 'Sarah Tan', city: 'Singapore' },
+            { name: 'Muthu Krishnan', city: 'Kuala Lumpur, Malaysia' },
+            { name: 'Emily Watson', city: 'New York, USA' },
+            { name: 'Ravi Teja', city: 'Sydney, Australia' },
+            { name: 'John Doe', city: 'London, UK' }
+        ];
+
         const productsResult = await db.query("SELECT name, images, category FROM products WHERE is_live = TRUE AND category != 'Essential Care' LIMIT 20");
         const availableProducts = productsResult.rows;
 

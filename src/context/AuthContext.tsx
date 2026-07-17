@@ -38,6 +38,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+let isGoogleInitialized = false;
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -123,7 +125,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
         if (googleClientId) {
             const initFlight = () => {
-                if (window.google) {
+                if (window.google && !isGoogleInitialized) {
                     window.google.accounts.id.initialize({
                         client_id: googleClientId,
                         callback: handleGoogleResponse,
@@ -132,6 +134,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         use_fedcm_for_prompt: true,
                         context: 'signin'
                     });
+                    isGoogleInitialized = true;
 
                     // Trigger the 'One Tap' floating prompt
                     window.google.accounts.id.prompt((notification: any) => {

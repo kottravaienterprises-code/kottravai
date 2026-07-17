@@ -43,12 +43,12 @@ const userPreferenceService = require('./services/userPreferenceService');
 const LOCAL_FAQS = [
   {
     q: "How do I place an order on Kottravai?",
-    keywords: ["place order", "how to buy", "how to order", "order from kottravai", "place an order", "checkout", "how buy", "purchase"],
+    keywords: ["place order", "how to buy", "how to order", "order from kottravai", "place an order", "checkout", "how buy", "purchase product"],
     a: "Ordering from Kottravai is simple! Browse our handcrafted collections, add your favorite items to the cart, and proceed to checkout. You’ll receive an order confirmation via email and SMS once the payment is successful."
   },
   {
     q: "What payment methods do you accept?",
-    keywords: ["payment methods", "accept payment", "pay with", "payment options", "credit card", "upi", "net banking", "cash on delivery", "cod", "payment"],
+    keywords: ["payment methods", "accept payment", "pay with", "payment options", "credit card options", "how to pay", "do you accept cod", "cash on delivery option", "payment policies"],
     a: "We accept secure online payments including:\n• UPI (Google Pay, PhonePe, Paytm, etc.)\n• Credit & Debit Cards (Visa, Mastercard, RuPay)\n• Net Banking\n\nAll transactions are secured with SSL encryption through our payment gateway. We do not support Cash on Delivery (COD) at the moment."
   },
   {
@@ -73,7 +73,7 @@ const LOCAL_FAQS = [
   },
   {
     q: "What materials are used in Kottravai handicrafts?",
-    keywords: ["materials used", "organic materials", "eco-friendly materials", "coconut shells", "palm leaves", "clay", "natural fibers", "terracotta", "banana fiber"],
+    keywords: ["materials used", "organic materials", "eco-friendly materials", "what materials", "which materials", "materials are used", "materials do you use"],
     a: "Our products are crafted using natural, sustainable, and eco-friendly materials such as:\n• Coconut shells\n• Banana fibers\n• Palm leaves\n• Clay & Terracotta\n\nEach piece is handmade by skilled rural women artisans in Tamil Nadu."
   },
   {
@@ -93,7 +93,7 @@ const LOCAL_FAQS = [
   },
   {
     q: "How can I contact Kottravai for support?",
-    keywords: ["contact details", "email id", "phone number", "support team", "customer care", "help line", "phone", "email", "whatsapp", "number"],
+    keywords: ["contact details", "email id", "phone number", "support team", "customer care", "help line", "how to contact", "support email", "support phone", "support number"],
     a: "You can reach our customer support team via:\n• Email: support@kottravai.in\n• Phone/WhatsApp: +91 97870 30811\n\nWe respond to all inquiries within 24–48 hours."
   }
 ];
@@ -788,59 +788,7 @@ router.post('/', async (req, res) => {
             });
         }
 
-        // 2.7 Local Product Catalog Keyword Matcher
-        const localQueryTokens = normalized.split(" ").filter(word => word.length > 2 && !STOP_WORDS.includes(word));
-        if (localQueryTokens.length > 0) {
-            const allProducts = await productService.getAllActiveProducts();
-            
-            const scoredProducts = allProducts.map(p => {
-                const searchable = `${p.name} ${p.category} ${p.description}`.toLowerCase();
-                let score = 0;
-                localQueryTokens.forEach(token => {
-                    if (searchable.includes(token)) score += 1;
-                });
-                
-                if (p.name.toLowerCase().includes(normalized)) score += 3;
-                
-                return { ...p, score };
-            }).filter(p => p.score > 0);
-
-            if (scoredProducts.length > 0) {
-                scoredProducts.sort((a, b) => b.score - a.score);
-                const matchedProducts = scoredProducts.slice(0, 3);
-                const matchedProductIds = matchedProducts.map(p => p.id);
-
-                console.log(`✅ [KNOWLEDGEBASE] PRODUCT_MATCH_FOUND: Matched ${matchedProducts.length} items`);
-                
-                const productTags = matchedProducts.map(p => `[PRODUCT:${p.id}]`).join('\n');
-                const replyText = `Vanakkam! Based on your interest in our collections, here are some recommendations from our catalog:\n\n${productTags}\n\nWould you like to add any of these to your cart or explore more?`;
-
-                conversationalState.set(sessionId, {
-                    lastCategory: matchedProducts[0].category,
-                    lastProducts: matchedProductIds,
-                    lastQuery: normalized,
-                    lastTimestamp: Date.now()
-                });
-
-                activeRequests--;
-                return res.json({
-                    reply: replyText,
-                    confidence: "HIGH",
-                    intelligence: { intent: 'product_lookup', matched_count: matchedProducts.length }
-                });
-            }
-        }
-
-        // 2.8 Local Fallback Reply
-        console.log("⚠️ [KNOWLEDGEBASE] NO_DIRECT_MATCHES_FOUND");
-        activeRequests--;
-        return res.json({
-            reply: "Vanakkam! I'm Thozhi, your Kottravai companion. I couldn't find an exact match for your question. You can ask me about our **delivery status**, **shipping policy**, **payment options**, or explore our popular collections like **Health Mixes** or **Handcrafted Jewellery**! You can also request to **speak with support**.",
-            confidence: "LOW",
-            intelligence: { intent: 'fallback', success_score: 0.5 }
-        });
-
-        // 2.6 Hard Security Boundaries (Phase 12 Security)
+        // 2.7 Hard Security Boundaries (Phase 12 Security)
         const isRestrictedQuery = RESTRICTED_QUERIES.some(keyword => normalized.includes(keyword));
         if (isRestrictedQuery) {
             console.log("🔒 RESTRICTED_QUERY_BLOCKED", {
@@ -889,7 +837,7 @@ router.post('/', async (req, res) => {
             }
         }
         
-        // 2.7 Deterministic Matching Layer (Phase 11)
+        // 2.8 Deterministic Matching Layer (Phase 11)
         console.log("🔍 [HYBRID] MATCH_STARTED");
         console.log("🔍 [HYBRID] NORMALIZED_QUERY:", normalized);
         
@@ -903,19 +851,19 @@ router.post('/', async (req, res) => {
 
         console.log("📦 PRODUCT_COUNT:", allProducts.length);
 
-        // Step 4: Validate Product Structure (Phase 11)
+        // Validate Product Structure
         allProducts.forEach(p => {
             if (!p.id || !p.name) console.warn("⚠️ [HYBRID] MALFORMED_PRODUCT:", p);
         });
 
-        // Step 6: Emergency Product Dataset Protection (Phase 11)
+        // Emergency Product Dataset Protection
         if (allProducts.length === 0) {
             console.error("❌ [HYBRID] CHAT_PRODUCT_DATASET_EMPTY");
             fallbackUsed = true;
             context = "NOTICE: Product catalog is currently unavailable. Guide the user to browse Health Mixes and Gifts on our website.";
         }
 
-        // Step 0: Normalize & Tokenize (Phase 11)
+        // Normalize & Tokenize (Phase 11)
         const userQuery = message.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
         const queryTokens = userQuery.split(" ").filter(word => word.length > 1 && !STOP_WORDS.includes(word));
         const expandedTokens = queryTokens.flatMap(token => synonymMap[token] || [token]);
@@ -930,7 +878,6 @@ router.post('/', async (req, res) => {
         const previousDomain = sessionState?.lastDomain || null;
         if (detectedDomain && previousDomain && detectedDomain !== previousDomain) {
             console.log("🧠 CATEGORY_OVERRIDE:", { previousDomain, detectedDomain });
-            // The new domain intent overrides previous history
             context = ""; // Clear old RAG context
         }
 
@@ -1007,7 +954,6 @@ router.post('/', async (req, res) => {
             deterministicMatches.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
         } else if (isTrendingQuery) {
             console.log("⚖️ [HYBRID] SORTING_BY_TRENDING");
-            // Personalized Trending: If trending within preferred category, boost it (handled by boostProductScores above)
             deterministicMatches.sort((a, b) => (b.is_best_seller ? 1 : 0) - (a.is_best_seller ? 1 : 0) || b.score - a.score);
         } else if (isNewestQuery) {
             console.log("⚖️ [HYBRID] SORTING_BY_NEWEST");
@@ -1016,113 +962,10 @@ router.post('/', async (req, res) => {
             deterministicMatches.sort((a, b) => b.score - a.score);
         }
 
-        const topMatches = deterministicMatches.slice(0, 3);
-        
+        const topMatches = deterministicMatches.slice(0, 5);
         console.log("✅ [HYBRID] MATCH_COUNT:", topMatches.length);
-        console.log("✅ [HYBRID] FINAL_PRODUCTS:", topMatches.map(p => ({ name: p.name, category: p.category, score: p.score })));
 
-        // Step 5: Smart Conversational Responses (Phase 11)
-        if (topMatches.length > 0) {
-            console.log("🔗 [HYBRID] RETURNING_COMPARATIVE_RESULTS (Bypassing Gemini)");
-            activeRequests--;
-            
-            // Pick a warm, conversational intro
-            const templates = CONVERSATIONAL_TEMPLATES[detectedDomain] || CONVERSATIONAL_TEMPLATES.general;
-            const intro = templates[Math.floor(Math.random() * templates.length)];
-            
-            // Add Lifestyle Framing
-            const framing = LIFESTYLE_FRAMING[detectedDomain] || "";
-
-            // Behavioral Intro (Phase 13)
-            const behavioralIntro = userPreferenceService.getBehavioralIntro(userPreferences, detectedDomain);
-            const finalIntro = behavioralIntro || intro;
-            
-            // Smart Commerce Suggestions
-            let suggestion = "";
-            if (detectedDomain === 'gifts' || detectedDomain === 'food') {
-                suggestion = "\nYou might also like to explore our curated combos or customer favorites for more options.";
-                // Add Cross-Selling Suggestions (Phase 13)
-                if (detectedDomain === 'food' && normalized.includes('podi')) suggestion += "\nMany customers also enjoy our traditional dosa mixes and healthy breakfast drinks with these mixes.";
-                if (detectedDomain === 'gifts') suggestion += "\nYou can also pair these with our handcrafted eco-friendly products for a complete gifting experience.";
-            }
-
-            // Pick a persuasive follow-up
-            let followUp = FOLLOW_UP_PHRASES.general;
-            if (isCheapestQuery || isPremiumQuery) followUp = FOLLOW_UP_PHRASES.pricing;
-            else if (detectedDomain === 'gifts') followUp = FOLLOW_UP_PHRASES.variety;
-            else if (detectedDomain === 'food') followUp = FOLLOW_UP_PHRASES.interest;
-            
-            const productTags = topMatches.map(p => `[PRODUCT:${p.id}]`).join('\n');
-            
-            // Save state for next turn
-            conversationalState.set(sessionId, {
-                lastDomain: detectedDomain || previousDomain,
-                lastProducts: topMatches.map(p => p.id),
-                lastTimestamp: Date.now()
-            });
-
-            matchedProductIds = topMatches.map(p => p.id);
-            detectedCategory = detectedDomain;
-
-            // Update user preference memory (Phase 13)
-            userPreferenceService.updatePreferences(sessionId, {
-                preferredCategory: detectedCategory,
-                pricingTendency: isCheapestQuery ? 'budget' : (isPremiumQuery ? 'premium' : null),
-                exploredProductId: matchedProductIds[0]
-            });
-
-            // Log Interaction
-            const responseLatency = Date.now() - startTime;
-            aiMonitoring.trackLatency(responseLatency);
-            chatAnalytics.logInteraction({
-                sessionId,
-                userQuery: message,
-                normalizedIntent: intent,
-                detectedCategory: detectedCategory,
-                matchedProducts: matchedProductIds,
-                responseLatency,
-                fallbackUsage: false,
-                pricingIntent: isCheapestQuery ? 'cheapest' : (isPremiumQuery ? 'premium' : 'standard'),
-                conversationalDomain: detectedDomain
-            });
-
-            return res.json({
-                reply: `${finalIntro}\n\n${framing}\n\n${productTags}\n${suggestion}\n\n${followUp}`,
-                confidence: "HIGH",
-                intelligence: { 
-                    intent: isCheapestQuery || isPremiumQuery ? 'comparative' : 'deterministic', 
-                    success_score: 1.0, 
-                    price_sorted: isCheapestQuery || isPremiumQuery,
-                    domain: detectedDomain
-                }
-            });
-        }
-
-        // Step 4: Deterministic Category Fallback (Phase 11)
-        const isCommerceQuery = queryTokens.some(token => 
-            ["mix", "powder", "gift", "kitchen", "spice", "drink", "soap", "oil", "food", "healthy"].includes(token)
-        );
-
-        if (isCommerceQuery) {
-            console.log("⚠️ [HYBRID] COMMERCE_FALLBACK_TRIGGERED (Bypassing Gemini)");
-            activeRequests--;
-
-            chatAnalytics.logFailure({
-                sessionId,
-                originalQuery: message,
-                cleanedIntent,
-                detectedDomain: detectedDomain || 'general',
-                failureReason: 'zero_matches'
-            });
-
-            return res.json({
-                reply: "I couldn't find exact matches for those items right now, but I can help you explore our popular collections like Health Mixes, Eco-friendly Gifts, or Handcrafted Jewellery. What would you like to see?",
-                confidence: "LOW",
-                intelligence: { intent: 'fallback', success_score: 0.5 }
-            });
-        }
-
-        // 3. Embedding Trace
+        // 3. Embedding Generation
         let queryEmbedding;
         const embCacheKey = `emb:${normalizeQuery(augmentedQuery)}`;
         if (embeddingCache.has(embCacheKey)) {
@@ -1135,100 +978,97 @@ router.post('/', async (req, res) => {
             embeddingCache.set(embCacheKey, queryEmbedding);
         }
 
-        // 4. Vector Retrieval Trace
+        // 4. Vector Retrieval
         console.log("📡 [RCA] VECTOR_SEARCH_STARTED");
         const { data: matches, error: matchError } = await supabase.rpc('match_knowledge', {
             query_embedding: queryEmbedding,
             match_threshold: filters.category ? 0.22 : 0.32,
-            match_count: 10
+            match_count: 5
         });
         
         if (matchError) {
             console.error("❌ [RCA] VECTOR_SEARCH_FAILURE:", matchError.message);
-            throw matchError;
         }
         console.log("✅ [RCA] VECTOR_RESULTS_COUNT:", matches?.length || 0);
 
         let filteredMatches = matches || [];
-        const hasMatches = filteredMatches.length > 0;
-        const avgSimilarity = hasMatches 
-            ? filteredMatches.reduce((sum, m) => sum + m.similarity, 0) / filteredMatches.length 
-            : 0;
-
-        console.log(`📊 [SEMANTIC] ANALYSIS: hasMatches=${hasMatches}, avgSimilarity=${avgSimilarity.toFixed(3)}`);
-
-        if (hasMatches && avgSimilarity > 0.35) {
-            const seen = new Set();
-            filteredMatches = filteredMatches.map(m => {
-                let boost = 0;
-                if (filters.category && m.content.includes(filters.category)) boost += 0.12;
-                
-                // Price Refinement Boost (Phase 11)
-                if (priceFilter === 'low') {
-                    if (m.content.match(/₹[0-4][0-9]{2}/)) boost += 0.15;
-                    if (m.content.match(/price:.*(low|budget|affordable)/i)) boost += 0.1;
-                } else if (priceFilter === 'high') {
-                    if (m.content.match(/₹[1-9][0-9]{3}/)) boost += 0.15;
+        
+        // Merge & deduplicate products from hybrid search and semantic search
+        let mergedProducts = [...topMatches];
+        filteredMatches.forEach(m => {
+            const pId = m.metadata?.product_id;
+            if (pId && !mergedProducts.some(p => p.id === pId)) {
+                // Find product in catalog
+                const product = allProducts.find(p => p.id === pId);
+                if (product) {
+                    mergedProducts.push(product);
                 }
+            }
+        });
 
-                return { ...m, similarity: m.similarity + boost };
-            }).filter(m => {
-                const id = m.metadata?.product_id;
-                if (!id || seen.has(id)) return false;
-                seen.add(id); return true;
-            }).sort((a, b) => b.similarity - a.similarity);
+        // Limit merged products to top 5 for optimal prompt space
+        mergedProducts = mergedProducts.slice(0, 5);
 
-            const topScore = filteredMatches[0]?.similarity || 0;
-            confidenceLevel = topScore > 0.68 ? "HIGH" : (topScore > 0.45 ? "MEDIUM" : "LOW");
-            context = filteredMatches.slice(0, 4).map(m => m.content).join("\n\n");
-            similarityScores = filteredMatches.map(m => ({ score: m.similarity.toFixed(3) }));
-
-            // Update Conversational Anchor
-            const topMatch = filteredMatches[0];
-            const detectedCategory = topMatch.metadata?.category || filters.category;
-            
-            conversationalState.set(sessionId, {
-                lastCategory: detectedCategory,
-                lastProducts: filteredMatches.slice(0, 3).map(m => m.metadata?.product_id),
-                lastQuery: normalized,
-                lastTimestamp: Date.now()
-            });
-            console.log("💾 [SEMANTIC] ANCHOR_UPDATED:", detectedCategory);
+        // Build prompt context
+        let relatedProductsContext = "";
+        if (mergedProducts.length > 0) {
+            confidenceLevel = "HIGH";
+            relatedProductsContext = mergedProducts.map(p => {
+                return `Product: ${p.name}
+ID: ${p.id}
+Category: ${p.category}
+Price: ₹${p.price}
+Description: ${p.description || "No description available."}
+----------------------------------------`;
+            }).join("\n");
         } else {
-            console.log("⚠️ [SEMANTIC] SEMANTIC_NO_MATCH_OR_WEAK_RETRIEVAL");
-            // Step 8: Emergency Semantic Fallback (Bypass AI if retrieval fails completely)
-            activeRequests--;
-            return res.json({
-                reply: "I couldn't find exact matches, but I can help you explore our similar collections. Are you interested in our healthy mixes, handmade gifts, or traditional jewellery?",
-                confidence: "LOW",
-                intelligence: { intent: 'fallback', success_score: 0.5 }
+            confidenceLevel = "LOW";
+            relatedProductsContext = "No matching products found in the catalog.";
+        }
+
+        // Set matching products in session state so frontend actions can reference them
+        const matchedProductIds = mergedProducts.map(p => p.id);
+        const detectedCategory = mergedProducts[0]?.category || detectedDomain || sessionState?.lastCategory || null;
+
+        conversationalState.set(sessionId, {
+            lastDomain: detectedDomain || previousDomain,
+            lastCategory: detectedCategory,
+            lastProducts: matchedProductIds,
+            lastTimestamp: Date.now()
+        });
+
+        if (detectedCategory) {
+            userPreferenceService.updatePreferences(sessionId, {
+                preferredCategory: detectedCategory,
+                pricingTendency: isCheapestQuery ? 'budget' : (isPremiumQuery ? 'premium' : null),
+                exploredProductId: matchedProductIds[0]
             });
         }
 
         // 5. Provider Execution Trace
         console.log("📝 [RCA] PROMPT_CONSTRUCTED. Intent:", intent);
-        let systemPrompt = `You are Thozhi, the warm and helpful AI assistant for Kottravai. 
+        let systemPrompt = `You are Thozhi, the warm, helpful, and culturally-rooted AI assistant for Kottravai. 
 Kottravai is a brand that celebrates traditional, handmade, and eco-friendly products from Tamil Nadu.
 
 Your personality:
-- Warm and welcoming (use "Vanakkam" or "Hi there").
-- Culturally rooted but modern.
-- Helpful and softly persuasive, like a knowledgeable local shopkeeper.
+- Warm and welcoming (start or use "Vanakkam!").
+- Culturally rooted but modern, soft-spoken, and persuasive like a helpful local shopkeeper.
 - Professional but never robotic.
 
 Context for this interaction:
 - Intent: ${intent}
 - Confidence: ${confidenceLevel}
-- Related Products: ${context || "No exact matches in catalog."}
-- Last Category Seen: ${sessionState?.lastCategory || "None"}
+- Related Products Context (these are real items currently in our database):
+${relatedProductsContext}
+- Last Category Seen: ${detectedCategory || "None"}
 
 Guidelines:
-1. If products are found, introduce them warmly. Use phrases like "I've picked out some favorites for you" or "You might enjoy these traditional collections."
-2. If no exact matches are found, don't just say "No products found." Instead, say "I couldn't find exact matches for those, but I can help you explore our popular collections like Health Mixes or Eco-friendly Gifts."
-3. Always frame products in a lifestyle context (e.g., healthy breakfast, thoughtful gifting, authentic homemade taste).
-4. Keep responses concise and focused on helping the user discover products.
-5. Use [PRODUCT:id] tags for any products you mention from the context.`;
-        
+1. Carefully read the user's message. If they ask for a category (like Heritage Mixes, Hampers, Spices, Jewellery) or search terms, introduce the matched products from the Context warmly. Explain how they match the user's specific request or description.
+2. When recommending a product, you MUST include its product reference tag in the exact format [PRODUCT:id] (e.g. [PRODUCT:7c74a714-2654-48ad-b69a-2a7c28f6e7c7]) using the exact UUID ID provided. Only reference products that are explicitly provided in the Context above. Do not invent or change IDs.
+3. If no matching products are found or if the products in the context are not relevant to their message, don't say "No products found." Instead, explain that we don't have exact matches but suggest that they explore our popular categories like Health Mixes, Traditional Spices, or Curated Gift Hampers.
+4. Always frame products in a lifestyle context (e.g., healthy millet breakfast for energy, organic coconut shell cups for an eco-friendly kitchen, handcrafted temple jewellery for special occasions).
+5. Keep your response concise, engaging, and focused on helping the user discover traditional Kottravai products.`;
+
         console.log("📡 [RCA] CALLING_PROVIDER...");
         const result = await aiProvider.generateContent(systemPrompt, message, history.slice(-8));
         console.log("✅ [RCA] PROVIDER_RESPONSE_RECEIVED. Provider:", result.provider);
@@ -1236,17 +1076,18 @@ Guidelines:
         const responseText = result.text;
         let finalReply = responseText;
 
-        // Ensure Product Visibility (Phase 11)
-        if (deterministicMatches.length > 0 && !responseText.includes('[PRODUCT:')) {
+        // Ensure Product Visibility Safety Check:
+        // If matches were found but LLM forgot to output [PRODUCT:id] tags, append them.
+        if (mergedProducts.length > 0 && !responseText.includes('[PRODUCT:')) {
             console.log("🔗 [HYBRID] INJECTING_DETERMINISTIC_TAGS");
-            const tags = deterministicMatches.map(p => `[PRODUCT:${p.id}]`).join('\n');
+            const tags = mergedProducts.map(p => `[PRODUCT:${p.id}]`).join('\n');
             finalReply = `${responseText}\n\nHere are some related products you might like:\n${tags}`;
         }
 
         const response = { 
             reply: finalReply, 
             confidence: confidenceLevel, 
-            intelligence: { intent, success_score: 1.0 } 
+            intelligence: { intent, success_score: 1.0, matched_count: mergedProducts.length } 
         };
         
         console.log("🏁 [RCA] FINAL_RESPONSE_SENT");
@@ -1257,14 +1098,15 @@ Guidelines:
             sessionId,
             userQuery: message,
             normalizedIntent: intent,
-            detectedCategory: sessionState?.lastCategory,
+            detectedCategory: detectedCategory,
             matchedProducts: matchedProductIds,
             responseLatency,
-            fallbackUsage,
-            pricingIntent: 'standard',
-            conversationalDomain: sessionState?.lastDomain
+            fallbackUsage: mergedProducts.length === 0,
+            pricingIntent: isCheapestQuery ? 'cheapest' : (isPremiumQuery ? 'premium' : 'standard'),
+            conversationalDomain: detectedDomain
         });
 
+        activeRequests--;
         res.json(response);
 
     } catch (err) {

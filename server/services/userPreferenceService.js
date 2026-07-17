@@ -18,7 +18,7 @@ class UserPreferenceService {
                     pricing_tendency = EXCLUDED.pricing_tendency,
                     last_explored_products = CASE 
                         WHEN NOT (user_preference_memory.last_explored_products @> $4)
-                        THEN ($4 || user_preference_memory.last_explored_products)->0..4
+                        THEN jsonb_path_query_array($4 || user_preference_memory.last_explored_products, '$[0 to 4]')
                         ELSE user_preference_memory.last_explored_products
                     END,
                     updated_at = CURRENT_TIMESTAMP
