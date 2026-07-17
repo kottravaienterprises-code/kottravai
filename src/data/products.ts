@@ -30,6 +30,7 @@ export interface Product {
     keyFeatures?: string[];
     features?: string[]; // Specifications (Key: Value)
     images?: string[];
+    image_alts?: Record<string, string>;
     reviews?: Review[]; // Array of reviews
     stock?: number;
     isBestSeller?: boolean;

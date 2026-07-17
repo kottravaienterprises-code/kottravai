@@ -475,7 +475,7 @@ const ProductDetails = () => {
                             <div className="w-full h-full p-6 md:p-8 flex items-center justify-center">
                                 <img 
                                     src={getOptimizedImage(mainImage || product.image, IMAGE_SIZES.PRODUCT_DETAIL)} 
-                                    alt={product.name} 
+                                    alt={product.image_alts?.[mainImage || product.image] || product.name} 
                                     width={800}
                                     height={800}
                                     loading="lazy"
@@ -518,7 +518,7 @@ const ProductDetails = () => {
                                     >
                                         <img 
                                             src={getOptimizedImage(img, IMAGE_SIZES.THUMBNAIL)} 
-                                            alt="" 
+                                            alt={product.image_alts?.[img] || `${product.name} thumbnail ${idx + 1}`} 
                                             width={100}
                                             height={100}
                                             className="w-full h-full object-cover" 

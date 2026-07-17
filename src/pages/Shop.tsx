@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Filter, ShoppingBag, Heart, Search, ChevronDown, X } from 'lucide-react';
@@ -668,7 +668,7 @@ const Shop = () => {
                                                     <Link to={`/product/${product.slug}`} className="block w-full h-full relative">
                                                         <img
                                                             src={getOptimizedImage(product.image, IMAGE_SIZES.CARD)}
-                                                            alt={getDisplayName(product)}
+                                                            alt={product.image_alts?.[product.image] || getDisplayName(product)}
                                                             width={400}
                                                             height={400}
                                                             loading="lazy"
@@ -678,7 +678,7 @@ const Shop = () => {
                                                         {product.images && product.images.length > 0 && (
                                                             <img
                                                                 src={getOptimizedImage(product.images[0], IMAGE_SIZES.CARD)}
-                                                                alt={`${getDisplayName(product)} hover`}
+                                                                alt={product.image_alts?.[product.images[0]] || `${getDisplayName(product)} hover`}
                                                                 width={400}
                                                                 height={400}
                                                                 loading="lazy"

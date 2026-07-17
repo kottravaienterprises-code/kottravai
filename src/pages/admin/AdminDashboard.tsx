@@ -1488,6 +1488,7 @@ const AdminDashboard = () => {
       required?: boolean;
     }[],
     variants: [] as { weight: string; price: number; images: string[] }[],
+    image_alts: {} as Record<string, string>,
   });
 
   const [mainImage, setMainImage] = useState<string>("");
@@ -1696,6 +1697,7 @@ const AdminDashboard = () => {
       affiliate_fixed_amount: product.affiliate_fixed_amount || 0,
       min_affiliate_level: product.min_affiliate_level || "Ambassador",
       variants: product.variants || [],
+      image_alts: product.image_alts || {},
     });
     setMainImage(product.image);
     setOtherImages(product.images || []);
@@ -1796,6 +1798,7 @@ const AdminDashboard = () => {
       ],
       customFormConfig: [],
       variants: [],
+      image_alts: {},
     });
     setMainImage("");
     setMainImageFile(null);
@@ -1864,6 +1867,18 @@ const AdminDashboard = () => {
       const existingProduct = products.find((p) => p.id === editingId);
       const existingReviews = existingProduct?.reviews || [];
 
+      // Resolve final image alt mappings (handling base64/temp keys rewriting to Supabase storage public URLs)
+      const finalImageAlts: Record<string, string> = {};
+      if (mainImage && formData.image_alts[mainImage]) {
+        finalImageAlts[uploadedMainUrl] = formData.image_alts[mainImage];
+      }
+      otherImages.forEach((img, idx) => {
+        const finalUrl = uploadedOtherUrls[idx];
+        if (finalUrl && formData.image_alts[img]) {
+          finalImageAlts[finalUrl] = formData.image_alts[img];
+        }
+      });
+
       const productData = {
         id: editingId || Date.now().toString(),
         name: formData.name,
@@ -1876,6 +1891,7 @@ const AdminDashboard = () => {
           .replace(/[^\w-]+/g, ""),
         image: uploadedMainUrl,
         images: uploadedOtherUrls,
+        image_alts: finalImageAlts,
         shortDescription: formData.shortDescription,
         description: formData.description,
         keyFeatures: formData.keyFeatures
@@ -6114,6 +6130,24 @@ const AdminDashboard = () => {
                         />
                       </label>
                     </div>
+                    {mainImage && (
+                      <div className="mt-2">
+                        <label className="text-xs font-bold text-gray-500 block mb-1">Image Alt Text (SEO)</label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-[#8E2A8B] focus:border-[#8E2A8B] outline-none transition-all"
+                          placeholder="Describe the cover image..."
+                          value={formData.image_alts?.[mainImage] || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              image_alts: { ...prev.image_alts, [mainImage]: val },
+                            }));
+                          }}
+                        />
+                      </div>
+                    )}
                     {compressionStats && mainImage && (
                       <div className="mt-4 p-4 bg-emerald-50 rounded-xl border border-emerald-100 animate-in fade-in slide-in-from-top-2 duration-500">
                         <div className="flex items-center justify-between mb-2">
@@ -6153,27 +6187,40 @@ const AdminDashboard = () => {
                       Gallery Images
                     </label>
                     <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2">
-                        {otherImages.map((img, idx) => (
-                          <div
-                            key={idx}
-                            className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 group"
-                          >
-                            <img
-                              src={img}
-                              alt={`Gallery ${idx}`}
-                              className="w-full h-full object-cover"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeOtherImage(idx)}
-                              className="absolute top-0 right-0 bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
+                      {otherImages.length > 0 && (
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                          {otherImages.map((img, idx) => (
+                            <div key={idx} className="flex items-center gap-3 p-2 bg-gray-50 rounded-xl border border-gray-100">
+                              <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 shrink-0">
+                                <img src={img} alt="" className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <input
+                                  type="text"
+                                  className="w-full border border-gray-300 rounded-lg px-2.5 py-1 text-xs focus:ring-[#8E2A8B] focus:border-[#8E2A8B] outline-none bg-white"
+                                  placeholder={`Gallery image ${idx + 1} alt text...`}
+                                  value={formData.image_alts?.[img] || ""}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      image_alts: { ...prev.image_alts, [img]: val },
+                                    }));
+                                  }}
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeOtherImage(idx)}
+                                className="text-red-500 hover:text-red-700 p-1 shrink-0 transition-colors"
+                                title="Remove image"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors inline-flex items-center gap-2">
                         <Upload size={16} />
                         Add Images

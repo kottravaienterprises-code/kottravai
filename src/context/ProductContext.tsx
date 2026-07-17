@@ -30,6 +30,7 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
         keyFeatures: p.key_features || p.keyFeatures || [],
         features: p.features || [],
         images: p.images || [],
+        image_alts: p.image_alts || {},
         reviews: p.reviews || [],
         isBestSeller: p.is_best_seller || p.isBestSeller || false,
         isGiftBundleItem: p.is_gift_bundle_item || p.isGiftBundleItem || false,

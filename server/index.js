@@ -1471,7 +1471,8 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
             name, price, category, image, slug, categorySlug,
             shortDescription, description, keyFeatures, features, images, isBestSeller,
             isGiftBundleItem, isLive, isCustomRequest, customFormConfig, defaultFormFields, variants, hub,
-            is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level
+            is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level,
+            image_alts, imageAlts
         } = req.body;
 
         if (!name) {
@@ -1498,6 +1499,8 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
         const normalizedCategory = normalizeText(category);
         const normalizedDescription = normalizeText(description);
 
+        const finalImageAlts = image_alts || imageAlts || {};
+
         console.log("📡 [CREATE_PRODUCT] Inserting via pg...");
         const result = await db.query(`
             INSERT INTO products (
@@ -1507,14 +1510,16 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
                 custom_form_config, default_form_fields, variants, hub,
                 is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type,
                 affiliate_fixed_amount, min_affiliate_level,
-                normalized_name, normalized_category, normalized_description
+                normalized_name, normalized_category, normalized_description,
+                image_alts
             ) VALUES (
                 $1, $2, $3, $4, $5, $6,
                 $7, $8, $9, $10, $11,
                 $12, $13, $14, $15,
                 $16, $17, $18, $19,
                 $20, $21, $22,
-                $23, $24, $25, $26, $27
+                $23, $24, $25, $26, $27,
+                $28
             ) RETURNING *
         `, [
             name,
@@ -1543,7 +1548,8 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
             min_affiliate_level || 'Ambassador',
             normalizedName,
             normalizedCategory,
-            normalizedDescription
+            normalizedDescription,
+            JSON.stringify(finalImageAlts)
         ]);
 
         const data = result.rows[0];
@@ -1571,7 +1577,8 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
             name, price, category, image, slug, categorySlug,
             shortDescription, description, keyFeatures, features, images, isBestSeller,
             isGiftBundleItem, isLive, isCustomRequest, customFormConfig, defaultFormFields, variants, hub,
-            is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level
+            is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level,
+            image_alts, imageAlts
         } = req.body;
 
         const cleanPrice = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : Number(price);
@@ -1591,6 +1598,8 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
         const normalizedCategory = normalizeText(category);
         const normalizedDescription = normalizeText(description);
 
+        const finalImageAlts = image_alts || imageAlts || {};
+
         console.log(`📡 [UPDATE_PRODUCT] Updating product ${id} via pg...`);
         const result = await db.query(`
             UPDATE products SET
@@ -1602,8 +1611,9 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
                 variants = $18, hub = $19, is_affiliate_eligible = $20,
                 affiliate_commission_rate = $21, affiliate_payout_type = $22,
                 affiliate_fixed_amount = $23, min_affiliate_level = $24,
-                normalized_name = $25, normalized_category = $26, normalized_description = $27
-            WHERE id = $28
+                normalized_name = $25, normalized_category = $26, normalized_description = $27,
+                image_alts = $28
+            WHERE id = $29
             RETURNING *
         `, [
             name,
@@ -1633,6 +1643,7 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
             normalizedName,
             normalizedCategory,
             normalizedDescription,
+            JSON.stringify(finalImageAlts),
             id
         ]);
 
