@@ -46,7 +46,19 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
         affiliate_commission_rate: p.affiliate_commission_rate || 0,
         affiliate_payout_type: p.affiliate_payout_type || 'percentage',
         affiliate_fixed_amount: p.affiliate_fixed_amount || 0,
-        min_affiliate_level: p.min_affiliate_level || p.minAffiliateLevel || 'Ambassador'
+        min_affiliate_level: p.min_affiliate_level || p.minAffiliateLevel || 'Ambassador',
+        
+        // Customization
+        isCustomizable: p.is_customizable || p.isCustomizable || false,
+        customizationCharge: p.customization_charge || p.customizationCharge || 100,
+        allowImageUpload: p.allow_image_upload !== undefined ? p.allow_image_upload : (p.allowImageUpload !== undefined ? p.allowImageUpload : false),
+        allowCustomText: p.allow_custom_text !== undefined ? p.allow_custom_text : (p.allowCustomText !== undefined ? p.allowCustomText : false),
+        allowSpecialInstructions: p.allow_special_instructions !== undefined ? p.allow_special_instructions : (p.allowSpecialInstructions !== undefined ? p.allowSpecialInstructions : false),
+        maxTextLength: p.max_text_length || p.maxTextLength || 50,
+        maxFileSize: p.max_file_size || p.maxFileSize || 5,
+        allowedFileTypes: p.allowed_file_types || p.allowedFileTypes || ['JPG', 'JPEG', 'PNG', 'WEBP'],
+        customizableTag: p.customizable_tag || p.customizableTag || 'CUSTOMIZABLE',
+        customizationType: p.customization_type || p.customizationType || 'No Restrictions'
     });
 
     const [products, setProducts] = useState<Product[]>(() => {

@@ -118,7 +118,7 @@ const Cart = () => {
                                         <div key={`${item.id}-${item.selectedVariant?.weight || 'default'}`} className="py-6 flex flex-col md:flex-row items-center gap-8">
                                             {/* Remove Button */}
                                             <button
-                                                onClick={() => removeFromCart(item.id, item.selectedVariant?.weight)}
+                                                onClick={() => removeFromCart(item.id, item.selectedVariant?.weight, item.customizationHash)}
                                                 className="text-gray-300 hover:text-black transition-colors"
                                             >
                                                 <X size={20} />
@@ -139,14 +139,48 @@ const Cart = () => {
                                                 <div className="text-[10px] uppercase tracking-[0.2em] text-gray-400 mb-1 font-semibold">{item.category}</div>
                                                 <h3 className="text-lg font-medium text-gray-900 leading-tight mb-1">{item.name}</h3>
                                                 {item.selectedVariant && (
-                                                    <p className="text-sm text-gray-500">{item.selectedVariant.weight}</p>
+                                                    <p className="text-sm text-gray-500 mb-2">{item.selectedVariant.weight}</p>
+                                                )}
+                                                
+                                                {/* Customization Details */}
+                                                {item.customizationData?.isCustomized && (
+                                                    <div className="mt-2 text-left bg-[#FAF9F6] p-3 rounded-lg border border-[#E9E4DB] inline-block w-full max-w-sm">
+                                                        <div className="text-[10px] font-black uppercase tracking-widest text-[#8E2A8B] mb-2 flex items-center gap-1">
+                                                            <span className="text-sm">✨</span> Customization Details
+                                                        </div>
+                                                        <div className="space-y-1.5 text-xs text-gray-600">
+                                                            {item.customizationData.customImage && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-bold">Image:</span>
+                                                                    <div className="w-8 h-8 rounded border border-gray-200 overflow-hidden bg-white">
+                                                                        <img src={item.customizationData.customImage} alt="Custom" className="w-full h-full object-cover" />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {item.customizationData.customText && (
+                                                                <div className="flex gap-2">
+                                                                    <span className="font-bold min-w-max">Text:</span>
+                                                                    <span className="italic">"{item.customizationData.customText}"</span>
+                                                                </div>
+                                                            )}
+                                                            {item.customizationData.specialInstructions && (
+                                                                <div className="flex gap-2">
+                                                                    <span className="font-bold min-w-max">Note:</span>
+                                                                    <span>{item.customizationData.specialInstructions}</span>
+                                                                </div>
+                                                            )}
+                                                            <div className="pt-1 mt-1 border-t border-gray-200">
+                                                                <span className="font-bold text-[#2D1B4E]">+ ₹{item.customizationData.customizationCharge} fee</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 )}
                                             </div>
 
                                             {/* Quantity Controls */}
-                                            <div className="flex items-center border border-gray-200">
+                                            <div className="flex items-center border border-gray-200 self-center">
                                                 <button
-                                                    onClick={() => updateQuantity(item.id, item.quantity - 1, item.selectedVariant?.weight)}
+                                                    onClick={() => updateQuantity(item.id, item.quantity - 1, item.selectedVariant?.weight, item.customizationHash)}
                                                     className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 disabled:opacity-30"
                                                     disabled={item.quantity <= 1}
                                                 >
@@ -154,7 +188,7 @@ const Cart = () => {
                                                 </button>
                                                 <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
                                                 <button
-                                                    onClick={() => updateQuantity(item.id, item.quantity + 1, item.selectedVariant?.weight)}
+                                                    onClick={() => updateQuantity(item.id, item.quantity + 1, item.selectedVariant?.weight, item.customizationHash)}
                                                     className="w-10 h-10 flex items-center justify-center hover:bg-gray-50"
                                                 >
                                                     <Plus size={14} />
@@ -162,8 +196,15 @@ const Cart = () => {
                                             </div>
 
                                             {/* Item Price */}
-                                            <div className="text-right min-w-[100px] font-medium text-gray-900 whitespace-nowrap">
-                                                {item.quantity} x ₹{item.price}
+                                            <div className="text-right min-w-[100px] font-medium text-gray-900 whitespace-nowrap self-center">
+                                                <div className="text-lg">
+                                                    ₹{Number(item.price) * item.quantity + (item.customizationData?.isCustomized ? Number(item.customizationData.customizationCharge) : 0)}
+                                                </div>
+                                                {item.quantity > 1 && (
+                                                    <div className="text-[10px] text-gray-400 mt-1">
+                                                        {item.quantity} × ₹{item.price} {item.customizationData?.isCustomized && `(+ ₹${item.customizationData.customizationCharge})`}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}

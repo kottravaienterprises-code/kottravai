@@ -170,6 +170,9 @@ const Account = () => {
                                                 <div className="flex items-center gap-3 mb-1">
                                                     <span className="text-xs font-black uppercase tracking-widest text-gray-400">Order ID:</span>
                                                     <span className="text-sm font-bold text-[#2D1B4E]">#{order.orderId || order.id.slice(0, 8)}</span>
+                                                    {(order.has_customizations || (order.items && order.items.some((i:any) => i.customizationData?.isCustomized))) && (
+                                                        <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">Customized</span>
+                                                    )}
                                                 </div>
                                                 <p className="text-xs text-gray-400">{new Date(order.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                                             </div>
@@ -178,8 +181,9 @@ const Account = () => {
                                                     <span className="text-xs font-black uppercase tracking-widest text-gray-400 block mb-1">Total Amount</span>
                                                     <span className="text-xl font-black text-[#b5128f]">₹{parseFloat(order.total.toString()).toLocaleString('en-IN')}</span>
                                                 </div>
-                                                <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.1em] ${order.status === 'Delivered' ? 'bg-green-50 text-green-600' :
-                                                    order.status === 'Processing' ? 'bg-blue-50 text-blue-600' :
+                                                <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.1em] text-center ${order.status === 'Delivered' ? 'bg-green-50 text-green-600' :
+                                                    ['Processing', 'In Production', 'Design Started', 'Approved for Production', 'Customization Completed', 'Quality Check'].includes(order.status) ? 'bg-purple-50 text-purple-600' :
+                                                    ['Shipped', 'Packed'].includes(order.status) ? 'bg-blue-50 text-blue-600' :
                                                         order.status === 'Cancelled' ? 'bg-red-50 text-red-600' :
                                                             'bg-yellow-50 text-yellow-600'
                                                     }`}>

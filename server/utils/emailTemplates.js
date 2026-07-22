@@ -175,14 +175,34 @@ const getContactUserTemplate = (data) => {
 };
 
 const getOrderAdminTemplate = (order) => {
+    const hasCustomization = order.items.some(item => item.customizationData?.isCustomized);
+
     const itemsList = order.items.map(item => `
         <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">₹${item.price * item.quantity}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                ${item.name} (x${item.quantity})
+                ${item.customizationData?.isCustomized ? `
+                    <div style="background: #fdf4fc; border-left: 3px solid #8E2A8B; padding: 6px; margin-top: 6px; font-size: 12px; border-radius: 4px;">
+                        <strong>✨ Customization Request:</strong><br/>
+                        ${item.customizationData.customText ? `Text: <em>"${item.customizationData.customText}"</em><br/>` : ''}
+                        ${item.customizationData.specialInstructions ? `Instructions: ${item.customizationData.specialInstructions}<br/>` : ''}
+                        ${item.customizationData.fileUrl ? `<a href="${item.customizationData.fileUrl}" style="color:#8E2A8B;">View Uploaded File</a>` : ''}
+                    </div>
+                ` : ''}
+            </td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; vertical-align: top;">₹${item.price * item.quantity + (item.customizationData?.isCustomized ? item.customizationData.customizationCharge : 0)}</td>
         </tr>
     `).join('');
 
+    const actionBanner = hasCustomization ? `
+        <div style="background-color: #fef2f2; border: 1px solid #f87171; border-left: 5px solid #ef4444; padding: 15px; margin-bottom: 20px; border-radius: 6px;">
+            <h3 style="color: #b91c1c; margin: 0 0 5px 0;">🚨 ACTION REQUIRED: Customized Order</h3>
+            <p style="margin: 0; color: #991b1b; font-size: 14px;">This order contains customized products that require manual review and production setup before processing.</p>
+        </div>
+    ` : '';
+
     const content = `
+        ${actionBanner}
         <h2>New Order Received!</h2>
         <p>You have received a new order (<strong>#${order.orderId}</strong>) from <strong>${order.customerName}</strong>.</p>
         
@@ -214,6 +234,12 @@ const getOrderAdminTemplate = (order) => {
             </table>
             <p style="margin-top: 15px;"><strong>Payment ID:</strong> ${order.paymentId}</p>
         </div>
+        
+        ${hasCustomization ? `
+        <p style="text-align: center;">
+            <a href="https://kottravai.in/admin" class="btn" style="background-color: #ef4444;">Review Order in Dashboard</a>
+        </p>
+        ` : ''}
     `;
     return getBaseLayout(content);
 };

@@ -239,12 +239,16 @@ const Checkout = () => {
                         items: cart.map(item => {
                             const product = products.find(p => p.id === item.id);
                             const rate = Number(product?.gst_rate || 0);
-                            const gst_amount = Math.round((item.price * item.quantity) * (rate / 100));
+                            const basePrice = item.price;
+                            const customCharge = item.customizationData?.isCustomized ? Number(item.customizationData.customizationCharge) : 0;
+                            const gst_amount = Math.round(((basePrice * item.quantity) + customCharge) * (rate / 100));
                             return {
                                 ...item,
                                 gst_rate: rate,
                                 gst_amount: gst_amount,
-                                image: sanitizeUrl((item.selectedVariant?.images && item.selectedVariant.images.length > 0) ? item.selectedVariant.images[0] : item.image)
+                                image: sanitizeUrl((item.selectedVariant?.images && item.selectedVariant.images.length > 0) ? item.selectedVariant.images[0] : item.image),
+                                customizationData: item.customizationData,
+                                customizationHash: item.customizationHash
                             };
                         })
                     }
@@ -291,12 +295,16 @@ const Checkout = () => {
                         items: cart.map(item => {
                             const product = products.find(p => p.id === item.id);
                             const rate = Number(product?.gst_rate || 0);
-                            const gst_amount = Math.round((item.price * item.quantity) * (rate / 100));
+                            const basePrice = item.price;
+                            const customCharge = item.customizationData?.isCustomized ? Number(item.customizationData.customizationCharge) : 0;
+                            const gst_amount = Math.round(((basePrice * item.quantity) + customCharge) * (rate / 100));
                             return {
                                 ...item,
                                 gst_rate: rate,
                                 gst_amount: gst_amount,
-                                image: sanitizeUrl((item.selectedVariant?.images && item.selectedVariant.images.length > 0) ? item.selectedVariant.images[0] : item.image)
+                                image: sanitizeUrl((item.selectedVariant?.images && item.selectedVariant.images.length > 0) ? item.selectedVariant.images[0] : item.image),
+                                customizationData: item.customizationData,
+                                customizationHash: item.customizationHash
                             };
                         }),
                         paymentId: response.razorpay_payment_id,
@@ -491,14 +499,20 @@ const Checkout = () => {
                                                 {item.selectedVariant && (
                                                     <div className="text-[9px] text-[#8E2A8B] font-bold uppercase">{item.selectedVariant.weight}</div>
                                                 )}
+                                                {item.customizationData?.isCustomized && (
+                                                    <div className="text-[9px] text-gray-500 mt-1">
+                                                        <span className="font-bold text-[#8E2A8B]">✨ CUSTOMIZED</span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="font-bold text-gray-900 text-sm text-right">
-                                                <div>₹{item.price * item.quantity}</div>
+                                                <div>₹{Number(item.price) * item.quantity + (item.customizationData?.isCustomized ? Number(item.customizationData.customizationCharge) : 0)}</div>
                                                 {(() => {
                                                     const product = products.find(p => p.id === item.id);
                                                     const rate = Number(product?.gst_rate || 0);
                                                     if (rate <= 0) return null;
-                                                    const itemGst = Math.round((item.price * item.quantity) * (rate / 100));
+                                                    const customCharge = item.customizationData?.isCustomized ? Number(item.customizationData.customizationCharge) : 0;
+                                                    const itemGst = Math.round(((item.price * item.quantity) + customCharge) * (rate / 100));
                                                     return <div className="text-[10px] text-gray-400 font-normal">Incl. ₹{itemGst} GST ({rate}%)</div>;
                                                 })()}
                                             </div>
@@ -830,15 +844,23 @@ const Checkout = () => {
                                                 {item.selectedVariant && (
                                                     <div className="text-[10px] font-bold text-[#8E2A8B] uppercase tracking-wider mt-0.5">{item.selectedVariant.weight}</div>
                                                 )}
+                                                {item.customizationData?.isCustomized && (
+                                                    <div className="text-xs text-gray-500 mt-1 flex flex-col gap-0.5">
+                                                        <span className="font-bold text-[#8E2A8B] text-[9px] uppercase">✨ Customized</span>
+                                                        {item.customizationData.customText && <span>Text: "{item.customizationData.customText}"</span>}
+                                                        {item.customizationData.specialInstructions && <span>Note: {item.customizationData.specialInstructions}</span>}
+                                                    </div>
+                                                )}
                                                 <div className="text-sm text-gray-500 mt-1">Qty: {item.quantity}</div>
                                             </div>
                                             <div className="font-bold text-gray-900 text-right">
-                                                <div>₹{item.price * item.quantity}</div>
+                                                <div>₹{Number(item.price) * item.quantity + (item.customizationData?.isCustomized ? Number(item.customizationData.customizationCharge) : 0)}</div>
                                                 {(() => {
                                                     const product = products.find(p => p.id === item.id);
                                                     const rate = Number(product?.gst_rate || 0);
                                                     if (rate <= 0) return null;
-                                                    const itemGst = Math.round((item.price * item.quantity) * (rate / 100));
+                                                    const customCharge = item.customizationData?.isCustomized ? Number(item.customizationData.customizationCharge) : 0;
+                                                    const itemGst = Math.round(((item.price * item.quantity) + customCharge) * (rate / 100));
                                                     return <div className="text-[10px] text-gray-400 font-normal">Incl. ₹{itemGst} GST ({rate}%)</div>;
                                                 })()}
                                             </div>

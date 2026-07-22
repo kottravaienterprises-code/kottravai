@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import analytics from '@/utils/analyticsService';
 import { getOptimizedImage, IMAGE_SIZES } from '@/utils/imageOptimizer';
 import { API_ENDPOINTS } from '@/config/api';
+import ProductCustomization, { CustomizationData } from '@/components/shop/ProductCustomization';
 
 const ProductDetails = () => {
     const { slug } = useParams();
@@ -47,7 +48,16 @@ const ProductDetails = () => {
                     keyFeatures: data.key_features || data.keyFeatures || [],
                     features: data.features || [],
                     images: data.images || [],
-                    reviews: data.reviews || []
+                    reviews: data.reviews || [],
+                    isCustomizable: data.is_customizable !== undefined ? data.is_customizable : data.isCustomizable,
+                    customizationCharge: data.customization_charge !== undefined ? Number(data.customization_charge) : data.customizationCharge,
+                    allowImageUpload: data.allow_image_upload !== undefined ? data.allow_image_upload : data.allowImageUpload,
+                    allowCustomText: data.allow_custom_text !== undefined ? data.allow_custom_text : data.allowCustomText,
+                    allowSpecialInstructions: data.allow_special_instructions !== undefined ? data.allow_special_instructions : data.allowSpecialInstructions,
+                    maxTextLength: data.max_text_length !== undefined ? data.max_text_length : data.maxTextLength,
+                    maxFileSize: data.max_file_size !== undefined ? data.max_file_size : data.maxFileSize,
+                    allowedFileTypes: data.allowed_file_types || data.allowedFileTypes,
+                    customizableTag: data.customizable_tag || data.customizableTag
                 };
 
                 setProduct(mappedProduct);
@@ -138,6 +148,9 @@ const ProductDetails = () => {
         transformOrigin: 'center center',
         transform: 'scale(1)'
     });
+    
+    // Customization state
+    const [customizationData, setCustomizationData] = useState<CustomizationData | undefined>(undefined);
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
         const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -280,9 +293,10 @@ const ProductDetails = () => {
 
     const handleAddToCart = () => {
         if (isInCart) {
+            // Note: Since we only pass product id and variant, this removes all customizations of this variant. For precise removal we'd need hash, but sticking to existing logic for now.
             removeFromCart(product.id, selectedVariant?.weight);
         } else {
-            addToCart(product, quantity, selectedVariant || undefined);
+            addToCart(product, quantity, selectedVariant || undefined, customizationData);
         }
     };
 
@@ -541,7 +555,14 @@ const ProductDetails = () => {
                             {product.isCustomRequest ? (
                                 <span className="text-lg font-bold text-brandPurple bg-purple-50 px-4 py-2 rounded-xl border border-purple-100 italic">Price on Request</span>
                             ) : (
-                                <span className="text-2xl font-bold font-montserrat text-brandPink">₹{Number(selectedVariant ? selectedVariant.price * quantity : product.price * quantity).toLocaleString('en-IN')}</span>
+                                <div className="flex flex-col">
+                                    <span className="text-2xl font-bold font-montserrat text-brandPink">
+                                        ₹{Number(Number(selectedVariant ? selectedVariant.price : product.price) * quantity + (customizationData?.isCustomized ? Number(customizationData.customizationCharge) : 0)).toLocaleString('en-IN')}
+                                    </span>
+                                    {customizationData?.isCustomized && (
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase">Includes ₹{customizationData.customizationCharge} customization fee</span>
+                                    )}
+                                </div>
                             )}
                             <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center gap-0.5 text-yellow-400">
@@ -576,6 +597,14 @@ const ProductDetails = () => {
                         <div className="text-sm text-gray-500 mb-5 leading-relaxed font-medium line-clamp-4">
                             {product.shortDescription || product.description || "Handcrafted with love and organic materials."}
                         </div>
+
+                        {/* Customization Module */}
+                        {!product.isCustomRequest && product.isCustomizable && (
+                            <ProductCustomization 
+                                product={product} 
+                                onCustomizationChange={setCustomizationData} 
+                            />
+                        )}
 
                         {product.category === 'Essential Care' ? (
                             <div className="space-y-4 mb-6">
@@ -612,10 +641,10 @@ const ProductDetails = () => {
                                 </div>
                                 <button
                                     onClick={() => {
-                                        if (!isInCart) addToCart(product, quantity, selectedVariant || undefined);
+                                        if (!isInCart) addToCart(product, quantity, selectedVariant || undefined, customizationData);
                                         navigate('/checkout');
                                     }}
-                                    className="w-full h-11 rounded-xl font-semibold font-montserrat uppercase tracking-[0.15em] text-xs transition-all bg-brandBlack text-white hover:bg-brandPink active:scale-95"
+                                    className="w-full h-11 rounded-xl font-semibold font-montserrat uppercase tracking-[0.15em] text-xs transition-all bg-brandBlack text-white hover:bg-brandPink active:scale-95 mt-4"
                                 >
                                     Buy Now
                                 </button>

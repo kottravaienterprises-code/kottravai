@@ -27,6 +27,7 @@ export interface Order {
     shipping_server?: number;
     total_server?: number;
     total_gst_server?: number;
+    has_customizations?: boolean;
 }
 
 interface OrderContextType {

@@ -568,6 +568,10 @@ const AdminDashboard = () => {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<
     boolean | null
   >(null);
+  const [orderTab, setOrderTab] = useState<"normal" | "customized">("normal");
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<any>(null);
+  const [orderSearchQuery, setOrderSearchQuery] = useState("");
+  const [orderFilterStatus, setOrderFilterStatus] = useState("All");
   const [view, setView] = useState<
     | "dashboard"
     | "list"
@@ -1446,6 +1450,14 @@ const AdminDashboard = () => {
     affiliate_payout_type: "percentage" as "percentage" | "fixed",
     affiliate_fixed_amount: 0,
     min_affiliate_level: "Ambassador",
+    isCustomizable: false,
+    customizationCharge: 100,
+    allowCustomImage: false,
+    allowCustomText: false,
+    allowSpecialInstructions: false,
+    customTextMaxLength: 50,
+    customImageMaxSizeMB: 5,
+    customizableTag: "CUSTOMIZABLE" as "CUSTOMIZABLE" | "PERSONALIZABLE" | "CUSTOM MADE",
     defaultFormFields: [
       {
         id: "name",
@@ -1696,6 +1708,14 @@ const AdminDashboard = () => {
       affiliate_payout_type: product.affiliate_payout_type || "percentage",
       affiliate_fixed_amount: product.affiliate_fixed_amount || 0,
       min_affiliate_level: product.min_affiliate_level || "Ambassador",
+      isCustomizable: product.isCustomizable || false,
+      customizationCharge: product.customizationCharge || 100,
+      allowCustomImage: product.allowCustomImage || false,
+      allowCustomText: product.allowCustomText || false,
+      allowSpecialInstructions: product.allowSpecialInstructions || false,
+      customTextMaxLength: product.customTextMaxLength || 50,
+      customImageMaxSizeMB: product.customImageMaxSizeMB || 5,
+      customizableTag: product.customizableTag || "CUSTOMIZABLE",
       variants: product.variants || [],
       image_alts: product.image_alts || {},
     });
@@ -1798,6 +1818,14 @@ const AdminDashboard = () => {
       ],
       customFormConfig: [],
       variants: [],
+      isCustomizable: false,
+      customizationCharge: 100,
+      allowCustomImage: false,
+      allowCustomText: false,
+      allowSpecialInstructions: false,
+      customTextMaxLength: 50,
+      customImageMaxSizeMB: 5,
+      customizableTag: "CUSTOMIZABLE",
       image_alts: {},
     });
     setMainImage("");
@@ -1912,6 +1940,14 @@ const AdminDashboard = () => {
         affiliate_payout_type: formData.affiliate_payout_type,
         affiliate_fixed_amount: formData.affiliate_fixed_amount,
         min_affiliate_level: formData.min_affiliate_level,
+        isCustomizable: formData.isCustomizable,
+        customizationCharge: formData.customizationCharge,
+        allowImageUpload: formData.allowCustomImage,
+        allowCustomText: formData.allowCustomText,
+        allowSpecialInstructions: formData.allowSpecialInstructions,
+        maxTextLength: formData.customTextMaxLength,
+        maxFileSize: formData.customImageMaxSizeMB,
+        customizableTag: formData.customizableTag,
         variants: formData.variants,
       };
 
@@ -6102,6 +6138,108 @@ const AdminDashboard = () => {
                     ></textarea>
                   </div>
                 </div>
+                
+                {/* Customization Settings */}
+                <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-black text-[#2D1B4E]">Product Customization</h3>
+                      <p className="text-xs text-gray-500">Enable and configure customization options for this product.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.isCustomizable}
+                        onChange={(e) => setFormData({ ...formData, isCustomizable: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#8E2A8B]"></div>
+                    </label>
+                  </div>
+
+                  {formData.isCustomizable && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 bg-white p-4 rounded-xl border border-purple-100">
+                      
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-700">Customization Charge (₹)</label>
+                        <input
+                          type="number"
+                          value={formData.customizationCharge}
+                          onChange={(e) => setFormData({ ...formData, customizationCharge: Number(e.target.value) })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-[#8E2A8B] outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-700">Customizable Tag</label>
+                        <select
+                          value={formData.customizableTag}
+                          onChange={(e) => setFormData({ ...formData, customizableTag: e.target.value as any })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-[#8E2A8B] outline-none"
+                        >
+                          <option value="CUSTOMIZABLE">CUSTOMIZABLE</option>
+                          <option value="PERSONALIZABLE">PERSONALIZABLE</option>
+                          <option value="CUSTOM MADE">CUSTOM MADE</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center justify-between col-span-1 border border-gray-100 p-2 rounded-lg">
+                        <span className="text-xs font-bold text-gray-700">Allow Image Upload</span>
+                        <input
+                          type="checkbox"
+                          checked={formData.allowCustomImage}
+                          onChange={(e) => setFormData({ ...formData, allowCustomImage: e.target.checked })}
+                          className="accent-[#8E2A8B]"
+                        />
+                      </div>
+
+                      {formData.allowCustomImage && (
+                        <div className="space-y-1 border border-gray-100 p-2 rounded-lg">
+                          <label className="text-xs font-bold text-gray-700">Max File Size (MB)</label>
+                          <input
+                            type="number"
+                            value={formData.customImageMaxSizeMB}
+                            onChange={(e) => setFormData({ ...formData, customImageMaxSizeMB: Number(e.target.value) })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-1 focus:ring-[#8E2A8B] outline-none"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between col-span-1 border border-gray-100 p-2 rounded-lg">
+                        <span className="text-xs font-bold text-gray-700">Allow Custom Text</span>
+                        <input
+                          type="checkbox"
+                          checked={formData.allowCustomText}
+                          onChange={(e) => setFormData({ ...formData, allowCustomText: e.target.checked })}
+                          className="accent-[#8E2A8B]"
+                        />
+                      </div>
+
+                      {formData.allowCustomText && (
+                        <div className="space-y-1 border border-gray-100 p-2 rounded-lg">
+                          <label className="text-xs font-bold text-gray-700">Max Text Length</label>
+                          <input
+                            type="number"
+                            value={formData.customTextMaxLength}
+                            onChange={(e) => setFormData({ ...formData, customTextMaxLength: Number(e.target.value) })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-1 focus:ring-[#8E2A8B] outline-none"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between col-span-1 md:col-span-2 border border-gray-100 p-2 rounded-lg">
+                        <span className="text-xs font-bold text-gray-700">Allow Special Instructions</span>
+                        <input
+                          type="checkbox"
+                          checked={formData.allowSpecialInstructions}
+                          onChange={(e) => setFormData({ ...formData, allowSpecialInstructions: e.target.checked })}
+                          className="accent-[#8E2A8B]"
+                        />
+                      </div>
+
+                    </div>
+                  )}
+                </div>
 
                 {/* Image Uploads */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -6491,35 +6629,167 @@ const AdminDashboard = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                  <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
-                    Total Orders
-                  </h4>
-                  <p className="text-3xl font-bold text-[#2D1B4E]">
-                    {orders.length}
-                  </p>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                  <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
-                    Pending Processing
-                  </h4>
-                  <p className="text-3xl font-bold text-orange-500">
-                    {orders.filter((o) => o.status === "Pending").length}
-                  </p>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                  <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
-                    Total Revenue
-                  </h4>
-                  <p className="text-3xl font-bold text-green-600">
-                    ₹
-                    {orders
-                      .reduce((acc, curr) => acc + curr.total, 0)
-                      .toLocaleString()}
-                  </p>
-                </div>
+              <div className="flex items-center gap-4 border-b border-gray-200 mb-6 pb-2">
+                <button
+                  onClick={() => setOrderTab("normal")}
+                  className={`px-4 py-2 font-bold text-sm rounded-t-lg transition-colors ${orderTab === "normal" ? "text-[#8E2A8B] border-b-2 border-[#8E2A8B]" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  Normal Orders
+                </button>
+                <button
+                  onClick={() => setOrderTab("customized")}
+                  className={`px-4 py-2 font-bold text-sm rounded-t-lg transition-colors ${orderTab === "customized" ? "text-[#8E2A8B] border-b-2 border-[#8E2A8B]" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  ✨ Customized Orders
+                </button>
               </div>
+
+              {(() => {
+                let filteredOrders = orders.filter(o => {
+                  const hasCustom = o.has_customizations || (o.items && o.items.some((i: any) => i.customizationData?.isCustomized));
+                  return orderTab === "customized" ? hasCustom : !hasCustom;
+                });
+                
+                // Analytics calcs
+                const totalRevenue = filteredOrders.reduce((acc, curr) => acc + curr.total, 0);
+                
+                let avgCustomizationFee = 0;
+                let topCustomProduct = "";
+                let repeatCustomers = 0;
+                
+                if (orderTab === "customized" && filteredOrders.length > 0) {
+                  let totalFees = 0;
+                  let feeCount = 0;
+                  const productCounts: Record<string, number> = {};
+                  const customerCounts: Record<string, number> = {};
+                  
+                  filteredOrders.forEach(o => {
+                      customerCounts[o.customerEmail] = (customerCounts[o.customerEmail] || 0) + 1;
+                      o.items.forEach((i: any) => {
+                          if (i.customizationData?.isCustomized) {
+                              totalFees += (i.customizationData.customizationCharge || 0);
+                              feeCount++;
+                              productCounts[i.name] = (productCounts[i.name] || 0) + 1;
+                          }
+                      });
+                  });
+                  avgCustomizationFee = feeCount > 0 ? totalFees / feeCount : 0;
+                  topCustomProduct = Object.keys(productCounts).sort((a,b) => productCounts[b] - productCounts[a])[0] || "N/A";
+                  repeatCustomers = Object.values(customerCounts).filter(v => v > 1).length;
+                }
+
+                // Apply search and filters
+                if (orderSearchQuery) {
+                    const q = orderSearchQuery.toLowerCase();
+                    filteredOrders = filteredOrders.filter(o => 
+                        o.id.toLowerCase().includes(q) || 
+                        o.customerName.toLowerCase().includes(q) || 
+                        (o.customerPhone && o.customerPhone.includes(q)) ||
+                        o.items.some((i:any) => i.name.toLowerCase().includes(q))
+                    );
+                }
+                
+                if (orderFilterStatus !== "All") {
+                    filteredOrders = filteredOrders.filter(o => o.status === orderFilterStatus);
+                }
+
+                return (
+                  <>
+              {orderTab === "customized" ? (
+                <div className="mb-8 space-y-4">
+                  <div className="p-5 bg-purple-50 rounded-2xl border border-purple-100 shadow-inner">
+                    <div className="mb-4">
+                      <h4 className="text-[#2D1B4E] text-lg font-black flex items-center gap-2">
+                        <Sparkles size={20} className="text-[#8E2A8B]" />
+                        Customization Analytics
+                      </h4>
+                      <p className="text-xs text-gray-500">Comprehensive metrics for customized production</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Total Custom Orders</p>
+                        <p className="text-xl font-black text-[#2D1B4E]">{filteredOrders.length}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Total Revenue</p>
+                        <p className="text-xl font-black text-green-600">₹{totalRevenue.toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Avg Custom Fee</p>
+                        <p className="text-xl font-black text-[#8E2A8B]">₹{avgCustomizationFee.toFixed(0)}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Avg Production Time</p>
+                        <p className="text-xl font-black text-blue-600">3 Days</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm col-span-2">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Top Customized Product</p>
+                        <p className="text-sm font-black text-gray-800 truncate">{topCustomProduct}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm col-span-2">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Repeat Customers</p>
+                        <p className="text-sm font-black text-gray-800">{repeatCustomers} Customers</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <input 
+                            type="text" 
+                            placeholder="Search by Order ID, Name, Phone, or Product..." 
+                            value={orderSearchQuery}
+                            onChange={(e) => setOrderSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A8B]/20 focus:border-[#8E2A8B] transition-all"
+                        />
+                    </div>
+                    <select 
+                        value={orderFilterStatus}
+                        onChange={(e) => setOrderFilterStatus(e.target.value)}
+                        className="py-2 px-4 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8E2A8B]/20 focus:border-[#8E2A8B]"
+                    >
+                        <option value="All">All Statuses</option>
+                        <option value="Pending Review">Pending Review</option>
+                        <option value="Approved for Production">Approved for Production</option>
+                        <option value="Design Started">Design Started</option>
+                        <option value="Customization Completed">Customization Completed</option>
+                        <option value="Quality Check">Quality Check</option>
+                        <option value="Packed">Packed</option>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Delivered">Delivered</option>
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                    <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
+                      Total Orders
+                    </h4>
+                    <p className="text-3xl font-bold text-[#2D1B4E]">
+                      {filteredOrders.length}
+                    </p>
+                  </div>
+                  <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                    <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
+                      Pending Processing
+                    </h4>
+                    <p className="text-3xl font-bold text-orange-500">
+                      {filteredOrders.filter((o) => o.status === "Pending").length}
+                    </p>
+                  </div>
+                  <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                    <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
+                      Total Revenue
+                    </h4>
+                    <p className="text-3xl font-bold text-green-600">
+                      ₹{totalRevenue.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
                 <table className="w-full text-left">
@@ -6549,7 +6819,7 @@ const AdminDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {orders.map((order) => (
+                    {filteredOrders.map((order) => (
                       <tr key={order.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 font-medium text-gray-900">
                           <div className="flex flex-col">
@@ -6651,15 +6921,27 @@ const AdminDashboard = () => {
                             className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border-0 cursor-pointer focus:ring-2 focus:ring-offset-1 focus:ring-[#8E2A8B] ${
                               order.status === "Delivered"
                                 ? "bg-green-100 text-green-700"
-                                : order.status === "Shipped"
+                                : ["Shipped", "Packed"].includes(order.status)
                                   ? "bg-blue-100 text-blue-700"
-                                  : order.status === "Processing"
-                                    ? "bg-yellow-100 text-yellow-700"
-                                    : "bg-gray-100 text-gray-700"
+                                  : ["Design Approved", "Design Started", "Customization Completed", "In Production", "Quality Check", "Approved for Production"].includes(order.status)
+                                    ? "bg-purple-100 text-purple-700"
+                                    : ["Processing", "Pending Review"].includes(order.status)
+                                      ? "bg-yellow-100 text-yellow-700"
+                                      : "bg-gray-100 text-gray-700"
                             }`}
                           >
                             <option value="Pending">Pending</option>
                             <option value="Processing">Processing</option>
+                            {orderTab === "customized" && (
+                              <>
+                                <option value="Pending Review">Pending Review</option>
+                                <option value="Approved for Production">Approved for Production</option>
+                                <option value="Design Started">Design Started</option>
+                                <option value="Customization Completed">Customization Completed</option>
+                                <option value="Quality Check">Quality Check</option>
+                                <option value="Packed">Packed</option>
+                              </>
+                            )}
                             <option value="Shipped">Shipped</option>
                             <option value="Delivered">Delivered</option>
                             <option value="Cancelled">Cancelled</option>
@@ -6667,6 +6949,16 @@ const AdminDashboard = () => {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
+                            {orderTab === "customized" && (
+                              <button
+                                onClick={() => setSelectedOrderDetails(order)}
+                                className="text-[#8E2A8B] hover:text-[#2D1B4E] p-2 hover:bg-purple-50 rounded-lg transition-colors flex items-center gap-1 border border-purple-100"
+                                title="View Details"
+                              >
+                                <Search size={18} />
+                                <span className="text-[10px] font-bold">Details</span>
+                              </button>
+                            )}
                             <button
                               onClick={() => generateInvoice(order)}
                               className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1"
@@ -6723,6 +7015,111 @@ const AdminDashboard = () => {
                   </tbody>
                 </table>
               </div>
+              
+              {/* Order Details Modal */}
+              {selectedOrderDetails && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl relative">
+                    <button 
+                      onClick={() => setSelectedOrderDetails(null)}
+                      className="absolute top-4 right-4 p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                    >
+                      <X size={20} className="text-gray-600" />
+                    </button>
+                    
+                    <div className="p-8">
+                      <div className="flex items-center gap-3 border-b border-gray-100 pb-4 mb-6">
+                        <Sparkles size={24} className="text-[#8E2A8B]" />
+                        <div>
+                          <h2 className="text-2xl font-black text-[#2D1B4E]">Customized Order Details</h2>
+                          <p className="text-sm text-gray-500 font-medium">#{selectedOrderDetails.id.toUpperCase()}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Customer & Order Info */}
+                        <div className="space-y-6">
+                          <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Customer Information</h3>
+                            <div className="space-y-3 text-sm">
+                              <p><span className="font-medium text-gray-500 w-24 inline-block">Name:</span> <span className="font-bold text-gray-800">{selectedOrderDetails.customerName}</span></p>
+                              <p><span className="font-medium text-gray-500 w-24 inline-block">Phone:</span> <span className="font-bold text-gray-800">{selectedOrderDetails.customerPhone || "N/A"}</span></p>
+                              <p><span className="font-medium text-gray-500 w-24 inline-block">Email:</span> <span className="font-bold text-gray-800">{selectedOrderDetails.customerEmail}</span></p>
+                              <p className="flex"><span className="font-medium text-gray-500 w-24 flex-shrink-0">Address:</span> <span className="font-bold text-gray-800">{selectedOrderDetails.address}, {selectedOrderDetails.city}, {selectedOrderDetails.state} - {selectedOrderDetails.pincode}</span></p>
+                            </div>
+                          </div>
+
+                          <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Order Information</h3>
+                            <div className="space-y-3 text-sm">
+                              <p><span className="font-medium text-gray-500 w-24 inline-block">Order Date:</span> <span className="font-bold text-gray-800">{new Date(selectedOrderDetails.date).toLocaleString()}</span></p>
+                              <p><span className="font-medium text-gray-500 w-24 inline-block">Payment:</span> <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{selectedOrderDetails.paymentStatus || 'Paid'}</span></p>
+                              <p><span className="font-medium text-gray-500 w-24 inline-block">Total Amount:</span> <span className="font-bold text-[#8E2A8B]">₹{selectedOrderDetails.total}</span></p>
+                              <p><span className="font-medium text-gray-500 w-24 inline-block">Production:</span> <span className="font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded border border-purple-200">{selectedOrderDetails.status}</span></p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Customization Details */}
+                        <div className="space-y-6">
+                          <h3 className="text-xs font-black text-[#8E2A8B] uppercase tracking-widest mb-2 px-2 border-l-4 border-[#8E2A8B]">Customized Items</h3>
+                          <div className="space-y-4">
+                            {selectedOrderDetails.items.filter((i:any) => i.customizationData?.isCustomized).map((item: any, idx: number) => (
+                              <div key={idx} className="bg-purple-50/50 rounded-xl p-5 border border-purple-100 shadow-sm">
+                                <p className="font-black text-[#2D1B4E] mb-1">{item.name}</p>
+                                <p className="text-xs text-gray-500 mb-4">Quantity: {item.quantity} • Customization Charge: ₹{item.customizationData.customizationCharge || 0}</p>
+                                
+                                {item.customizationData.customText && (
+                                  <div className="mb-4">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Custom Text</p>
+                                    <p className="bg-white p-3 rounded-lg border border-gray-200 text-sm font-medium text-gray-800 break-all">{item.customizationData.customText}</p>
+                                  </div>
+                                )}
+                                
+                                {item.customizationData.specialInstructions && (
+                                  <div className="mb-4">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Special Instructions</p>
+                                    <p className="bg-white p-3 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 italic break-words">{item.customizationData.specialInstructions}</p>
+                                  </div>
+                                )}
+
+                                {item.customizationData.customImage && (
+                                  <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Uploaded Image</p>
+                                    <div className="bg-white p-2 rounded-xl border border-gray-200 inline-block">
+                                      <div className="w-32 h-32 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 relative group cursor-pointer" onClick={() => window.open(item.customizationData.customImage, '_blank')}>
+                                        <img src={item.customizationData.customImage} alt="Custom Preview" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-2">
+                                          <ImageIcon size={20} />
+                                          <span className="text-[10px] font-bold">View Full</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-2 mt-2">
+                                        <button onClick={() => window.open(item.customizationData.customImage, '_blank')} className="flex-1 text-[10px] font-bold py-1.5 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 transition-colors">View</button>
+                                        <button onClick={() => {
+                                          navigator.clipboard.writeText(item.customizationData.customImage);
+                                          toast.success("Image URL copied!");
+                                        }} className="flex-1 text-[10px] font-bold py-1.5 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 transition-colors">Copy URL</button>
+                                        <a href={item.customizationData.customImage} download={`custom-${selectedOrderDetails.id}.jpg`} className="flex-1 text-center text-[10px] font-bold py-1.5 bg-purple-100 hover:bg-purple-200 rounded text-purple-700 transition-colors">Download</a>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                            {selectedOrderDetails.items.filter((i:any) => i.customizationData?.isCustomized).length === 0 && (
+                              <p className="text-sm text-gray-500 italic">No customization details available.</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+                  </>
+                );
+              })()}
             </div>
           ) : view === "whatsapp-helper" ? (
             <div className="space-y-6 animate-in fade-in duration-500">

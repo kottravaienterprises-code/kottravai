@@ -94,12 +94,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, badge }) => {
                     )}
                 </Link>
 
-                {/* Optional Badge */}
-                {badge && (
-                    <div className="absolute top-3 left-3 z-10">
-                        <span className="bg-[#8E2A8B] text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg">
-                            {badge}
-                        </span>
+                {/* Optional Badge or Customizable Badge */}
+                {(badge || (product.isCustomizable && product.customizableTag)) && (
+                    <div className="absolute top-3 left-3 z-10 flex flex-col gap-1">
+                        {badge && (
+                            <span className="bg-[#8E2A8B] text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg">
+                                {badge}
+                            </span>
+                        )}
+                        {!badge && product.isCustomizable && product.customizableTag && (
+                            <span className="bg-[#2D1B4E] text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg flex items-center gap-1">
+                                <span className="text-[10px]">✨</span> {product.customizableTag}
+                            </span>
+                        )}
                     </div>
                 )}
 

@@ -561,7 +561,8 @@ const runMigrations = async () => {
             ['pincode', 'VARCHAR(20)'],
             ['affiliate_id', 'UUID'],
             ['referral_code', 'VARCHAR(255)'],
-            ['total_gst_server', 'DECIMAL(10, 2)']
+            ['total_gst_server', 'DECIMAL(10, 2)'],
+            ['has_customizations', 'BOOLEAN DEFAULT FALSE']
         ];
 
         // Lead table columns for CRM capture and activity reporting
@@ -1269,6 +1270,16 @@ app.get('/api/init-db', async (req, res) => {
             min_affiliate_level VARCHAR(50) DEFAULT 'Ambassador',
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+        
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS is_customizable BOOLEAN DEFAULT FALSE;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS customization_charge NUMERIC(10,2) DEFAULT 100;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_image_upload BOOLEAN DEFAULT FALSE;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_custom_text BOOLEAN DEFAULT FALSE;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_special_instructions BOOLEAN DEFAULT FALSE;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS max_text_length INTEGER DEFAULT 50;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS max_file_size INTEGER DEFAULT 5;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS allowed_file_types JSONB DEFAULT '["JPG", "JPEG", "PNG", "WEBP"]'::jsonb;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS customizable_tag VARCHAR(50) DEFAULT 'CUSTOMIZABLE';
 
         CREATE TABLE IF NOT EXISTS reviews (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -1472,7 +1483,7 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
             shortDescription, description, keyFeatures, features, images, isBestSeller,
             isGiftBundleItem, isLive, isCustomRequest, customFormConfig, defaultFormFields, variants, hub,
             is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level,
-            image_alts, imageAlts
+            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag
         } = req.body;
 
         if (!name) {
@@ -1511,7 +1522,8 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
                 is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type,
                 affiliate_fixed_amount, min_affiliate_level,
                 normalized_name, normalized_category, normalized_description,
-                image_alts
+                image_alts,
+                is_customizable, customization_charge, allow_image_upload, allow_custom_text, allow_special_instructions, max_text_length, max_file_size, allowed_file_types, customizable_tag
             ) VALUES (
                 $1, $2, $3, $4, $5, $6,
                 $7, $8, $9, $10, $11,
@@ -1519,7 +1531,8 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
                 $16, $17, $18, $19,
                 $20, $21, $22,
                 $23, $24, $25, $26, $27,
-                $28
+                $28,
+                $29, $30, $31, $32, $33, $34, $35, $36, $37
             ) RETURNING *
         `, [
             name,
@@ -1549,7 +1562,16 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
             normalizedName,
             normalizedCategory,
             normalizedDescription,
-            JSON.stringify(finalImageAlts)
+            JSON.stringify(finalImageAlts),
+            isCustomizable || false,
+            customizationCharge || 100,
+            allowImageUpload || false,
+            allowCustomText || false,
+            allowSpecialInstructions || false,
+            maxTextLength || 50,
+            maxFileSize || 5,
+            allowedFileTypes ? JSON.stringify(allowedFileTypes) : JSON.stringify(['JPG', 'JPEG', 'PNG', 'WEBP']),
+            customizableTag || 'CUSTOMIZABLE'
         ]);
 
         const data = result.rows[0];
@@ -1578,7 +1600,7 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
             shortDescription, description, keyFeatures, features, images, isBestSeller,
             isGiftBundleItem, isLive, isCustomRequest, customFormConfig, defaultFormFields, variants, hub,
             is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level,
-            image_alts, imageAlts
+            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag
         } = req.body;
 
         const cleanPrice = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : Number(price);
@@ -1612,7 +1634,10 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
                 affiliate_commission_rate = $21, affiliate_payout_type = $22,
                 affiliate_fixed_amount = $23, min_affiliate_level = $24,
                 normalized_name = $25, normalized_category = $26, normalized_description = $27,
-                image_alts = $28
+                image_alts = $28,
+                is_customizable = $30, customization_charge = $31, allow_image_upload = $32,
+                allow_custom_text = $33, allow_special_instructions = $34, max_text_length = $35,
+                max_file_size = $36, allowed_file_types = $37, customizable_tag = $38
             WHERE id = $29
             RETURNING *
         `, [
@@ -1644,7 +1669,16 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
             normalizedCategory,
             normalizedDescription,
             JSON.stringify(finalImageAlts),
-            id
+            id,
+            isCustomizable || false,
+            customizationCharge || 100,
+            allowImageUpload || false,
+            allowCustomText || false,
+            allowSpecialInstructions || false,
+            maxTextLength || 50,
+            maxFileSize || 5,
+            allowedFileTypes ? JSON.stringify(allowedFileTypes) : JSON.stringify(['JPG', 'JPEG', 'PNG', 'WEBP']),
+            customizableTag || 'CUSTOMIZABLE'
         ]);
 
         const data = result.rows[0];
@@ -1894,6 +1928,35 @@ const triggerAsyncTasks = async (orderId, orderData, paymentId) => {
             })
         ]).catch(e => console.error('📧 [EMAIL_FAILURE]:', e.message));
 
+        const hasCustomizations = row.items?.some(item => item.customizationData?.isCustomized);
+        if (hasCustomizations) {
+            const customItemsHtml = row.items.filter(item => item.customizationData?.isCustomized).map(item => `
+                <div style="border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
+                    <h4>${item.name}</h4>
+                    <p><strong>Custom Text:</strong> ${item.customizationData.customText || 'N/A'}</p>
+                    <p><strong>Special Instructions:</strong> ${item.customizationData.specialInstructions || 'N/A'}</p>
+                    ${item.customizationData.customImage ? `<p><strong>Image:</strong> <a href="${item.customizationData.customImage}">View Uploaded Image</a></p>` : ''}
+                </div>
+            `).join('');
+
+            await sendEmail({
+                to: adminEmail,
+                subject: `✨ ACTION REQUIRED: Custom Order Received #${orderId}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                        <h2 style="color: #8E2A8B;">Custom Order Alert</h2>
+                        <p>Order <strong>#${orderId}</strong> contains customized items that require special attention.</p>
+                        <h3>Customer Details</h3>
+                        <p>Name: ${row.customerName}<br>Email: ${row.customerEmail}<br>Phone: ${row.customerPhone}</p>
+                        <h3>Customization Requirements</h3>
+                        ${customItemsHtml}
+                        <p style="margin-top: 20px;">Please review the custom-orders bucket in Supabase for high-res images if needed.</p>
+                    </div>
+                `,
+                type: 'order'
+            }).catch(e => console.error('📧 [CUSTOM_ORDER_EMAIL_FAILURE]:', e.message));
+        }
+
         console.log(`📧 [EMAIL_SENT] Order #${orderId}`);
 
         // WhatsApp order confirmation (AskEva API)
@@ -1998,20 +2061,21 @@ const finalizeOrder = async (orderData, paymentId) => {
 
         // 3. Save to Database
         const referralCode = orderData.referral_code || orderData.referralCode;
+        const hasCustomizations = orderData.items.some(item => item.customizationData?.isCustomized);
         const insertRes = await db.query(`
             INSERT INTO orders (
                 customer_name, customer_email, customer_phone, address, city, district, state,
                 pincode, total, items, payment_id, order_id, status, 
                 subtotal_server, shipping_server, total_server, total_gst_server, zone_name, referral_code,
-                customer_id, guest_order
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+                customer_id, guest_order, has_customizations
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
             RETURNING *
         `, [
             orderData.customerName, orderData.customerEmail, orderData.customerPhone, orderData.address,
             orderData.city, orderData.district, orderData.state, orderData.pincode,
             calc.totalCents / 100, JSON.stringify(orderData.items), paymentId, orderId, 'Processing',
             calc.subtotalCents / 100, calc.shippingCents / 100, calc.totalCents / 100, calc.totalGstCents / 100, calc.zoneName, referralCode,
-            orderData.customerId || null, !!orderData.guest_order
+            orderData.customerId || null, !!orderData.guest_order, hasCustomizations
         ]);
 
         const row = insertRes.rows[0];
@@ -2170,6 +2234,41 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
 
     } catch (err) {
         res.status(500).json({ error: 'ORDER_ERROR', message: err.message });
+    }
+});
+
+// Customizations upload endpoint
+app.post('/api/upload-customization', upload.single('image'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image uploaded' });
+        }
+
+        const { productId } = req.body;
+        const ext = path.extname(req.file.originalname) || '.png';
+        const fileName = `custom-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+        const filePath = `${productId || 'unknown'}/${fileName}`;
+
+        const { data, error } = await supabase.storage
+            .from('custom-orders')
+            .upload(filePath, req.file.buffer, {
+                contentType: req.file.mimetype,
+                upsert: true
+            });
+
+        if (error) {
+            console.error('Supabase upload error:', error);
+            throw new Error(error.message);
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('custom-orders')
+            .getPublicUrl(filePath);
+
+        res.json({ success: true, url: publicUrl });
+    } catch (err) {
+        console.error('Error uploading customization image:', err);
+        res.status(500).json({ error: 'Upload failed', details: err.message });
     }
 });
 

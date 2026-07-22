@@ -67,6 +67,18 @@ export interface Product {
     product_name?: string;
     productName?: string;
     title?: string;
+    
+    // Customization Fields
+    isCustomizable?: boolean;
+    customizationCharge?: number;
+    allowImageUpload?: boolean;
+    allowCustomText?: boolean;
+    allowSpecialInstructions?: boolean;
+    maxTextLength?: number;
+    maxFileSize?: number;
+    allowedFileTypes?: string[];
+    customizableTag?: string;
+    customizationType?: 'Image Upload' | 'Custom Text' | 'Special Instructions' | 'Image + Text' | 'Text Only' | 'Image Only' | 'No Restrictions';
 }
 
 // Sample product to visualize changes immediately
@@ -104,7 +116,16 @@ export const products: Product[] = [
             'https://images.unsplash.com/photo-1614737662709-64eb772d1742?auto=format&fit=crop&q=80&w=800'
         ],
         isGiftBundleItem: true,
-        reviews: []
+        reviews: [],
+        isCustomizable: true,
+        customizationCharge: 150,
+        allowImageUpload: true,
+        allowCustomText: true,
+        allowSpecialInstructions: true,
+        maxTextLength: 40,
+        maxFileSize: 5,
+        allowedFileTypes: ['jpg', 'png', 'webp'],
+        customizableTag: 'CUSTOMIZABLE'
     },
     {
         id: '2',
@@ -266,7 +287,16 @@ export const products: Product[] = [
         ],
         images: [],
         reviews: [],
-        isBestSeller: true
+        isBestSeller: true,
+        isCustomizable: true,
+        customizationCharge: 300,
+        allowImageUpload: false,
+        allowCustomText: true,
+        allowSpecialInstructions: true,
+        maxTextLength: 100,
+        maxFileSize: 5,
+        allowedFileTypes: ['jpg', 'png'],
+        customizableTag: 'PERSONALIZABLE'
     },
     {
         id: '8',
