@@ -23,7 +23,7 @@ const LoginModal: React.FC = () => {
     const [otpTimer, setOtpTimer] = useState(0);
 
     useEffect(() => {
-        let interval: NodeJS.Timeout;
+        let interval: ReturnType<typeof setInterval>;
         if (otpTimer > 0) {
             interval = setInterval(() => {
                 setOtpTimer((prev) => prev - 1);
