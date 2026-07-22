@@ -304,8 +304,7 @@ const Header = () => {
             label: "Heritage Mixes", path: "/category/heritage-mixes",
             sub: [
                 { label: "Idli Podi", path: "/category/idli-podi" },
-                { label: "Dosa Batter Mix", path: "/category/dosa-batter-mix" },
-                { label: "Ready To Mix", path: "/category/ready-to-mix" }
+                { label: "Dosa Batter Mix", path: "/category/dosa-batter-mix" }
             ]
         },
         {

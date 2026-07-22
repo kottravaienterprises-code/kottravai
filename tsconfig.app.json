@@ -26,7 +26,8 @@
             "@/*": [
                 "src/*"
             ]
-        }
+        },
+        "types": ["vitest/globals", "@testing-library/jest-dom"]
     },
     "include": [
         "src/**/*"
@@ -34,8 +35,6 @@
     "exclude": [
         "node_modules",
         "dist",
-        "server",
-        "**/*.spec.ts",
-        "**/*.test.ts"
+        "server"
     ]
 }
