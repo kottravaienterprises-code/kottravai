@@ -39,7 +39,7 @@ if (!process.env.DATABASE_URL && !process.env.VITE_DATABASE_URL) {
         pool = new Pool({
             connectionString: connStr,
             ssl: { rejectUnauthorized: false },
-            connectionTimeoutMillis: 5000, // Return an error after 5 seconds if connection could not be established
+            connectionTimeoutMillis: 30000, // Increased to 30 seconds for Supabase cold starts
             idleTimeoutMillis: 30000,      // Close idle clients after 30 seconds
             keepAlive: true,
             max: 20

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, Check, Image as ImageIcon, MessageSquare, AlertCircle } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import { Product } from '@/data/products';
 
 export interface CustomizationData {
@@ -54,7 +55,7 @@ const ProductCustomization: React.FC<ProductCustomizationProps> = ({ product, on
 
     if (!isCustomizable) return null;
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -79,19 +80,32 @@ const ProductCustomization: React.FC<ProductCustomizationProps> = ({ product, on
         }
 
         // Convert to Base64 for preview and local storage compatibility
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            if (!reader.result) {
+        try {
+            // Compress image to prevent localStorage QuotaExceededError (Max 5MB)
+            const options = {
+                maxSizeMB: 0.1, // Compress to max 100KB
+                maxWidthOrHeight: 800,
+                useWebWorker: true
+            };
+            const compressedFile = await imageCompression(file, options);
+            
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (!reader.result) {
+                    setError("Failed to read file or corrupted image.");
+                    return;
+                }
+                setCustomImage(reader.result as string);
+                setImageName(file.name);
+            };
+            reader.onerror = () => {
                 setError("Failed to read file or corrupted image.");
-                return;
-            }
-            setCustomImage(reader.result as string);
-            setImageName(file.name);
-        };
-        reader.onerror = () => {
-            setError("Failed to read file or corrupted image.");
-        };
-        reader.readAsDataURL(file);
+            };
+            reader.readAsDataURL(compressedFile);
+        } catch (error) {
+            console.error("Compression error:", error);
+            setError("Failed to compress image. Please use a smaller image.");
+        }
     };
 
     const clearImage = () => {

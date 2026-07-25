@@ -12,6 +12,7 @@ import analytics from '@/utils/analyticsService';
 import { getOptimizedImage, IMAGE_SIZES } from '@/utils/imageOptimizer';
 import { API_ENDPOINTS } from '@/config/api';
 import ProductCustomization, { CustomizationData } from '@/components/shop/ProductCustomization';
+import imageCompression from 'browser-image-compression';
 
 const ProductDetails = () => {
     const { slug } = useParams();
@@ -180,14 +181,26 @@ const ProductDetails = () => {
 
 
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setCustomForm({ ...customForm, referenceImage: reader.result as string });
-            };
-            reader.readAsDataURL(file);
+            try {
+                const options = {
+                    maxSizeMB: 0.1, // Compress to max 100KB
+                    maxWidthOrHeight: 800,
+                    useWebWorker: true
+                };
+                const compressedFile = await imageCompression(file, options);
+                
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setCustomForm({ ...customForm, referenceImage: reader.result as string });
+                };
+                reader.readAsDataURL(compressedFile);
+            } catch (error) {
+                console.error("Compression error:", error);
+                toast.error("Failed to process image. Please try a smaller image.");
+            }
         }
     };
 
