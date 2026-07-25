@@ -1867,7 +1867,8 @@ const recalculateTotals = async (items, state) => {
         }
         
         const quantity = item.quantity || 1;
-        const itemTotalCents = Math.round(itemPrice * 100) * quantity;
+        const customCharge = item.customizationData?.isCustomized ? Number(item.customizationData.customizationCharge || 0) : 0;
+        const itemTotalCents = (Math.round(itemPrice * 100) * quantity) + Math.round(customCharge * 100);
         subtotalCents += itemTotalCents;
         
         const gstRate = Number(dbProduct.gst_rate || 0);
