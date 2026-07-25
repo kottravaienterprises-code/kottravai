@@ -1935,7 +1935,7 @@ const triggerAsyncTasks = async (orderId, orderData, paymentId) => {
                     <h4>${item.name}</h4>
                     <p><strong>Custom Text:</strong> ${item.customizationData.customText || 'N/A'}</p>
                     <p><strong>Special Instructions:</strong> ${item.customizationData.specialInstructions || 'N/A'}</p>
-                    ${item.customizationData.customImage ? `<p><strong>Image:</strong> <a href="${item.customizationData.customImage}">View Uploaded Image</a></p>` : ''}
+                    ${item.customizationData.customImage ? `<p><strong>Image:</strong> <em>Image uploaded (View in Admin Dashboard)</em></p>` : ''}
                 </div>
             `).join('');
 
