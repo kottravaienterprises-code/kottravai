@@ -1931,14 +1931,40 @@ const triggerAsyncTasks = async (orderId, orderData, paymentId) => {
 
         const hasCustomizations = row.items?.some(item => item.customizationData?.isCustomized);
         if (hasCustomizations) {
-            const customItemsHtml = row.items.filter(item => item.customizationData?.isCustomized).map(item => `
+            const attachments = [];
+            let imageIndex = 1;
+
+            const customItemsHtml = row.items.filter(item => item.customizationData?.isCustomized).map(item => {
+                let imageHtml = '';
+                if (item.customizationData.customImage) {
+                    try {
+                        const base64Data = item.customizationData.customImage.split(';base64,').pop();
+                        // Handle potential edge cases where mime type might be weird or missing
+                        let ext = 'jpg';
+                        if (item.customizationData.customImage.includes('data:image/')) {
+                            ext = item.customizationData.customImage.substring("data:image/".length, item.customizationData.customImage.indexOf(";base64"));
+                        }
+                        const filename = `custom-image-${imageIndex}.${ext}`;
+                        attachments.push({
+                            filename: filename,
+                            content: Buffer.from(base64Data, 'base64')
+                        });
+                        imageHtml = `<p><strong>Image:</strong> <em>Attached as ${filename}</em></p>`;
+                        imageIndex++;
+                    } catch (err) {
+                        console.error('Error attaching custom image:', err);
+                        imageHtml = `<p><strong>Image:</strong> <em>Failed to attach image</em></p>`;
+                    }
+                }
+
+                return `
                 <div style="border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
                     <h4>${item.name}</h4>
                     <p><strong>Custom Text:</strong> ${item.customizationData.customText || 'N/A'}</p>
                     <p><strong>Special Instructions:</strong> ${item.customizationData.specialInstructions || 'N/A'}</p>
-                    ${item.customizationData.customImage ? `<p><strong>Image:</strong> <em>Image uploaded (View in Admin Dashboard)</em></p>` : ''}
+                    ${imageHtml}
                 </div>
-            `).join('');
+            `}).join('');
 
             await sendEmail({
                 to: adminEmail,
@@ -1951,10 +1977,11 @@ const triggerAsyncTasks = async (orderId, orderData, paymentId) => {
                         <p>Name: ${row.customerName}<br>Email: ${row.customerEmail}<br>Phone: ${row.customerPhone}</p>
                         <h3>Customization Requirements</h3>
                         ${customItemsHtml}
-                        <p style="margin-top: 20px;">Please review the custom-orders bucket in Supabase for high-res images if needed.</p>
+                        <p style="margin-top: 20px;">Please check the email attachments for the uploaded reference images.</p>
                     </div>
                 `,
-                type: 'order'
+                type: 'order',
+                attachments: attachments
             }).catch(e => console.error('📧 [CUSTOM_ORDER_EMAIL_FAILURE]:', e.message));
         }
 
