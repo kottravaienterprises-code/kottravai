@@ -17,7 +17,7 @@ const PageViewer = ({ slugUri }: { slugUri?: string }) => {
     }
 
     const pageUrl = typeof window !== 'undefined'
-        ? window.location.href
+        ? window.location.origin + window.location.pathname
         : `${SITE_URL}/${page.slug}`;
 
     const pageImage = page.featured_image

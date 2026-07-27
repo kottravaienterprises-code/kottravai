@@ -82,6 +82,16 @@ const Contact = () => {
             <Helmet>
                 <title>Contact Us | Kottravai - Pure, Natural & Authentic</title>
                 <meta name="description" content="Reach out to Kottravai for any inquiries about our natural products, order status, or wholesale opportunities." />
+                <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/contact`} />
+                <meta property="og:title" content="Contact Us | Kottravai - Pure, Natural & Authentic" />
+                <meta property="og:description" content="Reach out to Kottravai for any inquiries about our natural products, order status, or wholesale opportunities." />
+                <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/contact`} />
+                <meta property="og:type" content="website" />
+                <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/contact-banner.jpeg`} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content="Contact Us | Kottravai - Pure, Natural & Authentic" />
+                <meta name="twitter:description" content="Reach out to Kottravai for any inquiries about our natural products, order status, or wholesale opportunities." />
+                <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/contact-banner.jpeg`} />
             </Helmet>
 
             <div className="bg-[#FAF9F6] min-h-screen pb-24 md:pb-12">

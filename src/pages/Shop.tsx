@@ -11,7 +11,7 @@ import FilterSidebar from '@/components/shop/FilterSidebar';
 import { getOptimizedImage, IMAGE_SIZES } from '@/utils/imageOptimizer';
 import { API_ENDPOINTS } from '@/config/api';
 import axios from 'axios';
-const SITE_URL = 'https://www.kottravai.in';
+const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://kottravai.com';
 const Shop = () => {
     const { slug } = useParams();
     const { addToCart, cart, removeFromCart } = useCart();
@@ -318,8 +318,8 @@ const Shop = () => {
             : 'Shop Kottravai for handcrafted terracotta jewellery, sustainable home decor, natural essentials, and meaningful gifts.';
 
     const canonicalUrl = typeof window !== 'undefined'
-        ? window.location.href
-        : `${SITE_URL}/shop`;
+        ? window.location.origin + window.location.pathname
+        : slug ? `${SITE_URL}/category/${slug}` : `${SITE_URL}/shop`;
 
     const pageSchema = {
         '@context': 'https://schema.org',

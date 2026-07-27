@@ -27,6 +27,16 @@ const TermsOfService = () => {
             <Helmet>
                 <title>Terms of Service - Kottravai</title>
                 <meta name="description" content="Kottravai Terms of Service - Guidelines regarding product usage, pricing, cancellations, and liability." />
+                <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/terms-of-service`} />
+                <meta property="og:title" content="Terms of Service - Kottravai" />
+                <meta property="og:description" content="Kottravai Terms of Service - Guidelines regarding product usage, pricing, cancellations, and liability." />
+                <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/terms-of-service`} />
+                <meta property="og:type" content="website" />
+                <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/ChatGPT_Image_May_14_2026_05_41_46_PM.webp`} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content="Terms of Service - Kottravai" />
+                <meta name="twitter:description" content="Kottravai Terms of Service - Guidelines regarding product usage, pricing, cancellations, and liability." />
+                <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/ChatGPT_Image_May_14_2026_05_41_46_PM.webp`} />
             </Helmet>
 
             {/* Full-Width Cinematic Banner */}

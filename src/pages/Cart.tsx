@@ -80,6 +80,7 @@ const Cart = () => {
         <MainLayout>
             <Helmet>
                 <title>Shopping Cart - Kottravai</title>
+                <meta name="robots" content="noindex" />
             </Helmet>
 
             <div className="bg-white min-h-screen py-8 md:py-12 font-sans">

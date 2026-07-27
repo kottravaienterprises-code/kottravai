@@ -180,7 +180,8 @@ const AffiliateDashboard = () => {
     return (
         <MainLayout>
             <Helmet>
-                <title>Affiliate Dashboard - Kottravai</title>
+                <title>Affiliate Dashboard | Kottravai</title>
+                <meta name="robots" content="noindex" />
             </Helmet>
 
             <div className="bg-[#FAF9F6] min-h-screen pt-8 pb-20 md:pt-12 md:pb-32 font-sans overflow-x-hidden">

@@ -464,6 +464,7 @@ const Checkout = () => {
         <MainLayout>
             <Helmet>
                 <title>Checkout - Kottravai</title>
+                <meta name="robots" content="noindex" />
             </Helmet>
 
             <div className="bg-gray-50 min-h-screen py-8 font-sans">

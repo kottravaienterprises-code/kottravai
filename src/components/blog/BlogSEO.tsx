@@ -8,7 +8,7 @@ interface BlogSEOProps {
 }
 
 const BlogSEO: React.FC<BlogSEOProps> = ({ post, isList = false }) => {
-    const siteUrl = 'https://www.kottravai.in';
+    const siteUrl = import.meta.env.VITE_SITE_URL || 'https://kottravai.com';
 
     if (isList) {
         const pageUrl = `${siteUrl}/blog`;
@@ -121,21 +121,7 @@ const BlogSEO: React.FC<BlogSEOProps> = ({ post, isList = false }) => {
         ]
     };
 
-    // FAQ Schema (Basic placeholder to support requirements, can be expanded dynamically later)
-    const faqSchema = {
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": [
-            {
-                "@type": "Question",
-                "name": `What is ${post.title} about?`,
-                "acceptedAnswer": {
-                    "@type": "Answer",
-                    "text": post.metaDescription
-                }
-            }
-        ]
-    };
+
 
     return (
         <Helmet>
@@ -169,9 +155,7 @@ const BlogSEO: React.FC<BlogSEOProps> = ({ post, isList = false }) => {
             <script type="application/ld+json">
                 {JSON.stringify(breadcrumbSchema)}
             </script>
-            <script type="application/ld+json">
-                {JSON.stringify(faqSchema)}
-            </script>
+
         </Helmet>
     );
 };

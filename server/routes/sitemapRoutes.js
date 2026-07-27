@@ -99,8 +99,6 @@ router.get('/sitemap-pages.xml', (req, res) => {
         '/alliance',
         '/services',
         '/camps',
-        '/advertise',
-        '/gift-cards',
         '/shipping-policy',
         '/refund-policy',
         '/terms-of-service',
@@ -136,8 +134,6 @@ router.get('/sitemap-categories.xml', async (req, res) => {
     res.header('Content-Type', 'application/xml');
     
     try {
-        const result = await db.query('SELECT DISTINCT category FROM products WHERE is_live = true');
-        
         const now = new Date().toISOString();
         let urlset = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
@@ -149,18 +145,39 @@ router.get('/sitemap-categories.xml', async (req, res) => {
     <changefreq>daily</changefreq>
   </url>\n`;
 
-        result.rows.forEach(row => {
-            if (!row.category) return;
-            const slug = toUrlSlug(row.category);
-            if (!slug) return;
-            const loc = `${HOSTNAME}/category/${slug}`;
+        const fs = require('fs');
+        const categoriesPath = path.join(__dirname, '../../src/data/categories.json');
+        if (fs.existsSync(categoriesPath)) {
+            const categories = JSON.parse(fs.readFileSync(categoriesPath, 'utf8'));
+            categories.forEach(row => {
+                if (!row.slug) return;
+                const slug = toUrlSlug(row.slug);
+                const loc = `${HOSTNAME}/category/${slug}`;
+                urlset += `  <url>\n    <loc>${escapeXML(loc)}</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>weekly</changefreq>\n  </url>\n`;
+            });
+        }
+
+        const artisansPath = path.join(__dirname, '../../src/data/artisans.json');
+        if (fs.existsSync(artisansPath)) {
+            const artisans = JSON.parse(fs.readFileSync(artisansPath, 'utf8'));
             
-            urlset += `  <url>
-    <loc>${escapeXML(loc)}</loc>
-    <lastmod>${now}</lastmod>
-    <changefreq>weekly</changefreq>
-  </url>\n`;
-        });
+            // Track unique hubs
+            const hubs = new Set();
+            artisans.forEach(row => {
+                if (row.id) {
+                    const slug = toUrlSlug(row.id);
+                    const loc = `${HOSTNAME}/artisans/${slug}`;
+                    urlset += `  <url>\n    <loc>${escapeXML(loc)}</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>weekly</changefreq>\n  </url>\n`;
+                }
+                if (row.hub) hubs.add(toUrlSlug(row.hub));
+            });
+
+            hubs.forEach(hubSlug => {
+                if (!hubSlug) return;
+                const loc = `${HOSTNAME}/hubs/${hubSlug}`;
+                urlset += `  <url>\n    <loc>${escapeXML(loc)}</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>weekly</changefreq>\n  </url>\n`;
+            });
+        }
         
         urlset += `</urlset>`;
         res.send(urlset);

@@ -56,6 +56,7 @@ import {
   Terminal,
   BrainCircuit
 } from "lucide-react";
+import { Helmet } from 'react-helmet-async';
 import {
   XAxis,
   YAxis,
@@ -2221,7 +2222,12 @@ const AdminDashboard = () => {
   if (isAdminAuthenticated === null) return null; // Prevent flicker
 
   return (
-    <div className="min-h-screen bg-gray-50 flex font-sans relative overflow-x-hidden">
+    <>
+      <Helmet>
+        <title>Admin Dashboard | Kottravai</title>
+        <meta name="robots" content="noindex" />
+      </Helmet>
+      <div className="min-h-screen bg-gray-50 flex font-sans relative overflow-x-hidden">
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#2D1B4E] flex items-center justify-between px-6 z-50 shadow-lg">
         <img
@@ -7541,6 +7547,7 @@ const AdminDashboard = () => {
         </div>
       </main>
     </div>
+    </>
   );
 };
 

@@ -112,9 +112,25 @@ const FAQItem = ({ question, answer }: { question: string, answer: string }) => 
     );
 };
 
+import { Helmet } from 'react-helmet-async';
+
 const FAQ = () => {
     return (
         <MainLayout>
+            <Helmet>
+                <title>Frequently Asked Questions | Kottravai - Natural Handicrafts</title>
+                <meta name="description" content="Find answers to commonly asked questions about Kottravai's handmade products, eco-friendly materials, shipping, and return policies." />
+                <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/faq`} />
+                <meta property="og:title" content="Frequently Asked Questions | Kottravai - Natural Handicrafts" />
+                <meta property="og:description" content="Find answers to commonly asked questions about Kottravai's handmade products, eco-friendly materials, shipping, and return policies." />
+                <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/faq`} />
+                <meta property="og:type" content="website" />
+                <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hero.webp`} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content="Frequently Asked Questions | Kottravai - Natural Handicrafts" />
+                <meta name="twitter:description" content="Find answers to commonly asked questions about Kottravai's handmade products, eco-friendly materials, shipping, and return policies." />
+                <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hero.webp`} />
+            </Helmet>
             <div className="bg-white min-h-screen">
                 {/* Hero Section - Minimal */}
                 <div className="pt-10 pb-12 px-4 text-center max-w-4xl mx-auto">

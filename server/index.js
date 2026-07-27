@@ -5435,6 +5435,58 @@ const validStaticRoutes = new Set([
     '/admin'
 ]);
 
+// Dynamic route validation cache
+let cachedValidDynamicRoutes = null;
+let dynamicRoutesLastFetched = 0;
+const DYNAMIC_ROUTES_CACHE_TTL = 1000 * 60 * 15; // 15 minutes
+let isFailOpen = false;
+
+const getValidDynamicRoutes = () => {
+    const now = Date.now();
+    if (cachedValidDynamicRoutes && (now - dynamicRoutesLastFetched < DYNAMIC_ROUTES_CACHE_TTL)) {
+        return { ...cachedValidDynamicRoutes, failOpen: isFailOpen };
+    }
+
+    try {
+        const categories = new Set();
+        const hubs = new Set();
+        const artisans = new Set();
+
+        const categoriesPath = path.join(__dirname, '../src/data/categories.json');
+        if (fs.existsSync(categoriesPath)) {
+            const catData = JSON.parse(fs.readFileSync(categoriesPath, 'utf8'));
+            catData.forEach(c => {
+                if (c.slug) categories.add(c.slug.toLowerCase());
+            });
+        }
+
+        const artisansPath = path.join(__dirname, '../src/data/artisans.json');
+        if (fs.existsSync(artisansPath)) {
+            const artData = JSON.parse(fs.readFileSync(artisansPath, 'utf8'));
+            artData.forEach(a => {
+                if (a.id) artisans.add(a.id.toLowerCase());
+                if (a.hub) hubs.add(a.hub.toLowerCase());
+            });
+        }
+
+        cachedValidDynamicRoutes = { categories, hubs, artisans };
+        dynamicRoutesLastFetched = now;
+        isFailOpen = false; // Successfully loaded, disable fail-open
+    } catch (e) {
+        console.error('🚨 [HIGH PRIORITY WARNING] Error fetching valid dynamic routes from JSON:', e.message);
+        // If recovery fails, use the last known valid cache
+        if (cachedValidDynamicRoutes) {
+            console.warn('⚠️ Falling back to last known valid cache for dynamic routes.');
+        } else {
+            console.error('🚨 [CRITICAL] No cache has ever been built. Temporarily failing open to prevent 404ing valid pages.');
+            isFailOpen = true;
+            cachedValidDynamicRoutes = { categories: new Set(), hubs: new Set(), artisans: new Set() };
+        }
+    }
+
+    return { ...cachedValidDynamicRoutes, failOpen: isFailOpen };
+};
+
 // Helper to check if a route is valid
 const isValidRoute = async (reqPath) => {
     // 1. Check static routes first
@@ -5453,16 +5505,24 @@ const isValidRoute = async (reqPath) => {
         }
     }
 
+    const { categories, hubs, artisans, failOpen } = getValidDynamicRoutes();
     const categoryMatch = reqPath.match(/^\/category\/([^/]+)$/);
-    if (categoryMatch) {
-        return true;
-    }
-
     const hubMatch = reqPath.match(/^\/hubs\/([^/]+)$/);
-    if (hubMatch) return true;
-
     const artisanMatch = reqPath.match(/^\/artisans\/([^/]+)$/);
-    if (artisanMatch) return true;
+
+    if (failOpen) {
+        if (categoryMatch || hubMatch || artisanMatch) return true;
+    } else {
+        if (categoryMatch) {
+            return categories.has(categoryMatch[1].toLowerCase());
+        }
+        if (hubMatch) {
+            return hubs.has(hubMatch[1].toLowerCase());
+        }
+        if (artisanMatch) {
+            return artisans.has(artisanMatch[1].toLowerCase());
+        }
+    }
 
     const blogMatch = reqPath.match(/^\/blog\/([^/]+)$/);
     if (blogMatch) {
@@ -5521,7 +5581,7 @@ const injectMetadata = async (filePath, reqPath, statusCode, res) => {
             const slug = productMatch[1];
             try {
                 // Fetch product details from DB
-                const prodQuery = await db.query('SELECT name, description, price, images FROM products WHERE slug = $1 AND is_live = true LIMIT 1', [slug]);
+                const prodQuery = await db.query('SELECT name, description, price, images, stock, avg_rating, reviews_count FROM products WHERE slug = $1 AND is_live = true LIMIT 1', [slug]);
                 if (prodQuery.rows.length > 0) {
                     const product = prodQuery.rows[0];
                     title = `${product.name} - Kottravai`;
@@ -5548,10 +5608,18 @@ const injectMetadata = async (filePath, reqPath, statusCode, res) => {
                             '@type': 'Offer',
                             'priceCurrency': 'INR',
                             'price': product.price ? product.price.toString() : '0',
-                            'availability': 'https://schema.org/InStock',
+                            'availability': product.stock && product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
                             'url': canon
                         }
                     };
+
+                    if (product.avg_rating && product.reviews_count && product.reviews_count > 0) {
+                        productSchema.aggregateRating = {
+                            '@type': 'AggregateRating',
+                            'ratingValue': product.avg_rating.toString(),
+                            'reviewCount': product.reviews_count
+                        };
+                    }
                     
                     // Breadcrumb Schema
                     const breadcrumbSchema = {

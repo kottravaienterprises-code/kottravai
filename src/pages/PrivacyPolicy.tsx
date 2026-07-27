@@ -106,6 +106,16 @@ const PrivacyPolicy = () => {
             <Helmet>
                 <title>Privacy Policy | Kottravai - Pure, Natural & Authentic</title>
                 <meta name="description" content="Kottravai Privacy Policy - Learn how we collect, use, and protect your personal information." />
+                <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/privacy-policy`} />
+                <meta property="og:title" content="Privacy Policy | Kottravai - Pure, Natural & Authentic" />
+                <meta property="og:description" content="Kottravai Privacy Policy - Learn how we collect, use, and protect your personal information." />
+                <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/privacy-policy`} />
+                <meta property="og:type" content="website" />
+                <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/ChatGPT_Image_May_14_2026_04_22_19_PM.webp`} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content="Privacy Policy | Kottravai - Pure, Natural & Authentic" />
+                <meta name="twitter:description" content="Kottravai Privacy Policy - Learn how we collect, use, and protect your personal information." />
+                <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/ChatGPT_Image_May_14_2026_04_22_19_PM.webp`} />
             </Helmet>
 
             {/* Full-Width Cinematic Banner */}

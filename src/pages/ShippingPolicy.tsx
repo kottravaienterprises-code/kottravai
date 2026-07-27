@@ -109,6 +109,16 @@ const ShippingPolicy = () => {
             <Helmet>
                 <title>Shipping Policy | Kottravai - Pure, Natural & Authentic</title>
                 <meta name="description" content="Learn about Kottravai's shipping policies, delivery timelines, charges, and tracking across India." />
+                <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/shipping-policy`} />
+                <meta property="og:title" content="Shipping Policy | Kottravai - Pure, Natural & Authentic" />
+                <meta property="og:description" content="Learn about Kottravai's shipping policies, delivery timelines, charges, and tracking across India." />
+                <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/shipping-policy`} />
+                <meta property="og:type" content="website" />
+                <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/WhatsApp Image 2026-05-13 at 3.16.52 PM.jpeg`} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content="Shipping Policy | Kottravai - Pure, Natural & Authentic" />
+                <meta name="twitter:description" content="Learn about Kottravai's shipping policies, delivery timelines, charges, and tracking across India." />
+                <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/WhatsApp Image 2026-05-13 at 3.16.52 PM.jpeg`} />
             </Helmet>
 
             <div className="bg-[#FAF9F6] min-h-screen pb-20">

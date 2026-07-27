@@ -260,9 +260,9 @@ const ProductDetails = () => {
         };
     }, [product]);
 
-    const SITE_URL = 'https://www.kottravai.in';
+    const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://kottravai.com';
     const productUrl = typeof window !== 'undefined'
-        ? window.location.href
+        ? window.location.origin + window.location.pathname
         : `${SITE_URL}/product/${product?.slug || ''}`;
     const productImage = product?.image
         ? product.image.startsWith('http')
@@ -423,7 +423,14 @@ const ProductDetails = () => {
                             price: product.price?.toString() || '0',
                             availability: product.stock && product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
                             url: productUrl
-                        }
+                        },
+                        ...(averageRating && reviews?.length ? {
+                            aggregateRating: {
+                                '@type': 'AggregateRating',
+                                ratingValue: averageRating.toString(),
+                                reviewCount: reviews.length
+                            }
+                        } : {})
                     })}
                 </script>
                 <script type="application/ld+json">
@@ -453,7 +460,7 @@ const ProductDetails = () => {
                                 '@type': 'ListItem',
                                 position: 4,
                                 name: product.name,
-                                item: window.location.href
+                                item: productUrl
                             }
                         ]
                     })}

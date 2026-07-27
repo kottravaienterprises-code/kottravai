@@ -9,6 +9,16 @@ const RefundPolicy = () => {
             <Helmet>
                 <title>Refund Policy - Kottravai</title>
                 <meta name="description" content="Kottravai Refund Policy - Details on returns, refunds, non-returnable items, and replacement process." />
+                <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/refund-policy`} />
+                <meta property="og:title" content="Refund Policy - Kottravai" />
+                <meta property="og:description" content="Kottravai Refund Policy - Details on returns, refunds, non-returnable items, and replacement process." />
+                <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/refund-policy`} />
+                <meta property="og:type" content="website" />
+                <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hero.webp`} />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content="Refund Policy - Kottravai" />
+                <meta name="twitter:description" content="Kottravai Refund Policy - Details on returns, refunds, non-returnable items, and replacement process." />
+                <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hero.webp`} />
             </Helmet>
 
             <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8 font-sans">

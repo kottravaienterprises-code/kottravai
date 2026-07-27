@@ -42,6 +42,7 @@ const OrderSuccess = () => {
         <MainLayout>
             <Helmet>
                 <title>Order Successful - Kottravai</title>
+                <meta name="robots" content="noindex" />
             </Helmet>
 
             <div className="min-h-[80vh] flex flex-col items-center justify-center p-4 bg-gray-50">

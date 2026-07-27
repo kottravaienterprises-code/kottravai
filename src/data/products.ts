@@ -326,24 +326,5 @@ export const products: Product[] = [
     }
 ];
 
-export const categories = [
-    // --- Parent Categories ---
-    { name: 'Handicrafts', count: 0, slug: 'handicrafts' },
-    { name: 'Heritage Mixes', count: 0, slug: 'heritage-mixes' },
-    { name: 'Masala Powders', count: 0, slug: 'masala-powders' },
-    { name: 'Instant Nourish', count: 0, slug: 'instant-nourish' },
-    { name: 'Essential Care', count: 0, slug: 'essential-care' },
-    { name: 'Hampers', count: 0, slug: 'hampers' },
-
-    // --- Sub Categories: Handicrafts ---
-    { name: 'Coconut Shell Products', count: 0, slug: 'coconut-shell-products', parent: 'handicrafts' },
-    { name: 'Handmade Jewellery', count: 0, slug: 'handmade-jewellery', parent: 'handicrafts' },
-    { name: 'Festival Wear', count: 0, slug: 'festival-wear', parent: 'handmade-jewellery' },
-    { name: 'Bridal Set', count: 0, slug: 'bridal-set', parent: 'handmade-jewellery' },
-    { name: 'Daily Wear', count: 0, slug: 'daily-wear', parent: 'handmade-jewellery' },
-    { name: 'Banana Fiber Products', count: 0, slug: 'banana-fiber-products', parent: 'handicrafts' },
-
-    // --- Sub Categories: Heritage Mixes ---
-    { name: 'Idli Podi', count: 0, slug: 'idli-podi', parent: 'heritage-mixes' },
-    { name: 'Dosa Batter Mix', count: 0, slug: 'dosa-batter-mix', parent: 'heritage-mixes' }
-];
+import categoriesData from './categories.json';
+export const categories = categoriesData;

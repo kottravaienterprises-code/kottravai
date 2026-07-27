@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Lock, AlertCircle } from 'lucide-react';
 import MainLayout from '@/layouts/MainLayout';
 
@@ -26,6 +27,10 @@ const AdminLogin = () => {
 
     return (
         <MainLayout>
+            <Helmet>
+                <title>Admin Login | Kottravai</title>
+                <meta name="robots" content="noindex" />
+            </Helmet>
             <div className="min-h-[70vh] flex items-center justify-center bg-gray-50 px-4">
                 <div className="max-w-md w-full">
                     <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-10">

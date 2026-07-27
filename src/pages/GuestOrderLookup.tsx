@@ -2,12 +2,18 @@ import { useState } from 'react';
 import { useGuestAuth } from '../contexts/GuestAuthContext';
 import GuestCheckoutModal from '../components/GuestCheckoutModal';
 
+import { Helmet } from 'react-helmet-async';
+
 export const GuestOrderLookup = () => {
   const { isAuthenticated, profile } = useGuestAuth();
   const [isModalOpen, setIsModalOpen] = useState(!isAuthenticated);
 
   return (
     <div className="container mx-auto p-4">
+      <Helmet>
+        <title>Track Your Order - Kottravai</title>
+        <meta name="robots" content="noindex" />
+      </Helmet>
       <h1 className="text-3xl font-bold mb-6">Track Your Order</h1>
       
       {!isAuthenticated ? (
