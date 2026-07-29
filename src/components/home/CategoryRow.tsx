@@ -26,7 +26,7 @@ const categories = [
         id: 4,
         title: "Dosa mix",
         image: "/y6j712e3wbq-1777717294475-Gemini_Generated_Image_rwm9odrwm9odrwm9 (1).webp",
-        link: "/category/heritage-mixes"
+        link: "/category/dosa-batter-mix"
     },
     {
         id: 5,
@@ -56,13 +56,7 @@ const categories = [
         id: 9,
         title: "Tasty Idly mix",
         image: "/u3cfrsk4b97-1777716271869-Gemini_Generated_Image_5n0cqp5n0cqp5n0c (2).webp",
-        link: "/category/heritage-mixes"
-    },
-    {
-        id: 10,
-        title: "Wholesome rice mix",
-        image: "/rzhuephpg7f-1777963682141-Gemini_Generated_Image_vpfc55vpfc55vpfc (1) (1).webp",
-        link: "/category/heritage-mixes"
+        link: "/category/idli-podi"
     }
 ];
 

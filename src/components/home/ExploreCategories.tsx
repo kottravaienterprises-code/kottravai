@@ -24,14 +24,14 @@ const categories = [
     {
         id: 4,
         title: "Idly Podi",
-        image: "/y6j712e3wbq-1777717294475-Gemini_Generated_Image_rwm9odrwm9odrwm9 (1).webp",
-        link: "/category/heritage-mixes"
+        image: "/u3cfrsk4b97-1777716271869-Gemini_Generated_Image_5n0cqp5n0cqp5n0c (2).webp",
+        link: "/category/idli-podi"
     },
     {
         id: 5,
         title: "Dosa Mix",
-        image: "/vd13njgmplk-1778308551249-Gemini_Generated_Image_45cwzq45cwzq45cw (1).webp",
-        link: "/category/instant-nourish"
+        image: "/y6j712e3wbq-1777717294475-Gemini_Generated_Image_rwm9odrwm9odrwm9 (1).webp",
+        link: "/category/dosa-batter-mix"
     },
     {
         id: 6,
@@ -47,7 +47,7 @@ const categories = [
     },
     {
         id: 8,
-        title: "Instant Mix",
+        title: "Masala Powders",
         image: "/Gemini_Generated_Image_qzi18xqzi18xqzi1.webp",
         link: "/category/masala-powders"
     }

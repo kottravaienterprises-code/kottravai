@@ -42,7 +42,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     // Check for admin session in sessionStorage
     const isAdmin = sessionStorage.getItem('kottravai_admin_session') === 'true';
     if (!isAdmin) {
-        return <Navigate to="/admin/login" replace />;
+        return <Navigate to="/kottravai-secure-hq/login" replace />;
     }
     return <>{children}</>;
 };
@@ -52,7 +52,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 
 function App() {
     const location = useLocation();
-    const isAdminRoute = location.pathname.startsWith('/admin');
+    const isAdminRoute = location.pathname.startsWith('/kottravai-secure-hq');
     const [scrolledMilestones, setScrolledMilestones] = useState<number[]>([]);
 
     // Track Page Views & Affiliate Referral
@@ -160,9 +160,9 @@ function App() {
                     <Route path="*" element={<NotFound />} />
 
                     {/* Admin Panel (Protected and Lazy Loaded) */}
-                    <Route path="/admin/login" element={<AdminLogin />} />
+                    <Route path="/kottravai-secure-hq/login" element={<AdminLogin />} />
                     <Route 
-                        path="/admin" 
+                        path="/kottravai-secure-hq" 
                         element={
                             <AdminRoute>
                                 <AdminDashboard />
