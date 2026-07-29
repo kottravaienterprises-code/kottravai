@@ -2733,7 +2733,7 @@ app.get('/api/products', async (req, res) => {
 
         if (q) {
             params.push(q);
-            conditions.push('search_vector @@ websearch_to_tsquery(''english'', $1)');
+            conditions.push("search_vector @@ websearch_to_tsquery('english', $1)");
         }
 
         if (!isAdmin) {
