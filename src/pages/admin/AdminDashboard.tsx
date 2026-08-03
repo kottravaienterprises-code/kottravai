@@ -642,7 +642,7 @@ const AdminDashboard = () => {
     const isAdmin =
       sessionStorage.getItem("kottravai_admin_session") === "true";
     if (!isAdmin) {
-      navigate("/admin/login");
+      navigate("/kottravai-secure-hq/login");
     } else {
       setIsAdminAuthenticated(true);
       
@@ -661,7 +661,7 @@ const AdminDashboard = () => {
 
   const handleLogout = () => {
     sessionStorage.removeItem("kottravai_admin_session");
-    navigate("/admin/login");
+    navigate("/kottravai-secure-hq/login");
   };
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -5113,7 +5113,7 @@ const AdminDashboard = () => {
                         <div className="flex gap-2">
                           <button
                             onClick={() =>
-                              navigate("/admin/orders", {
+                              navigate("/kottravai-secure-hq/orders", {
                                 state: { affiliateId: aff.id },
                               })
                             }

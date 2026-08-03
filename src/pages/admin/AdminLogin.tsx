@@ -19,7 +19,7 @@ const AdminLogin = () => {
         if (password === adminPass) {
             sessionStorage.setItem('kottravai_admin_session', 'true');
             sessionStorage.setItem('kottravai_admin_token', password);
-            navigate('/admin');
+            navigate('/kottravai-secure-hq');
         } else {
             setError('Invalid Admin Password');
         }
