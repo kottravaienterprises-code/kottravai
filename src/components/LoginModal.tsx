@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Eye, EyeOff, Mail, User, Lock, ArrowRight, RefreshCw, Smartphone, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -21,6 +21,7 @@ const LoginModal: React.FC = () => {
     const [isOtpSent, setIsOtpSent] = useState(false);
     const [isOtpVerified, setIsOtpVerified] = useState(false);
     const [otpTimer, setOtpTimer] = useState(0);
+    const isVerifyingRef = useRef(false);
 
     useEffect(() => {
         let interval: ReturnType<typeof setInterval>;
@@ -119,14 +120,14 @@ const LoginModal: React.FC = () => {
             } else if (mode === 'signup') {
                 const { error: signUpError } = await signUp(username, email, mobile, password, otp);
                 if (signUpError) {
-                    setError(signUpError.message);
+                    setError(typeof signUpError === 'string' ? signUpError : (signUpError as any).message || "Signup failed");
                 } else {
                     setSuccessMessage("Account created successfully!");
                 }
             } else if (mode === 'forgot') {
                 const { error: resetError } = await resetPasswordWithOTP(mobile, otp, password);
                 if (resetError) {
-                    setError(resetError.error || resetError.message);
+                    setError(typeof resetError === 'string' ? resetError : (resetError as any).message || "Password reset failed");
                 } else {
                     setSuccessMessage("Password reset successfully! You can now sign in.");
                     setTimeout(() => {
@@ -314,16 +315,18 @@ const LoginModal: React.FC = () => {
                             {/* Email OTP Verification (Signup and Forgot) */}
                             {(mode === 'signup' || mode === 'forgot') && (
                                 <div className="space-y-3">
-                                    <div className="relative group w-full">
-                                            <button
-                                                type="button"
-                                                onClick={handleSendOTP}
-                                                disabled={isSubmitting}
-                                                className="w-full py-3.5 bg-[#F8F9FA] text-[#7C8291] rounded-full font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black hover:text-white transition-all transform active:scale-[0.98] border border-gray-100/80 disabled:bg-gray-50 disabled:text-gray-300"
-                                            >
-                                                {isSubmitting ? 'Sending...' : 'Send Verification Code'}
-                                            </button>
-                                    </div>
+                                    {!isOtpSent && !isOtpVerified && (
+                                        <div className="relative group w-full">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSendOTP}
+                                                    disabled={isSubmitting}
+                                                    className="w-full py-3.5 bg-[#F8F9FA] text-[#7C8291] rounded-full font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black hover:text-white transition-all transform active:scale-[0.98] border border-gray-100/80 disabled:bg-gray-50 disabled:text-gray-300"
+                                                >
+                                                    {isSubmitting ? 'Sending...' : 'Send Verification Code'}
+                                                </button>
+                                        </div>
+                                    )}
 
                                     {/* OTP Field - More compact */}
                                     {isOtpSent && !isOtpVerified && (
@@ -344,17 +347,29 @@ const LoginModal: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={async () => {
-                                                        if (otp.length !== 6) return;
+                                                        console.log(`[LoginModal] Verify button clicked at ${Date.now()}`);
+                                                        if (otp.length !== 6 || isVerifyingRef.current) return;
+                                                        
+                                                        isVerifyingRef.current = true;
                                                         setIsSubmitting(true);
-                                                        const { error: vErr } = await verifyWhatsAppOTP(mobile, otp);
-                                                        if (vErr) setError(vErr.message);
-                                                        else {
-                                                            setIsOtpVerified(true);
-                                                            setSuccessMessage("WhatsApp verified! You can now complete registration.");
+                                                        
+                                                        try {
+                                                            console.log(`[LoginModal] verifyWhatsAppOTP() starting at ${Date.now()}`);
+                                                            const { error: vErr } = await verifyWhatsAppOTP(mobile, otp);
+                                                            console.log(`[LoginModal] verifyWhatsAppOTP() finished at ${Date.now()}`);
+                                                            
+                                                            if (vErr) {
+                                                                setError(vErr.message);
+                                                            } else {
+                                                                setIsOtpVerified(true);
+                                                                setSuccessMessage("WhatsApp verified! You can now complete registration.");
+                                                            }
+                                                        } finally {
+                                                            setIsSubmitting(false);
+                                                            isVerifyingRef.current = false;
                                                         }
-                                                        setIsSubmitting(false);
                                                     }}
-                                                    disabled={otp.length !== 6 || isSubmitting}
+                                                    disabled={otp.length !== 6 || isSubmitting || isVerifyingRef.current}
                                                     className="absolute right-2 top-2 bottom-2 px-6 bg-[#25D366] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#1da851] transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:opacity-50"
                                                 >
                                                     Verify

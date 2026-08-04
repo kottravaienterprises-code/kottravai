@@ -219,8 +219,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 otp
             });
 
-            // Automatically log in after successful signup
-            const { error: loginError } = await login(mobile, password);
+            // Automatically log in after successful signup using the known email
+            // (Bypasses the mobile lookup which can cause false-positive signup errors)
+            const { error: loginError } = await login(email.toLowerCase(), password);
             if (loginError) throw loginError;
 
             analytics.trackEvent('account_created', { username, email, mobile });
@@ -234,7 +235,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const sendWhatsAppOTP = async (mobile: string, type: 'signup' | 'forgot' = 'signup') => {
         try {
             const response = await axios.post(`${API_ENDPOINTS.auth}/send-whatsapp-otp`, {
-                mobile,
+                phone: mobile,
                 type
             });
             return { error: null, data: response.data };
@@ -244,11 +245,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
+    const isVerificationInProgress = React.useRef(false);
+
     const verifyWhatsAppOTP = async (mobile: string, otp: string) => {
+        console.log(`[AuthContext] verifyWhatsAppOTP() called at ${Date.now()}`);
+        console.trace('[AuthContext] verifyWhatsAppOTP stack trace:');
+        console.log(`[AuthContext] Previous verification in progress? ${isVerificationInProgress.current}`);
+        
+        isVerificationInProgress.current = true;
         try {
-            const response = await axios.post(`${API_ENDPOINTS.auth}/verify-whatsapp-otp`, { mobile, otp });
+            const response = await axios.post(`${API_ENDPOINTS.auth}/verify-whatsapp-otp`, { phone: mobile, otp });
+            isVerificationInProgress.current = false;
             return { error: null, data: response.data };
         } catch (error: any) {
+            isVerificationInProgress.current = false;
             console.error('Verify WhatsApp OTP error:', error);
             return { error: error.response?.data || { message: 'Invalid OTP' } };
         }

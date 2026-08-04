@@ -3631,8 +3631,9 @@ app.post('/api/auth/send-whatsapp-otp', async (req, res) => {
     try {
         console.log('[OTP_SEND_START] Initiating OTP send process');
         const { phone } = req.body;
+        const mobileString = String(phone).trim();
 
-        if (!phone || phone.length !== 10 || !/^\d+$/.test(phone)) {
+        if (!mobileString || mobileString.length !== 10 || !/^\d+$/.test(mobileString)) {
             return res.status(400).json({ message: 'Invalid mobile number. Please enter a 10-digit number.' });
         }
 
@@ -3640,12 +3641,15 @@ app.post('/api/auth/send-whatsapp-otp', async (req, res) => {
         console.log('[OTP_GENERATED] OTP code generated successfully');
         
         const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         try {
+            // Remove every previous OTP for that phone before creating a new one.
+            await db.query('DELETE FROM otp_verifications WHERE phone = $1', [mobileString]);
+
             await db.query(
-                'INSERT INTO otp_verifications (phone, otp_hash, expires_at) VALUES ($1, $2, $3)',
-                [phone, otpHash, expiresAt]
+                `INSERT INTO otp_verifications (phone, otp_hash, verified, attempts, expires_at) 
+                 VALUES ($1, $2, FALSE, 0, NOW() + INTERVAL '10 minutes')`,
+                [mobileString, otpHash]
             );
             console.log('[OTP_DB_INSERT_SUCCESS] OTP verification record saved to database');
         } catch (dbErr) {
@@ -3653,10 +3657,10 @@ app.post('/api/auth/send-whatsapp-otp', async (req, res) => {
             throw new Error('Database insertion failed');
         }
 
-        console.log(`\n📱 [GUEST OTP GENERATED] To: ${phone} | Code: ${otp}\n`);
+        console.log(`\n📱 [GUEST OTP GENERATED] To: ${mobileString} | Code: ${otp}\n`);
 
         // Fire-and-forget WhatsApp API to prevent blocking the user response
-        sendWhatsAppOTP(phone, otp)
+        sendWhatsAppOTP(mobileString, otp)
             .then(() => console.log('[OTP_WHATSAPP_SEND_SUCCESS] Message accepted by WhatsApp API'))
             .catch(waError => console.error('[WHATSAPP_ERROR] Failed to send WhatsApp message via API:', waError.message));
 
@@ -3675,19 +3679,20 @@ app.post('/api/auth/verify-whatsapp-otp', async (req, res) => {
     try {
         console.log('[OTP_VERIFY_START] Initiating OTP verification process');
         const { phone, otp } = req.body;
+        const phoneString = String(phone).trim();
 
-        if (!phone || !otp) {
+        if (!phoneString || !otp) {
             return res.status(400).json({ message: 'Phone and OTP are required' });
         }
 
         const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
 
-        // Fetch latest unverified OTP
+        // Fetch latest OTP regardless of verified status, and calculate expiry in DB to prevent timezone bugs
         let result;
         try {
             result = await db.query(
-                'SELECT * FROM otp_verifications WHERE phone = $1 AND verified = FALSE ORDER BY created_at DESC LIMIT 1',
-                [phone]
+                'SELECT *, (expires_at < NOW()) as is_expired FROM otp_verifications WHERE phone = $1 ORDER BY created_at DESC LIMIT 1',
+                [phoneString]
             );
         } catch (dbErr) {
             console.error('[SUPABASE_ERROR] Failed to fetch OTP record:', dbErr.message);
@@ -3701,27 +3706,30 @@ app.post('/api/auth/verify-whatsapp-otp', async (req, res) => {
         const record = result.rows[0];
         console.log('[OTP_RECORD_FOUND] Found matching OTP session in database');
 
+        if (record.verified) {
+            return res.status(200).json({ success: true, message: 'OTP already verified' });
+        }
+
+        // Check expiry (handled reliably by Postgres timezone-aware NOW() comparison)
+        if (record.is_expired) {
+            return res.status(400).json({ success: false, message: 'OTP expired.' });
+        }
+
         // Check attempts
         if (record.attempts >= 5) {
             return res.status(400).json({ success: false, message: 'Too many failed attempts. Please request a new OTP.' });
         }
 
-        // Increment attempt
-        try {
-            await db.query('UPDATE otp_verifications SET attempts = attempts + 1 WHERE id = $1', [record.id]);
-        } catch (dbErr) {
-            console.error('[SUPABASE_ERROR] Failed to increment attempts:', dbErr.message);
-        }
-
-        // Check expiry
-        if (new Date(record.expires_at) < new Date()) {
-            return res.status(400).json({ success: false, message: 'OTP has expired.' });
-        }
-
         // Verify Hash
         if (record.otp_hash !== otpHash) {
-            return res.status(400).json({ success: false, message: 'Invalid OTP' });
+            try {
+                await db.query('UPDATE otp_verifications SET attempts = attempts + 1 WHERE id = $1', [record.id]);
+            } catch (dbErr) {
+                console.error('[SUPABASE_ERROR] Failed to increment attempts:', dbErr.message);
+            }
+            return res.status(400).json({ success: false, message: 'Invalid OTP.' });
         }
+        
         console.log('[OTP_HASH_VALID] User provided correct OTP hash');
 
         // Mark verified
@@ -3733,59 +3741,8 @@ app.post('/api/auth/verify-whatsapp-otp', async (req, res) => {
             throw new Error('Database update failed');
         }
 
-        // Find or create user as guest
-        let customerId;
-        try {
-            let userResult = await db.query('SELECT id, is_guest FROM users WHERE mobile = $1', [phone]);
-            if (userResult.rows.length === 0) {
-                const dummyPassword = crypto.randomBytes(16).toString('hex');
-                const newUser = await db.query(
-                    'INSERT INTO users (username, mobile, password, is_guest, phone_verified, guest_converted_at, created_at) VALUES ($1, $2, $3, TRUE, TRUE, NOW(), NOW()) RETURNING id',
-                    [`Guest_${phone.substring(0,4)}`, phone, dummyPassword]
-                );
-                customerId = newUser.rows[0].id;
-                console.log('[GUEST_USER_CREATED] New guest profile created:', customerId);
-            } else {
-                customerId = userResult.rows[0].id;
-                await db.query('UPDATE users SET phone_verified = TRUE WHERE id = $1', [customerId]);
-                console.log('[GUEST_USER_CREATED] Existing profile loaded for guest:', customerId); // Re-using tag for existing
-            }
-        } catch (dbErr) {
-            console.error('[SUPABASE_ERROR] Failed to find or create user:', dbErr.message);
-            throw new Error('Database user operation failed');
-        }
-
-        // Create Guest Session
-        const sessionToken = crypto.randomBytes(32).toString('hex');
-        const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-
-        try {
-            await db.query(
-                'INSERT INTO guest_sessions (customer_id, session_token, is_active, expires_at) VALUES ($1, $2, TRUE, $3)',
-                [customerId, sessionToken, sessionExpiresAt]
-            );
-            console.log('[GUEST_SESSION_CREATED] Guest session persisted to database');
-        } catch (dbErr) {
-            console.error('[SUPABASE_ERROR] Failed to insert guest session:', dbErr.message);
-            throw new Error('Database session insertion failed');
-        }
-
-        // Set HttpOnly Cookie
-        try {
-            res.cookie('guest_session', sessionToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-            });
-            console.log('[COOKIE_SET] guest_session HttpOnly cookie attached to response');
-        } catch (cookieErr) {
-            console.error('[COOKIE_ERROR] Failed to set session cookie:', cookieErr.message);
-            throw new Error('Cookie creation failed');
-        }
-
         console.log('[OTP_VERIFY_COMPLETE] Verification process completely successful');
-        res.json({ success: true, message: 'Guest session created', customer_id: customerId });
+        res.json({ success: true, message: 'OTP verified successfully' });
     } catch (err) {
         console.error('[OTP_VERIFY_ERROR] Unexpected error:', err.message);
         res.status(500).json({ error: 'Verification failed. Please try again.' });
@@ -3940,68 +3897,122 @@ app.post('/api/auth/get-email', async (req, res) => {
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, mobile, password, otp, email } = req.body;
+        const mobileString = String(mobile).trim();
 
         // Validate inputs
         if (!username || !mobile || !password || !otp || !email) {
+            console.log(`[REGISTER_FAIL] Line 3995 - Missing required fields: ${JSON.stringify({ username: !!username, mobile: !!mobile, password: !!password, otp: !!otp, email: !!email })}`);
             return res.status(400).json({ error: 'Username, mobile, email, password, and OTP are required' });
         }
 
-        // 1. Verify WhatsApp OTP using the otps table and mobile number
-        const otpResult = await db.query(
-            'SELECT * FROM otps WHERE mobile = $1 AND otp = $2 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
-            [mobile, otp]
-        );
+        // 1. Verify WhatsApp OTP using the otp_verifications table and mobile number
+        const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+        const otpQuery = 'SELECT * FROM otp_verifications WHERE phone = $1 AND otp_hash = $2 AND verified = TRUE ORDER BY created_at DESC LIMIT 1';
+        const otpParams = [mobileString, otpHash];
+        console.log(`[REGISTER_DB] Executing OTP query: ${otpQuery} with params:`, otpParams);
+        const otpResult = await db.query(otpQuery, otpParams);
+        console.log(`[REGISTER_DB] OTP query rowCount: ${otpResult.rowCount || otpResult.rows.length}, returned rows:`, otpResult.rows);
 
         if (otpResult.rows.length === 0) {
+            console.log(`[REGISTER_FAIL] Line 4006 - Invalid or expired OTP. Hash: ${otpHash}, Mobile: ${mobileString}`);
             return res.status(400).json({ error: 'Invalid or expired OTP' });
         }
 
         // 2. Validate formats
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
+            console.log(`[REGISTER_FAIL] Line 4012 - Invalid email format: ${email}`);
             return res.status(400).json({ error: 'Invalid email format' });
         }
 
         if (password.length < 8) {
+            console.log(`[REGISTER_FAIL] Line 4016 - Password too short (length: ${password.length})`);
             return res.status(400).json({ error: 'Password must be at least 8 characters long' });
         }
 
-        if (mobile.length !== 10) {
-            return res.status(400).json({ error: 'Invalid mobile number' });
+        console.log({
+            originalMobile: mobile,
+            type: typeof mobile,
+            normalizedMobile: mobileString,
+            length: mobileString.length
+        });
+
+        if (!/^\d{10}$/.test(mobileString)) {
+            console.log(`[REGISTER_FAIL] Line 4020 - Invalid mobile length (length: ${mobileString.length})`);
+            return res.status(400).json({ error: 'Invalid mobile number. Please enter a 10-digit number.' });
+        }
+
+        // 2.5 Explicit Duplicate Checks
+        
+        // Mobile duplicate check
+        const mobileQuery = 'SELECT id, mobile FROM users WHERE mobile = $1 LIMIT 1';
+        const mobileParams = [mobileString];
+        console.log(`[REGISTER_VALIDATE_MOBILE] Query: ${mobileQuery}`);
+        console.log(`[REGISTER_VALIDATE_MOBILE] Params:`, mobileParams);
+        const mobileCheck = await db.query(mobileQuery, mobileParams);
+        console.log(`[REGISTER_VALIDATE_MOBILE] rowCount: ${mobileCheck.rowCount || mobileCheck.rows.length}`);
+        console.log(`[REGISTER_VALIDATE_MOBILE] returned rows:`, mobileCheck.rows);
+        
+        if (mobileCheck.rows.length > 0) {
+            console.log(`[REGISTER_FAIL] Line 4037 - Duplicate mobile detected`);
+            return res.status(409).json({ error: 'Mobile number already registered.' });
+        }
+
+        // Username duplicate check
+        const usernameQuery = 'SELECT id, username FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1';
+        const usernameParams = [username];
+        console.log(`[REGISTER_VALIDATE_USERNAME] Query: ${usernameQuery}`);
+        console.log(`[REGISTER_VALIDATE_USERNAME] Params:`, usernameParams);
+        const usernameCheck = await db.query(usernameQuery, usernameParams);
+        console.log(`[REGISTER_VALIDATE_USERNAME] rowCount: ${usernameCheck.rowCount || usernameCheck.rows.length}`);
+        console.log(`[REGISTER_VALIDATE_USERNAME] returned rows:`, usernameCheck.rows);
+
+        if (usernameCheck.rows.length > 0) {
+            console.log(`[REGISTER_FAIL] Line 4059 - Duplicate username detected`);
+            return res.status(409).json({ error: 'Username already taken.' });
         }
 
         // Create user in Supabase
+        console.log(`[REGISTER_SUPABASE] Calling createUser for email: ${email}, phone: +91${mobileString}`);
         const { data, error } = await supabase.auth.admin.createUser({
             email: email.toLowerCase(),
-            phone: `+91${mobile}`, // Explicitly set phone for mobile login support
+            phone: `+91${mobileString}`, // Explicitly set phone for mobile login support
             password,
             email_confirm: true, // auto-confirm email since we verify mobile
             phone_confirm: true, // auto-confirm phone
             user_metadata: {
                 username,
                 full_name: username,
-                mobile: mobile // Store mobile in metadata for UI
+                mobile: mobileString // Store mobile in metadata for UI
             }
         });
 
         if (error) throw error;
 
         // 3. Delete used OTP
-        await db.query('DELETE FROM otps WHERE id = $1', [otpResult.rows[0].id]);
+        await db.query('DELETE FROM otp_verifications WHERE id = $1', [otpResult.rows[0].id]);
 
-        console.log(`✅ User registered successfully: ${email} (${mobile})`);
+        console.log(`✅ User registered successfully: ${email} (${mobileString})`);
         res.status(201).json({
             user: data.user,
             message: 'Registration successful'
         });
     } catch (err) {
-        console.error('Registration Error Details:', err);
+        console.error('[REGISTER_CATCH] Registration Error Details:', err);
         let errorMessage = err.message || 'Registration failed';
 
-        if (err.code === 'email_exists' || err.message?.includes('already registered') || err.message?.includes('User already registered')) {
-            errorMessage = "This email is already registered. Please login instead.";
+        // Parse Supabase error message more granularly
+        if (err.message?.toLowerCase().includes('phone') || err.message?.toLowerCase().includes('mobile')) {
+            errorMessage = "Mobile number already registered.";
+            console.log(`[REGISTER_FAIL] Line 4094 - Phone error caught from Supabase: ${err.message}`);
+        } else if (err.code === 'email_exists' || err.message?.includes('User already registered') || err.message?.includes('already registered')) {
+            errorMessage = "Email already registered.";
+            console.log(`[REGISTER_FAIL] Line 4097 - Email error caught from Supabase: ${err.message}`);
         } else if (err.message?.includes('username')) {
-            errorMessage = "This username is already taken.";
+            errorMessage = "Username already taken.";
+            console.log(`[REGISTER_FAIL] Line 4100 - Username taken error caught from Supabase: ${err.message}`);
+        } else {
+            console.log(`[REGISTER_FAIL] Line 4102 - General Supabase error caught: ${err.message}`);
         }
 
         res.status(400).json({ error: errorMessage });
