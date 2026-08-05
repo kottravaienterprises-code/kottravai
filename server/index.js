@@ -4061,7 +4061,6 @@ app.post('/api/auth/register', async (req, res) => {
 
         // 4. Guest Data Migration
         if (existingGuest) {
-            console.log(`[GUEST_MIGRATION] Starting migration for guest ID ${existingGuest.id} to new user ID ${data.user.id}`);
             const client = await db.connect();
             try {
                 await client.query('BEGIN');
@@ -4069,7 +4068,6 @@ app.post('/api/auth/register', async (req, res) => {
                 let migrationLogs = [];
                 const tablesToMigrate = ['cart_items', 'saved_addresses', 'wishlist'];
                 
-                // Fallback guest username just in case it's null in DB
                 const guestUsername = existingGuest.username || `guest_${mobileString}`;
 
                 for (const table of tablesToMigrate) {
@@ -4093,7 +4091,9 @@ app.post('/api/auth/register', async (req, res) => {
                             const oldValue = colName === 'user_id' ? existingGuest.id : guestUsername;
 
                             const updateRes = await client.query(`UPDATE ${table} SET ${colName} = $1 WHERE ${colName} = $2`, [newValue, oldValue]);
-                            migrationLogs.push(`${table}: ${updateRes.rowCount} rows`);
+                            if (updateRes.rowCount > 0) {
+                                migrationLogs.push(`${table}: ${updateRes.rowCount} rows`);
+                            }
                         }
                     }
                 }
@@ -4102,7 +4102,9 @@ app.post('/api/auth/register', async (req, res) => {
                 await client.query("UPDATE users SET is_guest = FALSE WHERE id = $1", [existingGuest.id]);
                 
                 await client.query('COMMIT');
-                console.log(`[GUEST_MIGRATION_SUCCESS] Migrated data: ${migrationLogs.join(' | ')}`);
+                if (migrationLogs.length > 0) {
+                    console.log(`[GUEST_MIGRATION_SUCCESS] Migrated data to ${data.user.id}: ${migrationLogs.join(' | ')}`);
+                }
             } catch (migrationErr) {
                 await client.query('ROLLBACK');
                 console.error(`[GUEST_MIGRATION_FAIL] Migration failed (Continuing registration):`, migrationErr.message);
