@@ -3769,15 +3769,17 @@ app.post('/api/auth/create-guest-session', async (req, res) => {
 
         // 2. Find or Create User
         let customerId;
-        const existingUser = await db.query('SELECT id FROM users WHERE mobile = $1 OR phone = $2', [phoneString, `+91${phoneString}`]);
+        const existingUser = await db.query('SELECT id FROM users WHERE mobile = $1', [phoneString]);
         
         if (existingUser.rows.length > 0) {
             customerId = existingUser.rows[0].id;
         } else {
             // Create a guest user safely in public.users
+            // Generate a placeholder username to satisfy potential NOT NULL constraints
+            const placeholderUsername = `guest_${phoneString}`;
             const newUserResult = await db.query(
-                `INSERT INTO users (mobile, is_guest, role) VALUES ($1, TRUE, 'guest') RETURNING id`,
-                [phoneString]
+                `INSERT INTO users (mobile, is_guest, username) VALUES ($1, TRUE, $2) RETURNING id`,
+                [phoneString, placeholderUsername]
             );
             customerId = newUserResult.rows[0].id;
         }
