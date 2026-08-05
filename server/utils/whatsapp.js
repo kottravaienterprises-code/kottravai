@@ -15,9 +15,14 @@ const sendWhatsAppOTP = async (mobile, otp, type = 'signup') => {
     // ASKEVA URL with token as query parameter
     const ASKEVA_URL = `https://backend.askeva.io/v1/message/send-message?token=${ASKEVA_TOKEN}`;
 
-    // Add 91 prefix for India
-    const formattedMobile = mobile.startsWith('91') ? mobile : `91${mobile}`;
-
+    // Safely add 91 prefix for India (handle cases where a 10-digit number happens to start with 91)
+    let formattedMobile = mobile.toString().replace(/[\s\-\+]/g, '');
+    if (formattedMobile.length === 10) {
+        formattedMobile = '91' + formattedMobile;
+    } else if (formattedMobile.startsWith('0')) {
+        formattedMobile = '91' + formattedMobile.slice(1);
+    }
+    
     console.log(`📱 Sending ASKEVA WhatsApp OTP to ${formattedMobile}...`);
 
     if (!ASKEVA_TOKEN) {
