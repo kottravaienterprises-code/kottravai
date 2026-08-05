@@ -3759,7 +3759,7 @@ app.post('/api/auth/create-guest-session', async (req, res) => {
 
         // 1. Verify that this phone actually has a recently verified OTP (security check)
         const otpCheck = await db.query(
-            "SELECT * FROM otp_verifications WHERE phone = $1 AND verified = TRUE AND updated_at > NOW() - INTERVAL '15 minutes' ORDER BY updated_at DESC LIMIT 1",
+            "SELECT * FROM otp_verifications WHERE phone = $1 AND verified = TRUE AND created_at > NOW() - INTERVAL '15 minutes' ORDER BY created_at DESC LIMIT 1",
             [phoneString]
         );
 
@@ -4004,17 +4004,22 @@ app.post('/api/auth/register', async (req, res) => {
         // 2.5 Explicit Duplicate Checks
         
         // Mobile duplicate check
-        const mobileQuery = 'SELECT id, mobile FROM users WHERE mobile = $1 LIMIT 1';
+        const mobileQuery = 'SELECT id, mobile, is_guest FROM users WHERE mobile = $1 LIMIT 1';
         const mobileParams = [mobileString];
-        console.log(`[REGISTER_VALIDATE_MOBILE] Query: ${mobileQuery}`);
-        console.log(`[REGISTER_VALIDATE_MOBILE] Params:`, mobileParams);
         const mobileCheck = await db.query(mobileQuery, mobileParams);
-        console.log(`[REGISTER_VALIDATE_MOBILE] rowCount: ${mobileCheck.rowCount || mobileCheck.rows.length}`);
-        console.log(`[REGISTER_VALIDATE_MOBILE] returned rows:`, mobileCheck.rows);
         
         if (mobileCheck.rows.length > 0) {
-            console.log(`[REGISTER_FAIL] Line 4037 - Duplicate mobile detected`);
-            return res.status(409).json({ error: 'Mobile number already registered.' });
+            const existing = mobileCheck.rows[0];
+            if (existing.is_guest) {
+                console.log(`[REGISTER_GUEST_UPGRADE] Upgrading guest user to full account`);
+                // Move the guest mobile out of the way to prevent trigger unique constraint crashes
+                await db.query("UPDATE users SET mobile = $1, username = $2 WHERE id = $3", 
+                    [`archived_${existing.mobile}_${Date.now()}`, `archived_${existing.id}`, existing.id]
+                );
+            } else {
+                console.log(`[REGISTER_FAIL] Duplicate mobile detected for full user`);
+                return res.status(409).json({ error: 'Mobile number already registered.' });
+            }
         }
 
         // Username duplicate check
