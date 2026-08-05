@@ -4098,8 +4098,15 @@ app.post('/api/auth/register', async (req, res) => {
                     }
                 }
                 
-                // Mark as fully converted
-                await client.query("UPDATE users SET is_guest = FALSE WHERE id = $1", [existingGuest.id]);
+                // 5. Cleanup Obsolete Guest Record
+                // Delete associated guest sessions
+                const sessionDelRes = await client.query("DELETE FROM guest_sessions WHERE customer_id = $1", [existingGuest.id]);
+                migrationLogs.push(`guest_sessions: deleted ${sessionDelRes.rowCount} rows`);
+
+                // Delete the guest user record itself
+                // If the guest has unmigrated dependencies (like orders), this will throw a FK violation and trigger ROLLBACK.
+                const userDelRes = await client.query("DELETE FROM users WHERE id = $1", [existingGuest.id]);
+                migrationLogs.push(`guest_user: deleted ${userDelRes.rowCount} rows`);
                 
                 await client.query('COMMIT');
                 if (migrationLogs.length > 0) {
