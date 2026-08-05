@@ -4004,13 +4004,15 @@ app.post('/api/auth/register', async (req, res) => {
         // 2.5 Explicit Duplicate Checks
         
         // Mobile duplicate check
-        const mobileQuery = 'SELECT id, mobile, is_guest FROM users WHERE mobile = $1 LIMIT 1';
+        const mobileQuery = 'SELECT id, mobile, username, is_guest FROM users WHERE mobile = $1 LIMIT 1';
         const mobileParams = [mobileString];
         const mobileCheck = await db.query(mobileQuery, mobileParams);
         
+        let existingGuest = null;
         if (mobileCheck.rows.length > 0) {
             const existing = mobileCheck.rows[0];
             if (existing.is_guest) {
+                existingGuest = existing;
                 console.log(`[REGISTER_GUEST_UPGRADE] Upgrading guest user to full account`);
                 // Shorten the archive string to avoid VARCHAR(20) limit errors
                 const shortId = existing.id.toString().substring(0, 8);
@@ -4056,6 +4058,58 @@ app.post('/api/auth/register', async (req, res) => {
 
         // 3. Delete used OTP
         await db.query('DELETE FROM otp_verifications WHERE id = $1', [otpResult.rows[0].id]);
+
+        // 4. Guest Data Migration
+        if (existingGuest) {
+            console.log(`[GUEST_MIGRATION] Starting migration for guest ID ${existingGuest.id} to new user ID ${data.user.id}`);
+            const client = await db.connect();
+            try {
+                await client.query('BEGIN');
+                
+                let migrationLogs = [];
+                const tablesToMigrate = ['cart_items', 'saved_addresses', 'wishlist'];
+                
+                // Fallback guest username just in case it's null in DB
+                const guestUsername = existingGuest.username || `guest_${mobileString}`;
+
+                for (const table of tablesToMigrate) {
+                    const tableCheck = await client.query(`
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_schema = 'public' AND table_name = $1
+                        )
+                    `, [table]);
+                    
+                    if (tableCheck.rows[0].exists) {
+                        const colCheck = await client.query(`
+                            SELECT column_name 
+                            FROM information_schema.columns 
+                            WHERE table_name = $1 AND column_name IN ('user_id', 'username')
+                        `, [table]);
+
+                        if (colCheck.rows.length > 0) {
+                            const colName = colCheck.rows[0].column_name;
+                            const newValue = colName === 'user_id' ? data.user.id : username;
+                            const oldValue = colName === 'user_id' ? existingGuest.id : guestUsername;
+
+                            const updateRes = await client.query(`UPDATE ${table} SET ${colName} = $1 WHERE ${colName} = $2`, [newValue, oldValue]);
+                            migrationLogs.push(`${table}: ${updateRes.rowCount} rows`);
+                        }
+                    }
+                }
+                
+                // Mark as fully converted
+                await client.query("UPDATE users SET is_guest = FALSE WHERE id = $1", [existingGuest.id]);
+                
+                await client.query('COMMIT');
+                console.log(`[GUEST_MIGRATION_SUCCESS] Migrated data: ${migrationLogs.join(' | ')}`);
+            } catch (migrationErr) {
+                await client.query('ROLLBACK');
+                console.error(`[GUEST_MIGRATION_FAIL] Migration failed (Continuing registration):`, migrationErr.message);
+            } finally {
+                client.release();
+            }
+        }
 
         console.log(`✅ User registered successfully: ${email} (${mobileString})`);
         res.status(201).json({
