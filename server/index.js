@@ -4061,7 +4061,7 @@ app.post('/api/auth/register', async (req, res) => {
 
         // 4. Guest Data Migration
         if (existingGuest) {
-            const client = await db.connect();
+            const client = await db.pool.connect();
             try {
                 await client.query('BEGIN');
                 
