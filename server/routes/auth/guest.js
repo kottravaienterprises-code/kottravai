@@ -13,13 +13,20 @@ const analytics = {
  */
 router.post('/send-whatsapp-otp', async (req, res) => {
   try {
+    console.log('[STEP 1] Request received - POST /api/auth/send-whatsapp-otp');
     const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: 'Phone number is required.' });
+    console.log(`[STEP 2] Mobile number: ${phone}`);
+    if (!phone) {
+      console.error('[ERROR] Phone number missing in payload');
+      return res.status(400).json({ error: 'Phone number is required.' });
+    }
 
     analytics.track('guest_checkout_started', { phone });
     const result = await otpService.sendOTP(phone);
+    console.log(`[STEP 7] Final HTTP response: ${JSON.stringify(result)}`);
     res.json(result);
   } catch (error) {
+    console.error(`[ERROR] Exception in send-whatsapp-otp handler: ${error.message}`);
     res.status(429).json({ error: error.message });
   }
 });

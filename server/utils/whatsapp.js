@@ -31,7 +31,7 @@ const sendWhatsAppOTP = async (mobile, otp, type = 'signup') => {
     }
 
     try {
-        const response = await axios.post(ASKEVA_URL, {
+        const payload = {
             "to": formattedMobile,
             "type": "template",
             "template": {
@@ -63,7 +63,10 @@ const sendWhatsAppOTP = async (mobile, otp, type = 'signup') => {
                     }
                 ]
             }
-        }, { timeout: 3000 }); // Hard 3-second timeout so the frontend doesn't hang
+        };
+        console.log("PAYLOAD_START", JSON.stringify(payload, null, 2), "PAYLOAD_END");
+
+        const response = await axios.post(ASKEVA_URL, payload, { timeout: 3000 }); // Hard 3-second timeout so the frontend doesn't hang
 
         console.log('✅ ASKEVA WhatsApp OTP sent successfully:', response.data);
         return { success: true, data: response.data };

@@ -167,7 +167,7 @@ const LoginModal: React.FC = () => {
                 onClick={closeLoginModal}
             ></div>
 
-            <div className="relative bg-white w-full max-w-[850px] md:h-[600px] rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 fade-in duration-500 flex flex-col md:flex-row">
+            <div className="relative bg-white w-full max-w-[850px] max-h-[95vh] md:h-[600px] rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 fade-in duration-500 flex flex-col md:flex-row">
                 {/* Left Panel - Visual Backdrop (Desktop Only) */}
                 <div className="hidden md:flex relative w-1/2 h-full overflow-hidden">
                     <img
@@ -214,7 +214,7 @@ const LoginModal: React.FC = () => {
 
                 {/* Right Panel - Form (Desktop and Mobile) */}
                 <div 
-                    className="flex-1 bg-white overflow-hidden flex flex-col h-full relative"
+                    className="flex-1 bg-white overflow-y-auto flex flex-col h-full relative"
                 >
                     <style dangerouslySetInnerHTML={{__html: `
                         .hide-modal-scrollbar::-webkit-scrollbar { display: none; }
@@ -307,7 +307,8 @@ const LoginModal: React.FC = () => {
                                         value={mobile}
                                         onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
                                         onFocus={handleInputFocus}
-                                        className="w-full pl-14 pr-6 py-3.5 bg-gray-50 border border-transparent rounded-[1.25rem] text-gray-700 placeholder-gray-400 focus:bg-white focus:border-[#25D366]/20 focus:ring-4 focus:ring-[#25D366]/5 outline-none transition-all font-bold"
+                                        disabled={isOtpSent || isOtpVerified}
+                                        className={`w-full pl-14 pr-6 py-3.5 bg-gray-50 border border-transparent rounded-[1.25rem] text-gray-700 placeholder-gray-400 focus:bg-white focus:border-[#25D366]/20 focus:ring-4 focus:ring-[#25D366]/5 outline-none transition-all font-bold ${(isOtpSent || isOtpVerified) ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     />
                                 </div>
                             )}
@@ -333,6 +334,17 @@ const LoginModal: React.FC = () => {
                                         <div className="flex flex-col gap-2 p-4 bg-emerald-50/30 rounded-2xl border border-emerald-100 animate-in slide-in-from-top-2 duration-300">
                                             <div className="flex items-center justify-between">
                                                 <label className="text-[9px] font-black text-emerald-800 uppercase tracking-widest">Verify WhatsApp Code</label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setIsOtpSent(false);
+                                                        setIsOtpVerified(false);
+                                                        setOtp('');
+                                                    }}
+                                                    className="text-[9px] font-bold text-gray-400 hover:text-[#b5128f] uppercase tracking-widest transition-colors"
+                                                >
+                                                    Change Number
+                                                </button>
                                             </div>
                                             <div className="relative flex items-center w-full">
                                                 <input
@@ -388,11 +400,24 @@ const LoginModal: React.FC = () => {
                                     )}
 
                                     {isOtpVerified && (
-                                        <div className="flex items-center gap-3 px-5 py-3.5 bg-emerald-50/50 text-emerald-600 rounded-2xl border border-emerald-100">
-                                            <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-emerald-200">
-                                                <Check size={14} className="text-white" />
+                                        <div className="flex items-center justify-between px-5 py-3.5 bg-emerald-50/50 text-emerald-600 rounded-2xl border border-emerald-100">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-emerald-200">
+                                                    <Check size={14} className="text-white" />
+                                                </div>
+                                                <span className="text-[11px] font-black uppercase tracking-widest">WhatsApp Verified</span>
                                             </div>
-                                            <span className="text-[11px] font-black uppercase tracking-widest">WhatsApp Verified</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsOtpSent(false);
+                                                    setIsOtpVerified(false);
+                                                    setOtp('');
+                                                }}
+                                                className="text-[9px] font-bold text-gray-400 hover:text-[#b5128f] uppercase tracking-widest transition-colors"
+                                            >
+                                                Change Number
+                                            </button>
                                         </div>
                                     )}
                                 </div>

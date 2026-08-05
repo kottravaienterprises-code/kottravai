@@ -43,16 +43,31 @@ class OTPService {
   async sendOTP(phone) {
     await this.checkRateLimits(phone);
     const { otp, hash } = this.generateOTP();
+    console.log(`[STEP 3] OTP generated: ${otp}`);
 
     // Invalidate previous active OTPs
     // await db.query('UPDATE otp_verifications SET verified = false, expires_at = NOW() WHERE phone = $1 AND verified = false', [phone]);
 
     // Store new OTP hash
     const expiresAt = new Date(Date.now() + 5 * 60000); // 5 minutes
-    // await db.query('INSERT INTO otp_verifications (phone, otp_hash, expires_at) VALUES ($1, $2, $3)', [phone, hash, expiresAt]);
+    try {
+      // await db.query('INSERT INTO otp_verifications (phone, otp_hash, expires_at) VALUES ($1, $2, $3)', [phone, hash, expiresAt]);
+      console.log('[STEP 4] OTP inserted into database');
+    } catch (err) {
+      console.error(`[ERROR] Database insert failed in server/services/otpService.js - ${err.message}`);
+      throw err;
+    }
 
     analytics.track('otp_sent', { phone });
-    await sendWhatsAppOTP(phone, otp);
+    
+    console.log('[STEP 5] Calling WhatsApp API');
+    try {
+      const waResponse = await sendWhatsAppOTP(phone, otp);
+      console.log(`[STEP 6] WhatsApp API response: ${JSON.stringify(waResponse)}`);
+    } catch (err) {
+      console.error(`[ERROR] WhatsApp API failed in server/services/otpService.js - ${err.message}`);
+      throw err;
+    }
 
     return { success: true, message: 'OTP sent successfully.' };
   }

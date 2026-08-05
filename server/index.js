@@ -3629,16 +3629,18 @@ app.get('/api/leads', authenticateAdmin, async (req, res) => {
 
 app.post('/api/auth/send-whatsapp-otp', async (req, res) => {
     try {
-        console.log('[OTP_SEND_START] Initiating OTP send process');
+        console.log('[STEP 1] Request received');
         const { phone } = req.body;
         const mobileString = String(phone).trim();
+        console.log(`[STEP 2] Mobile number: ${mobileString}`);
 
         if (!mobileString || mobileString.length !== 10 || !/^\d+$/.test(mobileString)) {
+            console.log('[STEP 7] Final HTTP response: 400 Invalid mobile number');
             return res.status(400).json({ message: 'Invalid mobile number. Please enter a 10-digit number.' });
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        console.log('[OTP_GENERATED] OTP code generated successfully');
+        console.log(`[STEP 3] OTP generated: ${otp}`);
         
         const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
 
@@ -3651,26 +3653,35 @@ app.post('/api/auth/send-whatsapp-otp', async (req, res) => {
                  VALUES ($1, $2, FALSE, 0, NOW() + INTERVAL '10 minutes')`,
                 [mobileString, otpHash]
             );
-            console.log('[OTP_DB_INSERT_SUCCESS] OTP verification record saved to database');
+            console.log('[STEP 4] OTP inserted into database');
         } catch (dbErr) {
-            console.error('[SUPABASE_ERROR] Failed to insert OTP record:', dbErr.message);
+            console.error(`[ERROR] Database insertion failed at server/index.js:3657. Exception: ${dbErr.message}`);
+            console.log('[STEP 7] Final HTTP response: 500 Database Error');
             throw new Error('Database insertion failed');
         }
 
         console.log(`\n📱 [GUEST OTP GENERATED] To: ${mobileString} | Code: ${otp}\n`);
 
         // Fire-and-forget WhatsApp API to prevent blocking the user response
+        console.log('[STEP 5] Calling WhatsApp API');
         sendWhatsAppOTP(mobileString, otp)
-            .then(() => console.log('[OTP_WHATSAPP_SEND_SUCCESS] Message accepted by WhatsApp API'))
-            .catch(waError => console.error('[WHATSAPP_ERROR] Failed to send WhatsApp message via API:', waError.message));
+            .then((waResult) => {
+                console.log(`[STEP 6] WhatsApp API response: ${JSON.stringify(waResult)}`);
+            })
+            .catch(waError => {
+                console.error(`[ERROR] WhatsApp API failed at server/index.js:3665. Exception: ${waError.message}`);
+            });
 
         if (phone === '9999999999' && process.env.NODE_ENV !== 'production') {
+            console.log('[STEP 7] Final HTTP response: 200 Test OTP processed');
             res.json({ success: true, message: 'Test OTP processed.', test_otp: otp });
         } else {
+            console.log('[STEP 7] Final HTTP response: 200 OTP processed');
             res.json({ success: true, message: 'OTP processed. Please check your messages.' });
         }
     } catch (err) {
-        console.error('[OTP_SEND_ERROR] Unexpected error:', err.message);
+        console.error(`[ERROR] Unexpected error at server/index.js:3674. Exception: ${err.message}`);
+        console.log('[STEP 7] Final HTTP response: 500 Unexpected error');
         res.status(500).json({ error: 'Failed to process OTP request. Please try again.' });
     }
 });
