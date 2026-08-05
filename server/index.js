@@ -4012,9 +4012,10 @@ app.post('/api/auth/register', async (req, res) => {
             const existing = mobileCheck.rows[0];
             if (existing.is_guest) {
                 console.log(`[REGISTER_GUEST_UPGRADE] Upgrading guest user to full account`);
-                // Move the guest mobile out of the way to prevent trigger unique constraint crashes
+                // Shorten the archive string to avoid VARCHAR(20) limit errors
+                const shortId = existing.id.toString().substring(0, 8);
                 await db.query("UPDATE users SET mobile = $1, username = $2 WHERE id = $3", 
-                    [`archived_${existing.mobile}_${Date.now()}`, `archived_${existing.id}`, existing.id]
+                    [`old_${shortId}`, `old_${shortId}`, existing.id]
                 );
             } else {
                 console.log(`[REGISTER_FAIL] Duplicate mobile detected for full user`);
