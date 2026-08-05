@@ -53,9 +53,13 @@ export default function GuestCheckoutModal({ isOpen, onClose, onSuccess }: Guest
         setIsLoading(true);
         try {
             const res = await axios.post(`${API_ENDPOINTS.auth}/verify-whatsapp-otp`, { phone, otp }, {
-                withCredentials: true // Ensures HttpOnly cookie is set!
+                withCredentials: true // Still pass it just in case
             });
             if (res.data.success) {
+                // Now create the guest session since verify only verified the OTP
+                await axios.post(`${API_ENDPOINTS.auth}/create-guest-session`, { phone }, {
+                    withCredentials: true // Important for the HttpOnly cookie to be set on the client
+                });
                 toast.success("Verified successfully!");
                 analytics.trackEvent('otp_verified', { phone });
                 await refreshProfile();

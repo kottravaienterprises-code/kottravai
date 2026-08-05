@@ -3749,6 +3749,63 @@ app.post('/api/auth/verify-whatsapp-otp', async (req, res) => {
     }
 });
 
+// Endpoint to explicitly create a guest session after OTP verification
+app.post('/api/auth/create-guest-session', async (req, res) => {
+    try {
+        const { phone } = req.body;
+        const phoneString = String(phone).trim();
+
+        if (!phoneString) return res.status(400).json({ message: 'Phone is required' });
+
+        // 1. Verify that this phone actually has a recently verified OTP (security check)
+        const otpCheck = await db.query(
+            "SELECT * FROM otp_verifications WHERE phone = $1 AND verified = TRUE AND updated_at > NOW() - INTERVAL '15 minutes' ORDER BY updated_at DESC LIMIT 1",
+            [phoneString]
+        );
+
+        if (otpCheck.rows.length === 0) {
+            return res.status(403).json({ message: 'No recently verified OTP found. Please verify OTP first.' });
+        }
+
+        // 2. Find or Create User
+        let customerId;
+        const existingUser = await db.query('SELECT id FROM users WHERE mobile = $1 OR phone = $2', [phoneString, `+91${phoneString}`]);
+        
+        if (existingUser.rows.length > 0) {
+            customerId = existingUser.rows[0].id;
+        } else {
+            // Create a guest user safely in public.users
+            const newUserResult = await db.query(
+                `INSERT INTO users (mobile, is_guest, role) VALUES ($1, TRUE, 'guest') RETURNING id`,
+                [phoneString]
+            );
+            customerId = newUserResult.rows[0].id;
+        }
+
+        // 3. Create Guest Session Token
+        const sessionToken = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+        await db.query(
+            'INSERT INTO guest_sessions (customer_id, session_token, is_active, expires_at) VALUES ($1, $2, TRUE, $3)',
+            [customerId, sessionToken, expiresAt]
+        );
+
+        // 4. Set HttpOnly Cookie
+        res.cookie('guest_session', sessionToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+        });
+
+        res.json({ success: true, message: 'Guest session created successfully' });
+    } catch (err) {
+        console.error('[GUEST_SESSION_ERROR]:', err);
+        res.status(500).json({ message: 'Failed to create guest session' });
+    }
+});
+
 // Endpoint to fetch guest profile via HttpOnly cookie
 app.get('/api/auth/guest-profile', async (req, res) => {
     try {
