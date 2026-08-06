@@ -3627,11 +3627,24 @@ app.get('/api/leads', authenticateAdmin, async (req, res) => {
 // --- WhatsApp OTP Verification (ASKEVA API) ---
 // WhatsApp-based authentication for signup and recovery
 
+function normalizePhone(phoneInput) {
+    if (!phoneInput) return null;
+    let sanitized = String(phoneInput).replace(/[\s\-\+]/g, '');
+    if (sanitized.startsWith('91') && sanitized.length === 12) {
+        return sanitized.slice(2);
+    } else if (sanitized.startsWith('0') && sanitized.length === 11) {
+        return sanitized.slice(1);
+    } else if (sanitized.length === 10 && /^\d{10}$/.test(sanitized)) {
+        return sanitized;
+    }
+    return sanitized; // Return as-is if invalid, let endpoint validators catch it
+}
+
 app.post('/api/auth/send-whatsapp-otp', async (req, res) => {
     try {
         console.log('[STEP 1] Request received');
         const { phone } = req.body;
-        const mobileString = String(phone).trim();
+        const mobileString = normalizePhone(phone);
         console.log(`[STEP 2] Mobile number: ${mobileString}`);
 
         if (!mobileString || mobileString.length !== 10 || !/^\d+$/.test(mobileString)) {
@@ -3662,22 +3675,21 @@ app.post('/api/auth/send-whatsapp-otp', async (req, res) => {
 
         console.log(`\n📱 [GUEST OTP GENERATED] To: ${mobileString} | Code: ${otp}\n`);
 
-        // Fire-and-forget WhatsApp API to prevent blocking the user response
+        // Await WhatsApp API to prevent silent failures where frontend gets 200 but message fails
         console.log('[STEP 5] Calling WhatsApp API');
-        sendWhatsAppOTP(mobileString, otp)
-            .then((waResult) => {
-                console.log(`[STEP 6] WhatsApp API response: ${JSON.stringify(waResult)}`);
-            })
-            .catch(waError => {
-                console.error(`[ERROR] WhatsApp API failed at server/index.js:3665. Exception: ${waError.message}`);
-            });
-
         if (phone === '9999999999' && process.env.NODE_ENV !== 'production') {
             console.log('[STEP 7] Final HTTP response: 200 Test OTP processed');
-            res.json({ success: true, message: 'Test OTP processed.', test_otp: otp });
-        } else {
+            return res.json({ success: true, message: 'Test OTP processed.', test_otp: otp });
+        }
+
+        try {
+            const waResult = await sendWhatsAppOTP(mobileString, otp);
+            console.log(`[STEP 6] WhatsApp API response: ${JSON.stringify(waResult)}`);
             console.log('[STEP 7] Final HTTP response: 200 OTP processed');
             res.json({ success: true, message: 'OTP processed. Please check your messages.' });
+        } catch (waError) {
+            console.error(`[ERROR] WhatsApp API failed at server/index.js:3665. Exception: ${waError.message}`);
+            res.status(500).json({ error: 'Failed to deliver OTP via WhatsApp. Please try again.' });
         }
     } catch (err) {
         console.error(`[ERROR] Unexpected error at server/index.js:3674. Exception: ${err.message}`);
@@ -3690,7 +3702,7 @@ app.post('/api/auth/verify-whatsapp-otp', async (req, res) => {
     try {
         console.log('[OTP_VERIFY_START] Initiating OTP verification process');
         const { phone, otp } = req.body;
-        const phoneString = String(phone).trim();
+        const phoneString = normalizePhone(phone);
 
         if (!phoneString || !otp) {
             return res.status(400).json({ message: 'Phone and OTP are required' });
@@ -3763,16 +3775,17 @@ app.post('/api/auth/verify-whatsapp-otp', async (req, res) => {
 // Endpoint to explicitly create a guest session after OTP verification
 app.post('/api/auth/create-guest-session', async (req, res) => {
     try {
+        let currentSql = '';
+        let currentParams = [];
         const { phone } = req.body;
-        const phoneString = String(phone).trim();
+        const phoneString = normalizePhone(phone);
 
         if (!phoneString) return res.status(400).json({ message: 'Phone is required' });
 
         // 1. Verify that this phone actually has a recently verified OTP (security check)
-        const otpCheck = await db.query(
-            "SELECT * FROM otp_verifications WHERE phone = $1 AND verified = TRUE AND created_at > NOW() - INTERVAL '15 minutes' ORDER BY created_at DESC LIMIT 1",
-            [phoneString]
-        );
+        currentSql = "SELECT * FROM otp_verifications WHERE phone = $1 AND verified = TRUE AND created_at > NOW() - INTERVAL '15 minutes' ORDER BY created_at DESC LIMIT 1";
+        currentParams = [phoneString];
+        const otpCheck = await db.query(currentSql, currentParams);
 
         if (otpCheck.rows.length === 0) {
             return res.status(403).json({ message: 'No recently verified OTP found. Please verify OTP first.' });
@@ -3780,7 +3793,9 @@ app.post('/api/auth/create-guest-session', async (req, res) => {
 
         // 2. Find or Create User
         let customerId;
-        const existingUser = await db.query('SELECT id FROM users WHERE mobile = $1', [phoneString]);
+        currentSql = 'SELECT id FROM users WHERE mobile = $1';
+        currentParams = [phoneString];
+        const existingUser = await db.query(currentSql, currentParams);
         
         if (existingUser.rows.length > 0) {
             customerId = existingUser.rows[0].id;
@@ -3788,10 +3803,9 @@ app.post('/api/auth/create-guest-session', async (req, res) => {
             // Create a guest user safely in public.users
             // Generate a placeholder username to satisfy potential NOT NULL constraints
             const placeholderUsername = `guest_${phoneString}`;
-            const newUserResult = await db.query(
-                `INSERT INTO users (mobile, is_guest, username) VALUES ($1, TRUE, $2) RETURNING id`,
-                [phoneString, placeholderUsername]
-            );
+            currentSql = `INSERT INTO users (mobile, is_guest, username) VALUES ($1, TRUE, $2) RETURNING id`;
+            currentParams = [phoneString, placeholderUsername];
+            const newUserResult = await db.query(currentSql, currentParams);
             customerId = newUserResult.rows[0].id;
         }
 
@@ -3799,10 +3813,9 @@ app.post('/api/auth/create-guest-session', async (req, res) => {
         const sessionToken = crypto.randomBytes(32).toString('hex');
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-        await db.query(
-            'INSERT INTO guest_sessions (customer_id, session_token, is_active, expires_at) VALUES ($1, $2, TRUE, $3)',
-            [customerId, sessionToken, expiresAt]
-        );
+        currentSql = 'INSERT INTO guest_sessions (customer_id, session_token, is_active, expires_at) VALUES ($1, $2, TRUE, $3)';
+        currentParams = [customerId, sessionToken, expiresAt];
+        await db.query(currentSql, currentParams);
 
         // 4. Set HttpOnly Cookie
         res.cookie('guest_session', sessionToken, {
@@ -3814,6 +3827,12 @@ app.post('/api/auth/create-guest-session', async (req, res) => {
 
         res.json({ success: true, message: 'Guest session created successfully' });
     } catch (err) {
+        console.error('--- FULL EXCEPTION ---');
+        console.error(err);
+        console.error('MESSAGE:', err.message);
+        console.error('STACK:', err.stack);
+        console.error('SQL QUERY:', currentSql);
+        console.error('SQL PARAMS:', currentParams);
         console.error('[GUEST_SESSION_ERROR]:', err);
         res.status(500).json({ message: 'Failed to create guest session' });
     }
@@ -3967,10 +3986,10 @@ app.post('/api/auth/get-email', async (req, res) => {
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, mobile, password, otp, email } = req.body;
-        const mobileString = String(mobile).trim();
+        const mobileString = normalizePhone(mobile);
 
         // Validate inputs
-        if (!username || !mobile || !password || !otp || !email) {
+        if (!username || !mobileString || !password || !otp || !email) {
             console.log(`[REGISTER_FAIL] Line 3995 - Missing required fields: ${JSON.stringify({ username: !!username, mobile: !!mobile, password: !!password, otp: !!otp, email: !!email })}`);
             return res.status(400).json({ error: 'Username, mobile, email, password, and OTP are required' });
         }
@@ -4066,6 +4085,13 @@ app.post('/api/auth/register', async (req, res) => {
         });
 
         if (error) throw error;
+
+        // Create the public user record explicitly
+        console.log(`[REGISTER_PUBLIC] Inserting user ${data.user.id} into public.users`);
+        await db.query(
+            "INSERT INTO users (id, username, mobile, is_guest) VALUES ($1, $2, $3, FALSE)",
+            [data.user.id, username, mobileString]
+        );
 
         // 3. Delete used OTP
         await db.query('DELETE FROM otp_verifications WHERE id = $1', [otpResult.rows[0].id]);
