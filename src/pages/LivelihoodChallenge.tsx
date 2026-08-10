@@ -95,7 +95,7 @@ const LivelihoodChallenge = () => {
         <MainLayout>
             <Helmet>
                 <title>Design the Next Livelihood | Kottravai</title>
-                <meta name="description" content="India's Sustainable Livelihood Design Challenge 2026 organized by Kottravai, Luxentra, and Startup Thamizh." />
+                <meta name="description" content="India's Sustainable Livelihood Design Challenge 2026 organized by Kottravai, Luxentra, and Startup Singam." />
             </Helmet>
 
 
@@ -122,7 +122,7 @@ const LivelihoodChallenge = () => {
                             </div>
                             <div className="flex items-center gap-4 text-gray-700 font-semibold">
                                 <Target size={24} className="text-[#8E2A8B]" />
-                                <span>In Collaboration with Startup Thamizh</span>
+                                <span>In Collaboration with Startup Singam</span>
                             </div>
                             <div className="flex items-center gap-4 text-gray-700 font-semibold">
                                 <Calendar size={24} className="text-[#8E2A8B]" />

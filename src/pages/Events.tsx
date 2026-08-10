@@ -29,7 +29,7 @@ const Events = () => {
                         <EventCard 
                             title="Design the Next Livelihood"
                             subtitle="India's Sustainable Livelihood Design Challenge 2026"
-                            organizer="Organized by: Kottravai × Luxentra | Collab: Startup Thamizh"
+                            organizer="Organized by: Kottravai × Luxentra | Collab: Startup Singam"
                             description="From unhealthy work and limited choices to dignified work, fair income, and brighter futures. Design with nature's resources like Coconut Shell, Banana Fibre, Terracotta, and more."
                             image="/f75068b6-ef82-446b-9bf7-998f3b9e32a3.png" 
                             date="To be announced"
