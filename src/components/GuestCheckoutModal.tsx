@@ -56,13 +56,16 @@ export default function GuestCheckoutModal({ isOpen, onClose, onSuccess }: Guest
                 withCredentials: true // Still pass it just in case
             });
             if (res.data.success) {
-                // Now create the guest session since verify only verified the OTP
+                console.log(`[${new Date().toISOString()}] GuestCheckoutModal: create-guest-session success`);
                 await axios.post(`${API_ENDPOINTS.auth}/create-guest-session`, { phone }, {
                     withCredentials: true // Important for the HttpOnly cookie to be set on the client
                 });
                 toast.success("Verified successfully!");
                 analytics.trackEvent('otp_verified', { phone });
+                console.log(`[${new Date().toISOString()}] GuestCheckoutModal: Calling refreshProfile()`);
                 await refreshProfile();
+                console.log(`[${new Date().toISOString()}] GuestCheckoutModal: refreshProfile() finished`);
+
                 onSuccess();
                 onClose();
             }

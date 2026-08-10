@@ -23,16 +23,20 @@ export const GuestAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [profile, setProfile] = useState<GuestProfile | null>(null);
 
   const refreshProfile = async () => {
+    console.log(`[${new Date().toISOString()}] GuestAuthContext: refreshProfile() called`);
     try {
       const response = await axios.get(`${API_ENDPOINTS.auth}/guest-profile`, { withCredentials: true });
       if (response.data.isAuthenticated) {
         setProfile(response.data.user);
+        console.log(`[${new Date().toISOString()}] GuestAuthContext: setting isAuthenticated to TRUE`);
         setIsAuthenticated(true);
       } else {
+        console.log(`[${new Date().toISOString()}] GuestAuthContext: setting isAuthenticated to FALSE`);
         setIsAuthenticated(false);
         setProfile(null);
       }
     } catch (err) {
+      console.log(`[${new Date().toISOString()}] GuestAuthContext: setting isAuthenticated to FALSE (catch)`);
       setIsAuthenticated(false);
       setProfile(null);
     } finally {
@@ -41,8 +45,12 @@ export const GuestAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   useEffect(() => {
+    console.log(`[${new Date().toISOString()}] GuestAuthContext: Mounted, running initial refreshProfile()`);
     refreshProfile();
   }, []);
+
+  console.log(`[${new Date().toISOString()}] GuestAuthContext Rendered: isAuthenticated=${isAuthenticated}`);
+
 
   const logoutGuest = async () => {
     try {

@@ -97,17 +97,8 @@ const B2B = () => {
             </Helmet>
 
 
-            {/* Hero Section - Lossless Responsive Aspect Ratio */}
-            <section className="relative w-full bg-white overflow-hidden">
-                <img
-                    src="/b2b-corporate-gifting.webp"
-                    alt="Purposeful Corporate Gifting that creates real impact!"
-                    width={1200}
-                    height={600}
-                    className="w-full h-auto block"
-                    loading="eager"
-                />
-            </section>
+            {/* 3. Hampers Row (Moved to top) */}
+            <HampersRow showEnquiry={true} onEnquiry={scrollToForm} />
             
             {/* 1. Icons */}
             <PartnerSection />
@@ -117,9 +108,6 @@ const B2B = () => {
             
             {/* 2. Why Gift With Kottravai */}
             <WhyGiftWithUs />
-
-            {/* 3. Hampers Row */}
-            <HampersRow showEnquiry={true} onEnquiry={scrollToForm} />
 
             {/* 4. Explore Our Products (Categories + Catalog) */}
             <ExploreCategories />

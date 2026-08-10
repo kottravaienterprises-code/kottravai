@@ -34,6 +34,8 @@ const AffiliateDashboard = lazy(() => import('@/pages/AffiliateDashboard'));
 const ArtisanHub = lazy(() => import('@/pages/ArtisanHub'));
 const ArtisanProfile = lazy(() => import('@/pages/ArtisanProfile'));
 const Campus = lazy(() => import('@/pages/Campus'));
+const Events = lazy(() => import('@/pages/Events'));
+const LivelihoodChallenge = lazy(() => import('@/pages/LivelihoodChallenge'));
 
 
 
@@ -139,7 +141,9 @@ function App() {
                     <Route path="/faqs" element={<FAQ />} />
                     <Route path="/services" element={<PageViewer slugUri="services" />} />
                     <Route path="/contact" element={<Contact />} />
+                    <Route path="/events" element={<Events />} />
                     <Route path="/camps" element={<Campus />} />
+                    <Route path="/livelihood-challenge" element={<LivelihoodChallenge />} />
                     <Route path="/affiliate/dashboard" element={<AffiliateDashboard />} />
                     <Route path="/shipping-policy" element={<ShippingPolicy />} />
                     <Route path="/refund-policy" element={<RefundPolicy />} />

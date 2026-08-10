@@ -427,6 +427,34 @@ const getCampusAdminTemplate = (data) => {
     return getBaseLayout(content);
 };
 
+const getLivelihoodChallengeUserTemplate = (data) => {
+    const content = `
+        <h2 style="color: #2D1B4E;">🌿 Registration Confirmed: Design the Next Livelihood</h2>
+        <p>Dear <strong>${data.full_name}</strong>,</p>
+        <p>Thank you for registering for the <strong>Design the Next Livelihood</strong> challenge.</p>
+
+        <div style="background: linear-gradient(135deg, #fdf4fc, #f0faf0); padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #e8d4f0;">
+            <h3 style="color: #8E2A8B; margin-top: 0; margin-bottom: 16px;">📋 Your Registration Details</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr><td style="padding: 8px 4px; color: #666; width: 40%;"><strong>Name</strong></td><td style="padding: 8px 4px; color: #333;">${data.full_name}</td></tr>
+                <tr style="background: #fff8fe;"><td style="padding: 8px 4px; color: #666;"><strong>Organization / College</strong></td><td style="padding: 8px 4px; color: #333;">${data.organization}</td></tr>
+                <tr><td style="padding: 8px 4px; color: #666;"><strong>Phone</strong></td><td style="padding: 8px 4px; color: #333;">${data.phone}</td></tr>
+            </table>
+        </div>
+
+        <p style="color: #555;">We will be in touch shortly with more details about the challenge and the next steps.</p>
+
+        <p>If you have any questions, reply to this email or write to us at <a href="mailto:info@kottravai.in" style="color: #8E2A8B;">info@kottravai.in</a>.</p>
+
+        <p style="margin-top: 32px;">With warmth and anticipation,<br><strong>Team Kottravai</strong></p>
+
+        <p style="text-align: center; margin-top: 24px;">
+            <a href="https://kottravai.in" class="btn">Visit Kottravai</a>
+        </p>
+    `;
+    return getBaseLayout(content);
+};
+
 module.exports = {
     getB2BAdminTemplate,
     getB2BUserTemplate,
@@ -437,4 +465,5 @@ module.exports = {
     getAffiliateWelcomeTemplate,
     getCampusUserTemplate,
     getCampusAdminTemplate,
+    getLivelihoodChallengeUserTemplate,
 };

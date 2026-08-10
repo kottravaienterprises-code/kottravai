@@ -18,6 +18,9 @@ import { API_ENDPOINTS } from '@/config/api';
 const Checkout = () => {
     const { isAuthenticated, openLoginModal, user } = useAuth();
     const guestAuth = useGuestAuth();
+
+    console.log(`[${new Date().toISOString()}] Checkout Rendered: AuthContext.isAuthenticated=${isAuthenticated}, guestAuth.isAuthenticated=${guestAuth.isAuthenticated}`);
+
     const {
         cart,
         cartTotal,
@@ -389,6 +392,7 @@ const Checkout = () => {
             setIsSubmitting(false);
         }
     };
+
 
     if (!isAuthenticated && !guestAuth.isAuthenticated) {
         return (

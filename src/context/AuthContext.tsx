@@ -285,6 +285,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         analytics.setUserId(null);
     };
 
+    console.log(`[${new Date().toISOString()}] AuthContext Rendered: isAuthenticated=${!!user}`);
+
     return (
         <AuthContext.Provider value={{
             user,

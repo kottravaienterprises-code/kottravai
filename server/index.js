@@ -248,6 +248,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use('/api/chat', chatRouter);
+app.use('/api/events', require('./routes/eventRoutes'));
 app.use('/api/ai-analytics', aiAnalyticsRouter);
 app.use('/api/ai-intelligence', aiIntelligenceRouter);
 try {
@@ -4974,6 +4975,7 @@ try {
     app.use('/api/admin/workflows', authenticateAdmin, require('./routes/workflowRoutes'));
     app.use('/api/admin/autonomous', authenticateAdmin, require('./routes/autonomousRoutes'));
     app.use('/api/admin/executive', authenticateAdmin, require('./routes/executiveCommandRoutes'));
+    app.use('/api/admin/events', authenticateAdmin, require('./routes/adminEventRoutes'));
 } catch (error) {
     console.error('Error loading admin analytical, security, BI, CS, or Revenue routes:', error);
 }

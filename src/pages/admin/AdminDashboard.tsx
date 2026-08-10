@@ -93,6 +93,7 @@ import PipelineDashboard from "./PipelineDashboard";
 import LeadCRMPanel from "./LeadCRMPanel";
 import { LeadCopilotPanel } from "./LeadCopilotPanel";
 import { Lead } from "@/types/crm";
+import EventRegistrationsView from "./EventRegistrationsView";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadsView — Phase 1: Lead Capture & Qualification System
@@ -594,6 +595,7 @@ const AdminDashboard = () => {
   | "leads"
   | "revenue"
   | "workflows"
+  | "event-registrations"
   >("dashboard");
 
   // Leads state
@@ -2503,6 +2505,11 @@ const AdminDashboard = () => {
                   view: "image-optimizer",
                   icon: RefreshCw,
                   label: "Image Optimizer",
+                },
+                {
+                  view: "event-registrations",
+                  icon: Calendar,
+                  label: "Event Registrations",
                 },
               ].map((item, idx) => (
                 <button
@@ -7541,6 +7548,8 @@ const AdminDashboard = () => {
                 </tbody>
               </table>
             </div>
+          ) : view === "event-registrations" ? (
+            <EventRegistrationsView />
           ) : view === "leads" ? (
             <LeadsView />
           ) : null}
