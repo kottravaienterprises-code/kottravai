@@ -97,11 +97,11 @@ const B2B = () => {
             </Helmet>
 
 
-            {/* 3. Hampers Row (Moved to top) */}
-            <HampersRow showEnquiry={true} onEnquiry={scrollToForm} />
-            
             {/* 1. Icons */}
             <PartnerSection />
+
+            {/* 3. Hampers Row */}
+            <HampersRow showEnquiry={true} onEnquiry={scrollToForm} />
             
             {/* NEW: Scenario-based Solutions */}
             <B2BSolutions />
