@@ -29,6 +29,7 @@
     "groq-sdk": "^1.2.1",
     "helmet": "^8.1.0",
     "html2canvas": "^1.4.1",
+    "json2csv": "^6.0.0-alpha.2",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.473.0",
