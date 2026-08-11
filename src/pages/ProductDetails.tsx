@@ -287,6 +287,10 @@ const ProductDetails = () => {
     if (!product || (!isLive && !isAdmin)) {
         return (
             <MainLayout>
+                <Helmet>
+                    <meta name="robots" content="noindex" />
+                    <title>Product Not Found - Kottravai</title>
+                </Helmet>
                 <div className="container mx-auto px-4 py-20 text-center">
                     <h2 className="text-2xl font-bold mb-4 text-brandPurple">Product Not Found</h2>
                     <p className="text-gray-500 mb-8 max-w-md mx-auto font-medium">This unique creation may have found another home or is currently being prepared in our workshop.</p>

@@ -307,19 +307,23 @@ const Shop = () => {
     let pageTitle = 'Shop';
     if (searchQuery) {
         pageTitle = `Search Results: "${rawSearchQuery}"`;
+    } else if (slug && !currentCategory) {
+        pageTitle = 'Category Not Found';
     } else if (currentCategory) {
         pageTitle = currentCategory.name;
     }
 
     const pageDescription = searchQuery
         ? `Search results for "${rawSearchQuery}" across Kottravai's handcrafted collection.`
-        : currentCategory
+        : (slug && !currentCategory)
+            ? 'The requested category could not be found.'
+            : currentCategory
             ? `${currentCategory.name} at Kottravai — handcrafted products, sustainable gifts, and artisan-made essentials.`
             : 'Shop Kottravai for handcrafted terracotta jewellery, sustainable home decor, natural essentials, and meaningful gifts.';
 
     const canonicalUrl = typeof window !== 'undefined'
-        ? window.location.origin + window.location.pathname
-        : slug ? `${SITE_URL}/category/${slug}` : `${SITE_URL}/shop`;
+        ? window.location.origin + (slug && currentCategory ? `/category/${slug}` : '/shop')
+        : slug && currentCategory ? `${SITE_URL}/category/${slug}` : `${SITE_URL}/shop`;
 
     const pageSchema = {
         '@context': 'https://schema.org',
@@ -446,6 +450,7 @@ const Shop = () => {
                 <title>{pageTitle} - Kottravai</title>
                 <meta name="description" content={pageDescription} />
                 <link rel="canonical" href={canonicalUrl} />
+                {(searchQuery || (slug && !currentCategory)) && <meta name="robots" content="noindex" />}
                 <meta property="og:title" content={`${pageTitle} - Kottravai`} />
                 <meta property="og:description" content={pageDescription} />
                 <meta property="og:url" content={canonicalUrl} />

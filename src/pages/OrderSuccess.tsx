@@ -41,7 +41,7 @@ const OrderSuccess = () => {
     return (
         <MainLayout>
             <Helmet>
-                <title>Order Successful - Kottravai</title>
+                <title>Order Success | Kottravai</title>
                 <meta name="robots" content="noindex" />
             </Helmet>
 

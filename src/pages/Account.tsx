@@ -78,9 +78,9 @@ const Account = () => {
         return (
             <MainLayout>
                 <Helmet>
-                <title>Account - Kottravai</title>
-                <meta name="robots" content="noindex" />
-            </Helmet>
+                    <title>Account - Kottravai</title>
+                    <meta name="robots" content="noindex" />
+                </Helmet>
                 <div className="bg-[#FAF9F6] py-32 min-h-[60vh] flex items-center justify-center">
                     <div className="bg-white p-12 rounded-[2.5rem] shadow-sm border border-gray-100 max-w-lg w-full text-center">
                         <div className="w-20 h-20 bg-[#b5128f]/10 rounded-full flex items-center justify-center mx-auto mb-6">

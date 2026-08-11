@@ -79,7 +79,7 @@ const Cart = () => {
     return (
         <MainLayout>
             <Helmet>
-                <title>Shopping Cart - Kottravai</title>
+                <title>Shopping Cart | Kottravai</title>
                 <meta name="robots" content="noindex" />
             </Helmet>
 

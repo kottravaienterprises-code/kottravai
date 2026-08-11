@@ -11,7 +11,7 @@ export const GuestOrderLookup = () => {
   return (
     <div className="container mx-auto p-4">
       <Helmet>
-        <title>Track Your Order - Kottravai</title>
+        <title>Track Guest Order | Kottravai</title>
         <meta name="robots" content="noindex" />
       </Helmet>
       <h1 className="text-3xl font-bold mb-6">Track Your Order</h1>
