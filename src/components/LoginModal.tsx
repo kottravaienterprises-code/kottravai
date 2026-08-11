@@ -35,6 +35,7 @@ const LoginModal: React.FC = () => {
 
     useEffect(() => {
         if (isLoginModalOpen && (mode === 'login' || mode === 'signup')) {
+            let attempts = 0;
             const renderGoogleButton = () => {
                 if (window.google && document.getElementById("google-signin-button")) {
                     window.google.accounts.id.renderButton(
@@ -42,7 +43,6 @@ const LoginModal: React.FC = () => {
                         { 
                             theme: "outline", 
                             size: "large", 
-                            width: "100%", 
                             shape: "pill",
                             logo_alignment: "center",
                             text: mode === 'signup' ? "signup_with" : "signin_with"
@@ -50,15 +50,15 @@ const LoginModal: React.FC = () => {
                     );
                     // Also trigger One Tap prompt
                     window.google.accounts.id.prompt();
-                } else if (window.google && !document.getElementById("google-signin-button")) {
-                    // Retry once if element not found but Google is ready
+                } else if (attempts < 20) {
+                    attempts++;
+                    // Retry if element not found or Google not ready
                     setTimeout(renderGoogleButton, 200);
                 }
             };
 
-            // Attempt render with a small delay for DOM stability
-            const timer = setTimeout(renderGoogleButton, 100);
-            return () => clearTimeout(timer);
+            // Attempt render
+            renderGoogleButton();
         }
     }, [isLoginModalOpen, mode]);
 
