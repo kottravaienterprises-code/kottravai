@@ -214,6 +214,12 @@ app.use(cors({
     credentials: true
 }));
 
+// Force Vary: Origin to prevent CDN/Browser caching from stripping CORS headers
+app.use((req, res, next) => {
+    res.setHeader('Vary', 'Origin');
+    next();
+});
+
 // Security: Global Rate Limiter disabled for debugging
 /*
 const globalLimiter = rateLimit({
