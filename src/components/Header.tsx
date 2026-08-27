@@ -278,7 +278,6 @@ const Header = () => {
 
     const topLinks = [
         { label: "About Us", path: "/about" },
-        { label: "Events", path: "/events" },
         { label: "FAQs", path: "/faqs" },
         { label: "B2B", path: "/b2b" }
     ];

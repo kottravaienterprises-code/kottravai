@@ -141,7 +141,6 @@ function App() {
                     <Route path="/faqs" element={<FAQ />} />
                     <Route path="/services" element={<PageViewer slugUri="services" />} />
                     <Route path="/contact" element={<Contact />} />
-                    <Route path="/events" element={<Events />} />
                     <Route path="/camps" element={<Campus />} />
                     <Route path="/livelihood-challenge" element={<LivelihoodChallenge />} />
                     <Route path="/affiliate/dashboard" element={<AffiliateDashboard />} />
