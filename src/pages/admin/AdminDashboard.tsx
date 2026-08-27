@@ -169,6 +169,25 @@ const LeadsView = () => {
     }
   };
 
+  const exportHackathonCSV = async () => {
+    try {
+      const adminSecret = sessionStorage.getItem("kottravai_admin_token") || "";
+      const res = await axios.get(`${API_BASE}/api/admin/hackathon/export`, {
+        headers: { "X-Admin-Secret": adminSecret },
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `hackathon_registrations_${Date.now()}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success("Hackathon registrations exported!");
+    } catch (err) {
+      toast.error("Hackathon export failed: Unauthorized or network error");
+    }
+  };
+
   const STATUS_COLORS: Record<string, string> = {
     new: "bg-blue-100 text-blue-700",
     qualified: "bg-emerald-100 text-emerald-700",
@@ -232,7 +251,10 @@ const LeadsView = () => {
             <RefreshCw size={13} /> Refresh
           </button>
           <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition">
-            <FileText size={13} /> Export CSV
+            <FileText size={13} /> Export Leads
+          </button>
+          <button onClick={exportHackathonCSV} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition">
+            <FileText size={13} /> Export Hackathon
           </button>
         </div>
       </div>
