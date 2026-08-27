@@ -93,15 +93,11 @@ const LivelihoodChallenge = () => {
         }, 100);
     };
 
+    
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
         if (!validateForm()) return;
-        
-        if (!hackathonProduct) {
-            toast.error("Registration is currently unavailable (Product not found).");
-            return;
-        }
 
         analytics.trackEvent('hackathon_registration_started', { team_name: formData.teamName });
         
@@ -115,154 +111,74 @@ const LivelihoodChallenge = () => {
             return;
         }
 
-        const price = 199;
-        
         try {
-            // Create pending order
-            const orderResponse = await fetch(`${API_ENDPOINTS.razorpay}/order`, {
+            // 1. Call Backend Registration Endpoint
+            const registerResponse = await fetch(`/api/hackathon/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    amount: price,
-                    currency: "INR",
-                    referral_code: localStorage.getItem('kottravai_affiliate_ref'),
-                    orderData: {
-                        customerId: null,
-                        guest_order: true,
-                        customerName: formData.leaderName,
-                        customerEmail: formData.leaderEmail,
-                        customerPhone: formData.leaderPhone,
-                        address: 'Hackathon Event Venue', // Required for standard order schema
-                        city: 'Chennai',
-                        district: 'Chennai',
-                        state: 'Tamil Nadu',
-                        pincode: '600127',
-                        total: price,
-                        subtotal_server: price,
-                        shipping_server: 0,
-                        items: [{
-                            id: hackathonProduct.id,
-                            name: hackathonProduct.name,
-                            price: price,
-                            quantity: 1,
-                            gst_rate: 0,
-                            gst_amount: 0,
-                            image: hackathonProduct.image,
-                            customizationData: {
-                                isCustomized: true,
-                                customizationCharge: 0,
-                                teamDetails: {
-                                    teamName: formData.teamName,
-                                    leaderName: formData.leaderName,
-                                    leaderEmail: formData.leaderEmail,
-                                    leaderPhone: formData.leaderPhone,
-                                    leaderOrg: formData.leaderOrg,
-                                    part2Name: formData.part2Name,
-                                    part2Email: formData.part2Email,
-                                    part2Phone: formData.part2Phone,
-                                    part2Org: formData.part2Org,
-                                    part3Name: formData.part3Name || null,
-                                    part3Email: formData.part3Email || null,
-                                    part3Phone: formData.part3Phone || null,
-                                    part3Org: formData.part3Org || null,
-                                    first_utm_source: sessionStorage.getItem('kottravai_first_utm_source') || localStorage.getItem('kottravai_first_utm_source') || 'direct',
-                                    first_utm_medium: sessionStorage.getItem('kottravai_first_utm_medium') || localStorage.getItem('kottravai_first_utm_medium') || 'none',
-                                    first_utm_campaign: sessionStorage.getItem('kottravai_first_utm_campaign') || localStorage.getItem('kottravai_first_utm_campaign') || 'none',
-                                    session_utm_source: sessionStorage.getItem('kottravai_session_utm_source') || 'direct',
-                                    session_utm_medium: sessionStorage.getItem('kottravai_session_utm_medium') || 'none',
-                                    session_utm_campaign: sessionStorage.getItem('kottravai_session_utm_campaign') || 'none',
-                                }
-                            }
-                        }]
-                    }
+                    teamName: formData.teamName,
+                    leaderName: formData.leaderName,
+                    leaderEmail: formData.leaderEmail,
+                    leaderPhone: formData.leaderPhone,
+                    leaderOrg: formData.leaderOrg,
+                    part2Name: formData.part2Name,
+                    part2Email: formData.part2Email,
+                    part2Phone: formData.part2Phone,
+                    part2Org: formData.part2Org,
+                    part3Name: formData.part3Name || null,
+                    part3Email: formData.part3Email || null,
+                    part3Phone: formData.part3Phone || null,
+                    part3Org: formData.part3Org || null,
+                    first_utm_source: sessionStorage.getItem('kottravai_first_utm_source') || localStorage.getItem('kottravai_first_utm_source') || 'direct',
+                    first_utm_medium: sessionStorage.getItem('kottravai_first_utm_medium') || localStorage.getItem('kottravai_first_utm_medium') || 'none',
+                    first_utm_campaign: sessionStorage.getItem('kottravai_first_utm_campaign') || localStorage.getItem('kottravai_first_utm_campaign') || 'none',
+                    first_utm_term: sessionStorage.getItem('kottravai_first_utm_term') || localStorage.getItem('kottravai_first_utm_term') || 'none',
+                    first_utm_content: sessionStorage.getItem('kottravai_first_utm_content') || localStorage.getItem('kottravai_first_utm_content') || 'none',
+                    session_utm_source: sessionStorage.getItem('kottravai_session_utm_source') || 'direct',
+                    session_utm_medium: sessionStorage.getItem('kottravai_session_utm_medium') || 'none',
+                    session_utm_campaign: sessionStorage.getItem('kottravai_session_utm_campaign') || 'none',
+                    session_utm_term: sessionStorage.getItem('kottravai_session_utm_term') || 'none',
+                    session_utm_content: sessionStorage.getItem('kottravai_session_utm_content') || 'none'
                 })
             });
 
-            if (!orderResponse.ok) {
-                const err = await orderResponse.json();
-                throw new Error(err.error || "Failed to create order");
+            if (!registerResponse.ok) {
+                const err = await registerResponse.json();
+                throw new Error(err.message || "Failed to create registration");
             }
 
-            const activeOrder = await orderResponse.json();
+            const regData = await registerResponse.json();
             
-            analytics.trackEvent('hackathon_payment_initiated', { order_id: activeOrder.id, amount: price });
+            analytics.trackEvent('hackathon_payment_initiated', { registration_id: regData.registration_id, amount: regData.amount });
 
+            // 2. Open Razorpay
             const options: any = {
                 key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-                amount: activeOrder.amount,
-                currency: activeOrder.currency,
+                amount: regData.amount,
+                currency: regData.currency,
                 name: "Kottravai",
                 description: "Rural Livelihood Hackathon Registration",
-                order_id: activeOrder.id,
+                order_id: regData.order_id,
                 handler: async (response: any) => {
                     setIsSubmitting(true);
                     
-                    const orderData = {
-                        customerName: formData.leaderName,
-                        customerEmail: formData.leaderEmail,
-                        customerPhone: formData.leaderPhone,
-                        address: 'Hackathon Event Venue',
-                        city: 'Chennai',
-                        district: 'Chennai',
-                        state: 'Tamil Nadu',
-                        pincode: '600127',
-                        total: price,
-                        subtotal_server: price,
-                        shipping_server: 0,
-                        items: [{
-                            id: hackathonProduct.id,
-                            name: hackathonProduct.name,
-                            price: price,
-                            quantity: 1,
-                            gst_rate: 0,
-                            gst_amount: 0,
-                            image: hackathonProduct.image,
-                            customizationData: {
-                                isCustomized: true,
-                                customizationCharge: 0,
-                                teamDetails: {
-                                    teamName: formData.teamName,
-                                    leaderName: formData.leaderName,
-                                    leaderEmail: formData.leaderEmail,
-                                    leaderPhone: formData.leaderPhone,
-                                    leaderOrg: formData.leaderOrg,
-                                    part2Name: formData.part2Name,
-                                    part2Email: formData.part2Email,
-                                    part2Phone: formData.part2Phone,
-                                    part2Org: formData.part2Org,
-                                    part3Name: formData.part3Name || null,
-                                    part3Email: formData.part3Email || null,
-                                    part3Phone: formData.part3Phone || null,
-                                    part3Org: formData.part3Org || null,
-                                    first_utm_source: sessionStorage.getItem('kottravai_first_utm_source') || localStorage.getItem('kottravai_first_utm_source') || 'direct',
-                                    first_utm_medium: sessionStorage.getItem('kottravai_first_utm_medium') || localStorage.getItem('kottravai_first_utm_medium') || 'none',
-                                    first_utm_campaign: sessionStorage.getItem('kottravai_first_utm_campaign') || localStorage.getItem('kottravai_first_utm_campaign') || 'none',
-                                    session_utm_source: sessionStorage.getItem('kottravai_session_utm_source') || 'direct',
-                                    session_utm_medium: sessionStorage.getItem('kottravai_session_utm_medium') || 'none',
-                                    session_utm_campaign: sessionStorage.getItem('kottravai_session_utm_campaign') || 'none',
-                                }
-                            }
-                        }],
-                        paymentId: response.razorpay_payment_id,
-                        orderId: response.razorpay_order_id
-                    };
-
                     try {
-                        const verifyResponse = await fetch(`${API_ENDPOINTS.razorpay}/verify`, {
+                        // 3. Verify Payment
+                        const verifyResponse = await fetch(`/api/hackathon/verify`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                                 razorpay_order_id: response.razorpay_order_id,
                                 razorpay_payment_id: response.razorpay_payment_id,
                                 razorpay_signature: response.razorpay_signature,
-                                referral_code: localStorage.getItem('kottravai_affiliate_ref'),
-                                orderData: orderData
+                                registration_id: regData.registration_id
                             })
                         });
 
                         const verifyResult = await verifyResponse.json();
 
-                        if (verifyResult.status === "success") {
+                        if (verifyResult.success) {
                             analytics.trackEvent('hackathon_payment_success', { payment_id: response.razorpay_payment_id });
                             analytics.trackEvent('hackathon_registration_completed', { team_name: formData.teamName });
                             
@@ -270,9 +186,10 @@ const LivelihoodChallenge = () => {
                                 type: 'success',
                                 message: 'Registration Successful',
                                 data: {
-                                    registrationId: response.razorpay_order_id,
+                                    registrationId: regData.registration_id,
                                     teamName: formData.teamName,
                                     leaderName: formData.leaderName,
+                                    fee: (regData.amount / 100).toString(),
                                     participants: formData.part3Name ? 3 : 2
                                 }
                             });
@@ -302,31 +219,18 @@ const LivelihoodChallenge = () => {
             };
 
             const rzp = new RazorpayInstance(options);
-
             rzp.on('payment.failed', function (response: any) {
-                toast.error("Payment Failed: " + response.error.description);
-                analytics.trackEvent('hackathon_payment_failed', {
-                    error_description: response.error.description,
-                    order_id: response.error.metadata.order_id,
-                    payment_id: response.error.metadata.payment_id
-                });
-                setIsSubmitting(false);
+                analytics.trackEvent('hackathon_payment_failed', { reason: 'razorpay_error', error: response.error.description });
+                toast.error(response.error.description || "Payment failed");
             });
-
             rzp.open();
-
+            
         } catch (error: any) {
-            analytics.trackEvent('hackathon_payment_failed', { error: error.message });
-            toast.error("Error: " + error.message);
+            console.error("Hackathon Registration error:", error);
+            toast.error(error.message || "Something went wrong. Please try again.");
             setIsSubmitting(false);
         }
     };
-
-    const whoCanParticipate = [
-        "Students", "Designers", "Engineers", "Architects", 
-        "Innovators", "Startups", "Makers", "Entrepreneurs", 
-        "Anyone with a great idea"
-    ];
 
     return (
         <MainLayout>
@@ -359,7 +263,7 @@ const LivelihoodChallenge = () => {
                                     <Target className="text-[#8E2A8B]" />
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase font-bold">Entry Fee</p>
-                                        <p className="font-bold text-lg">₹199 per TEAM</p>
+                                        <p className="font-bold text-lg">₹1 per TEAM</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-700">
@@ -392,7 +296,7 @@ const LivelihoodChallenge = () => {
                                     onClick={handleRegisterClick}
                                     className="bg-[#8E2A8B] text-white px-8 py-4 rounded-xl font-black text-lg hover:bg-[#2D1B4E] transition-colors duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
                                 >
-                                    REGISTER YOUR TEAM – ₹199 <ArrowRight size={20} />
+                                    REGISTER YOUR TEAM – ₹1 <ArrowRight size={20} />
                                 </button>
                                 <button 
                                     onClick={() => document.getElementById('guidelines-section')?.scrollIntoView({ behavior: 'smooth' })}
@@ -525,7 +429,7 @@ const LivelihoodChallenge = () => {
                     <div>
                         <h3 className="text-xl font-bold text-[#8E2A8B] mb-4 border-b pb-2">Event Information</h3>
                         <ul className="space-y-3 text-gray-700">
-                            <li><span className="font-bold">Registration Fee:</span> ₹199 / team</li>
+                            <li><span className="font-bold">Registration Fee:</span> ₹1 / team</li>
                             <li><span className="font-bold">Registration Closes:</span> 10 September 2026</li>
                             <li><span className="font-bold">Venue:</span> VIT Chennai</li>
                             <li><span className="font-bold">Event Date:</span> To Be Announced</li>
@@ -585,7 +489,7 @@ const LivelihoodChallenge = () => {
                                 <div className="font-bold text-gray-900">{paymentStatus.data.participants}</div>
                                 
                                 <div className="text-sm font-bold text-gray-500 uppercase">Amount Paid</div>
-                                <div className="font-bold text-green-600">₹199</div>
+                                <div className="font-bold text-green-600">₹{paymentStatus.data.fee}</div>
                                 
                                 <div className="text-sm font-bold text-gray-500 uppercase">Payment Status</div>
                                 <div className="font-bold text-green-600 uppercase">Paid</div>
@@ -607,7 +511,7 @@ const LivelihoodChallenge = () => {
                             <div className="text-center mb-10">
                                 <h2 className="text-3xl font-black text-[#2D1B4E] mb-4">Team Registration</h2>
                                 <p className="text-gray-500 font-bold bg-gray-100 py-2 px-6 rounded-full inline-block">
-                                    REGISTRATION FEE: ₹199 PER TEAM
+                                    REGISTRATION FEE: ₹1 PER TEAM
                                 </p>
                             </div>
 
@@ -724,7 +628,7 @@ const LivelihoodChallenge = () => {
                                             className="mt-1 w-5 h-5 rounded border-gray-300 text-[#8E2A8B] focus:ring-[#8E2A8B]"
                                         />
                                         <label htmlFor="agreedToRules" className="text-sm font-medium text-gray-800 leading-relaxed cursor-pointer">
-                                            <span className="text-red-500">*</span> I have read and agree to the Participant Guidelines and Hackathon rules. I understand the registration fee is ₹199 per team.
+                                            <span className="text-red-500">*</span> I have read and agree to the Participant Guidelines and Hackathon rules. I understand the registration fee is ₹1 per team.
                                         </label>
                                     </div>
                                     
@@ -739,7 +643,7 @@ const LivelihoodChallenge = () => {
                                                 Processing Payment...
                                             </>
                                         ) : (
-                                            "Pay ₹199 & Register Team"
+                                            "Pay ₹1 & Register Team"
                                         )}
                                     </button>
                                 </div>
@@ -751,7 +655,7 @@ const LivelihoodChallenge = () => {
                                 onClick={handleRegisterClick}
                                 className="bg-[#8E2A8B] text-white px-12 py-5 rounded-full font-black text-2xl hover:bg-[#2D1B4E] transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-2 inline-flex items-center gap-3"
                             >
-                                REGISTER YOUR TEAM – ₹199 <ArrowRight size={24} />
+                                REGISTER YOUR TEAM – ₹1 <ArrowRight size={24} />
                             </button>
                         </div>
                     )}
