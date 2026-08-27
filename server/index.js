@@ -2117,6 +2117,38 @@ const finalizeOrder = async (orderData, paymentId) => {
 
         console.log(`✅ [ORDER_CREATED] Order ID: ${orderId} | ID in DB: ${row.id}`);
 
+        // Hackathon Registration Logic
+        try {
+            const hackathonItem = orderData.items.find(i => i.customizationData?.teamDetails);
+            if (hackathonItem && hackathonItem.customizationData.teamDetails) {
+                const teamData = hackathonItem.customizationData.teamDetails;
+                await db.query(`
+                    INSERT INTO hackathon_registrations (
+                        product_id, team_name, team_leader_name, team_leader_email, team_leader_phone, team_leader_organization,
+                        participant_2_name, participant_2_email, participant_2_phone, participant_2_organization,
+                        participant_3_name, participant_3_email, participant_3_phone, participant_3_organization,
+                        order_id, razorpay_payment_id, payment_status, registration_status,
+                        first_utm_source, first_utm_medium, first_utm_campaign, first_utm_term, first_utm_content,
+                        session_utm_source, session_utm_medium, session_utm_campaign, session_utm_term, session_utm_content
+                    ) VALUES (
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+                        $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+                    )
+                `, [
+                    hackathonItem.id, teamData.teamName, teamData.leaderName, teamData.leaderEmail, teamData.leaderPhone, teamData.leaderOrg,
+                    teamData.part2Name, teamData.part2Email, teamData.part2Phone, teamData.part2Org,
+                    teamData.part3Name, teamData.part3Email, teamData.part3Phone, teamData.part3Org,
+                    orderId, paymentId, 'paid', 'confirmed',
+                    teamData.first_utm_source, teamData.first_utm_medium, teamData.first_utm_campaign, teamData.first_utm_term, teamData.first_utm_content,
+                    teamData.session_utm_source, teamData.session_utm_medium, teamData.session_utm_campaign, teamData.session_utm_term, teamData.session_utm_content
+                ]);
+                console.log(`✅ [HACKATHON_REGISTERED] Team: ${teamData.teamName} for Order ID: ${orderId}`);
+            }
+        } catch (hackathonErr) {
+            console.error(`❌ [HACKATHON_REGISTRATION_FAILED] Order ID: ${orderId}`, hackathonErr);
+            // We do not fail the overall order if this fails, but we log heavily
+        }
+
         // 4. Affiliate Tracking Logic (Process Sales & Commissions)
         if (referralCode) {
             try {
