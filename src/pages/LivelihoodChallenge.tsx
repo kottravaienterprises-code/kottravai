@@ -3,16 +3,9 @@ import { Helmet } from 'react-helmet-async';
 import MainLayout from '@/layouts/MainLayout';
 import { Calendar, Target, ArrowRight, Loader2, AlertCircle, MapPin, CheckCircle, Info } from 'lucide-react';
 import analytics from '@/utils/analyticsService';
-import { API_ENDPOINTS } from '@/config/api';
 import toast from 'react-hot-toast';
-import { useProducts } from '@/context/ProductContext';
-
-const HACKATHON_SLUG = 'rural-livelihood-hackathon-2026';
 
 const LivelihoodChallenge = () => {
-    const { products } = useProducts();
-    const hackathonProduct = products.find(p => p.slug === HACKATHON_SLUG);
-
     const [showForm, setShowForm] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [paymentStatus, setPaymentStatus] = useState<{ type: 'success' | 'error', message: string, data?: any } | null>(null);
@@ -231,6 +224,14 @@ const LivelihoodChallenge = () => {
             setIsSubmitting(false);
         }
     };
+
+    const whoCanParticipate = [
+        "Design Students",
+        "Engineering Students",
+        "Professionals",
+        "Innovators & Makers",
+        "Anyone who can create sustainable products"
+    ];
 
     return (
         <MainLayout>

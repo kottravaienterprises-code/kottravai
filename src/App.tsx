@@ -34,7 +34,7 @@ const AffiliateDashboard = lazy(() => import('@/pages/AffiliateDashboard'));
 const ArtisanHub = lazy(() => import('@/pages/ArtisanHub'));
 const ArtisanProfile = lazy(() => import('@/pages/ArtisanProfile'));
 const Campus = lazy(() => import('@/pages/Campus'));
-const Events = lazy(() => import('@/pages/Events'));
+
 const LivelihoodChallenge = lazy(() => import('@/pages/LivelihoodChallenge'));
 
 
