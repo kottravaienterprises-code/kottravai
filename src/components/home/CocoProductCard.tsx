@@ -4,12 +4,17 @@ import { Heart, ShoppingCart, Star, ShoppingBag, ArrowRight } from 'lucide-react
 import { Product } from '@/data/products';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
+import { isActivePromotion } from '@/utils/promotionHelper';
 import toast from 'react-hot-toast';
 
 const CocoProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const { addToCart } = useCart();
     const { toggleWishlist, isInWishlist } = useWishlist();
     const isFavorite = isInWishlist(product.id);
+
+    const isPromo = isActivePromotion(product);
+    const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
+    const formatPrice = (p: number) => `₹${p.toFixed(2).replace(/\.00$/, '')}`;
 
     return (
         <div className="bg-white rounded-2xl p-3 shadow-xl border border-gray-50 flex flex-col h-full group transition-all duration-500 hover:shadow-2xl">
@@ -26,11 +31,16 @@ const CocoProductCard: React.FC<{ product: Product }> = ({ product }) => {
                 </Link>
 
                 {/* Top Badges */}
-                <div className="absolute top-3 left-3">
-                    <div className="bg-[#8E2A8B] text-white flex items-center gap-1.5 px-2.5 py-1 rounded-xl shadow-lg backdrop-blur-md bg-opacity-90">
+                <div className="absolute top-3 left-3 flex flex-col gap-2">
+                    <div className="bg-[#8E2A8B] text-white flex items-center gap-1.5 px-2.5 py-1 rounded-xl shadow-lg backdrop-blur-md bg-opacity-90 w-max">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-leaf"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 3.5 1 9.8a7 7 0 0 1-13.4 3.2"/><path d="M11 20c-1.4 0-2.8-.5-3.9-1.5l10.2-10.2c1 1.1 1.5 2.5 1.5 3.9a7 7 0 0 1-7.8 7.8Z"/></svg>
                         <span className="text-[8px] font-black uppercase tracking-widest">Eco Friendly</span>
                     </div>
+                    {isPromo && (
+                        <div className="bg-brandPink text-white flex items-center gap-1.5 px-2.5 py-1 rounded-xl shadow-lg backdrop-blur-md bg-opacity-90 w-max">
+                            <span className="text-[10px] font-black uppercase tracking-wider">{product.campaignTag}</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="absolute top-3 right-3 flex flex-col gap-2">
@@ -70,7 +80,7 @@ const CocoProductCard: React.FC<{ product: Product }> = ({ product }) => {
             </div>
 
             {/* Info Section */}
-            <div className="flex flex-col gap-1 mb-4 px-2">
+            <div className="flex flex-col gap-1 mb-4 px-2 flex-grow">
                 <Link to={`/product/${product.slug}`}>
                     <h3 className="text-lg font-bold text-[#1A1A1A] leading-tight line-clamp-2 group-hover:text-[#8E2A8B] transition-colors font-outfit">
                         {product.name}
@@ -81,8 +91,20 @@ const CocoProductCard: React.FC<{ product: Product }> = ({ product }) => {
                 </p>
             </div>
 
-            <div className="mt-auto px-2 mb-1">
-                <span className="text-2xl font-black text-[#1A1A1A]">₹{product.price}</span>
+            <div className="mt-auto px-2 mb-1 flex flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                    <span className="text-2xl font-black text-[#1A1A1A]">{formatPrice(product.price)}</span>
+                    {isPromo && product.originalPrice && (
+                        <span className="text-sm font-bold text-gray-400 line-through">
+                            {formatPrice(product.originalPrice)}
+                        </span>
+                    )}
+                </div>
+                {isPromo && product.originalPrice && (
+                    <span className="text-xs font-bold text-brandGreen uppercase tracking-wider">
+                        You save {formatPrice(savings)}
+                    </span>
+                )}
             </div>
 
             {/* Actions */}

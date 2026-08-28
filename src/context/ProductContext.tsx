@@ -58,7 +58,13 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
         maxFileSize: p.max_file_size || p.maxFileSize || 5,
         allowedFileTypes: p.allowed_file_types || p.allowedFileTypes || ['JPG', 'JPEG', 'PNG', 'WEBP'],
         customizableTag: p.customizable_tag || p.customizableTag || 'CUSTOMIZABLE',
-        customizationType: p.customization_type || p.customizationType || 'No Restrictions'
+        customizationType: p.customization_type || p.customizationType || 'No Restrictions',
+        
+        originalPrice: p.original_price ? Number(p.original_price) : undefined,
+        campaignTag: p.campaign_tag || undefined,
+        saleStartAt: p.sale_start_at || undefined,
+        saleEndAt: p.sale_end_at || undefined,
+        campaignExcluded: p.campaign_excluded || false
     });
 
     const [products, setProducts] = useState<Product[]>(() => {

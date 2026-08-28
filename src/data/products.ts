@@ -79,6 +79,13 @@ export interface Product {
     allowedFileTypes?: string[];
     customizableTag?: string;
     customizationType?: 'Image Upload' | 'Custom Text' | 'Special Instructions' | 'Image + Text' | 'Text Only' | 'Image Only' | 'No Restrictions';
+
+    // Campaign Fields
+    originalPrice?: number;
+    campaignTag?: string;
+    saleStartAt?: string;
+    saleEndAt?: string;
+    campaignExcluded?: boolean;
 }
 
 // Sample product to visualize changes immediately

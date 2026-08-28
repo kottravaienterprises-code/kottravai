@@ -37,7 +37,7 @@ const BlogRelatedProducts: React.FC<Props> = ({ productIds, title = "Shop Relate
     if (relatedProducts.length === 0) return null;
 
     const handleProductClick = (product: Product) => {
-        analytics.trackEvent('related_product_click', {
+        analytics.trackEvent('blog_product_click', {
             product_id: product.id,
             product_name: product.name,
             source: source

@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { useProducts } from '@/context/ProductContext';
 import { ChevronLeft, ChevronRight, Heart, Plus, Minus, Leaf, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { isActivePromotion } from '@/utils/promotionHelper';
 import toast from 'react-hot-toast';
 
 const HeritageMixes = () => {
     const { products, loading } = useProducts();
-    const { addToCart } = useCart();
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Filter to get Heritage Mixes
@@ -59,6 +59,10 @@ const HeritageMixes = () => {
     // --- Sub-component: Product Card with Requested Structure ---
     const HeritageProductCard = ({ product }: { product: any }) => {
         const [quantity, setQuantity] = useState(1);
+        const { addToCart } = useCart();
+        const isPromo = isActivePromotion(product);
+        const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
+        const formatPrice = (p: number) => `₹${Number(p).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/\.00$/, '')}`;
         
         return (
             <div className="flex-shrink-0 w-[85%] sm:w-[60%] lg:w-[calc(33.33%-1rem)] xl:w-[calc(25%-1rem)] snap-start">
@@ -79,6 +83,12 @@ const HeritageMixes = () => {
                         <button className="absolute top-3 right-3 bg-white w-12 h-12 rounded-full flex items-center justify-center shadow-sm border border-gray-100 text-[#701A75] hover:bg-gray-50 transition-colors z-10" aria-label="Add to wishlist">
                             <Heart size={14} />
                         </button>
+
+                        {isPromo && (
+                            <div className="absolute top-3 left-3 z-10 bg-brandPink text-white px-3 py-1.5 rounded-lg shadow-sm text-[10px] font-black uppercase tracking-widest mt-8">
+                                {product.campaignTag}
+                            </div>
+                        )}
 
                         <Link to={`/product/${product.slug}`} className="block aspect-[4/3] relative z-0 flex items-center justify-center w-full">
                             <img
@@ -113,8 +123,17 @@ const HeritageMixes = () => {
 
                         <div className="flex items-end justify-between mt-auto">
                             <div className="flex flex-col">
-                                <div className="text-[16px] font-bold text-[#701A75]">₹{product.price}</div>
-                                <div className="text-[9px] text-gray-400 mt-0.5">Inclusive of all taxes</div>
+                                <div className="flex items-center gap-2">
+                                    <div className="text-[16px] font-bold text-[#701A75]">{formatPrice(product.price * quantity)}</div>
+                                    {isPromo && product.originalPrice && (
+                                        <div className="text-xs font-bold text-gray-400 line-through">{formatPrice(product.originalPrice * quantity)}</div>
+                                    )}
+                                </div>
+                                {isPromo && product.originalPrice ? (
+                                    <div className="text-[9px] font-bold text-brandGreen uppercase tracking-wider mt-0.5">Save {formatPrice(savings * quantity)}</div>
+                                ) : (
+                                    <div className="text-[9px] text-gray-400 mt-0.5">Inclusive of all taxes</div>
+                                )}
                             </div>
                             
                             <div className="flex items-center gap-2">

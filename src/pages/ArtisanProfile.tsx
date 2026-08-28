@@ -35,16 +35,16 @@ const ArtisanProfile: React.FC = () => {
       <Helmet>
         <title>{artisan.name} - Master Artisan Profile | Kottravai</title>
         <meta name="description" content={`Read the inspiring story of ${artisan.name}, a master artisan at Kottravai. ${artisan.impact_statement}`} />
-        <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/artisans/${artisan.id}`} />
+        <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/artisans/${artisan.id}`} />
         <meta property="og:title" content={`${artisan.name} - Master Artisan Profile | Kottravai`} />
         <meta property="og:description" content={`Read the inspiring story of ${artisan.name}, a master artisan at Kottravai. ${artisan.impact_statement}`} />
-        <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/artisans/${artisan.id}`} />
+        <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/artisans/${artisan.id}`} />
         <meta property="og:type" content="profile" />
-        <meta property="og:image" content={artisan.image || `${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hero.webp`} />
+        <meta property="og:image" content={artisan.image || `${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/hero.webp`} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={`${artisan.name} - Master Artisan Profile | Kottravai`} />
         <meta name="twitter:description" content={`Read the inspiring story of ${artisan.name}, a master artisan at Kottravai. ${artisan.impact_statement}`} />
-        <meta name="twitter:image" content={artisan.image || `${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hero.webp`} />
+        <meta name="twitter:image" content={artisan.image || `${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/hero.webp`} />
       </Helmet>
 
       <div className="min-h-screen bg-white text-[#2D1B4E] py-8">

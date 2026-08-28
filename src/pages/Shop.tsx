@@ -11,7 +11,7 @@ import FilterSidebar from '@/components/shop/FilterSidebar';
 import { getOptimizedImage, IMAGE_SIZES } from '@/utils/imageOptimizer';
 import { API_ENDPOINTS } from '@/config/api';
 import axios from 'axios';
-const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://kottravai.com';
+const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in';
 const Shop = () => {
     const { slug } = useParams();
     const { addToCart, cart, removeFromCart } = useCart();

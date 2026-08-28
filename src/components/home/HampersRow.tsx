@@ -3,11 +3,15 @@ import { useProducts } from '@/context/ProductContext';
 import { ChevronLeft, ChevronRight, Heart, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
+import { isActivePromotion } from '@/utils/promotionHelper';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 
 const HamperProductCard = ({ product }: { product: any }) => {
     const { addToCart } = useCart();
+    const isPromo = isActivePromotion(product);
+    const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
+    const formatPrice = (p: number) => `₹${Number(p).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/\.00$/, '')}`;
 
     return (
         <motion.div 
@@ -20,6 +24,11 @@ const HamperProductCard = ({ product }: { product: any }) => {
                 
                 {/* TOP SECTION: IMAGE AREA */}
                 <div className="relative aspect-square w-full overflow-hidden bg-gray-50">
+                    {isPromo && (
+                        <div className="absolute top-3 left-3 z-10 bg-brandPink text-white px-3 py-1.5 rounded-lg shadow-sm text-[10px] font-black uppercase tracking-widest">
+                            {product.campaignTag}
+                        </div>
+                    )}
                     <button className="absolute top-3 right-3 z-10 w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#8E2A8B] shadow-sm hover:bg-[#8E2A8B] hover:text-white transition-all duration-300" aria-label="Add to wishlist">
                         <Heart size={16} />
                     </button>
@@ -39,8 +48,20 @@ const HamperProductCard = ({ product }: { product: any }) => {
                 <div className="relative flex-1 bg-white p-5 flex flex-col items-start text-left">
                     
                     {/* Price Section */}
-                    <div className="mb-3">
-                        <span className="text-xl font-bold text-[#8E2A8B]">₹{Number(product.price).toLocaleString('en-IN')}</span>
+                    <div className="mb-3 flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold text-[#8E2A8B]">{formatPrice(product.price)}</span>
+                            {isPromo && product.originalPrice && (
+                                <span className="text-sm font-bold text-gray-400 line-through">
+                                    {formatPrice(product.originalPrice)}
+                                </span>
+                            )}
+                        </div>
+                        {isPromo && product.originalPrice && (
+                            <span className="text-xs font-bold text-brandGreen uppercase tracking-wider">
+                                Save {formatPrice(savings)}
+                            </span>
+                        )}
                     </div>
 
                     {/* Product Name */}

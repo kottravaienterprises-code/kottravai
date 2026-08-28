@@ -84,16 +84,16 @@ const B2B = () => {
             <Helmet>
                 <title>B2B & Corporate Gifting - Kottravai</title>
                 <meta name="description" content="Sustainable, ethical, and handcrafted corporate gifts that empower rural women artisans." />
-                <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/b2b`} />
+                <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/b2b`} />
                 <meta property="og:title" content="B2B & Corporate Gifting - Kottravai" />
                 <meta property="og:description" content="Sustainable, ethical, and handcrafted corporate gifts that empower rural women artisans." />
-                <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/b2b`} />
+                <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/b2b`} />
                 <meta property="og:type" content="website" />
-                <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/b2b-corporate-gifting.webp`} />
+                <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/b2b-corporate-gifting.webp`} />
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:title" content="B2B & Corporate Gifting - Kottravai" />
                 <meta name="twitter:description" content="Sustainable, ethical, and handcrafted corporate gifts that empower rural women artisans." />
-                <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/b2b-corporate-gifting.webp`} />
+                <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/b2b-corporate-gifting.webp`} />
             </Helmet>
 
 

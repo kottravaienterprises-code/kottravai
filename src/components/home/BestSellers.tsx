@@ -6,6 +6,7 @@ import { useWishlist } from '@/context/WishlistContext';
 import toast from 'react-hot-toast';
 import analytics from '@/utils/analyticsService';
 import { ChevronLeft, ChevronRight, Heart, Eye, ShoppingBag } from 'lucide-react';
+import { isActivePromotion } from '@/utils/promotionHelper';
 
 const BestSellerProductCard = ({ product }: { product: any }) => {
     const { addToCart } = useCart();
@@ -20,9 +21,11 @@ const BestSellerProductCard = ({ product }: { product: any }) => {
         toggleWishlist(product);
     };
 
-    // Calculate discount percentage if original price is available
-    const originalPrice = product.originalPrice || Math.round(product.price * 1.4); // Mock original price if not exists
-    const discount = Math.round(((originalPrice - product.price) / originalPrice) * 100);
+    const isPromo = isActivePromotion(product);
+    const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
+    
+    // Format helper
+    const formatPrice = (p: number) => `₹${p.toFixed(2).replace(/\.00$/, '')}`;
     
     return (
         <div className="bg-white rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.05)] border border-gray-100 flex flex-col w-full h-full group hover:shadow-xl transition-all duration-300">
@@ -49,6 +52,15 @@ const BestSellerProductCard = ({ product }: { product: any }) => {
                         loading="lazy"
                     />
                 </Link>
+
+                {/* Promo Badge */}
+                {isPromo && (
+                    <div className="absolute top-4 left-4 z-10">
+                        <span className="bg-brandPink text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
+                            {product.campaignTag}
+                        </span>
+                    </div>
+                )}
                 
                 {/* Wishlist Heart on Image */}
                 <button 
@@ -82,12 +94,18 @@ const BestSellerProductCard = ({ product }: { product: any }) => {
                 </Link>
 
                 {/* Price Section */}
-                <div className="flex items-center gap-3 mb-4">
-                    <span className="text-2xl font-black text-[#8E2A8B]">₹{Number(product.price).toFixed(0)}</span>
-                    <span className="text-gray-400 line-through text-sm">₹{originalPrice}</span>
-                    <span className="bg-[#FFF0F9] text-[#8E2A8B] text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider">
-                        {discount}% OFF
-                    </span>
+                <div className="flex flex-col mb-4 gap-1">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl font-black text-[#8E2A8B]">{formatPrice(product.price)}</span>
+                        {isPromo && product.originalPrice && (
+                            <span className="text-gray-400 line-through text-sm">{formatPrice(product.originalPrice)}</span>
+                        )}
+                    </div>
+                    {isPromo && product.originalPrice && (
+                        <span className="text-[10px] font-bold text-brandGreen uppercase tracking-wider">
+                            You save {formatPrice(savings)}
+                        </span>
+                    )}
                 </div>
 
                 {/* Star Rating */}

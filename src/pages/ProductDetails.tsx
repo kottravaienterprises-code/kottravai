@@ -13,6 +13,7 @@ import { getOptimizedImage, IMAGE_SIZES } from '@/utils/imageOptimizer';
 import { API_ENDPOINTS } from '@/config/api';
 import ProductCustomization, { CustomizationData } from '@/components/shop/ProductCustomization';
 import imageCompression from 'browser-image-compression';
+import { isActivePromotion } from '@/utils/promotionHelper';
 
 const ProductDetails = () => {
     const { slug } = useParams();
@@ -260,7 +261,7 @@ const ProductDetails = () => {
         };
     }, [product]);
 
-    const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://kottravai.com';
+    const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in';
     const productUrl = typeof window !== 'undefined'
         ? window.location.origin + window.location.pathname
         : `${SITE_URL}/product/${product?.slug || ''}`;
@@ -396,6 +397,10 @@ const ProductDetails = () => {
         .filter(p => p.category === product.category && p.id !== product.id)
         .slice(0, 4);
 
+    const isPromo = isActivePromotion(product, selectedVariant);
+    const currentPrice = selectedVariant?.price || product.price;
+    const savings = isPromo && product.originalPrice ? product.originalPrice - currentPrice : 0;
+    const formatPrice = (p: number) => `₹${p.toFixed(2).replace(/\.00$/, '')}`;
 
     return (
         <MainLayout>
@@ -579,12 +584,29 @@ const ProductDetails = () => {
                             {product.isCustomRequest ? (
                                 <span className="text-lg font-bold text-brandPurple bg-purple-50 px-4 py-2 rounded-xl border border-purple-100 italic">Price on Request</span>
                             ) : (
-                                <div className="flex flex-col">
-                                    <span className="text-2xl font-bold font-montserrat text-brandPink">
-                                        ₹{Number(Number(selectedVariant ? selectedVariant.price : product.price) * quantity + (customizationData?.isCustomized ? Number(customizationData.customizationCharge) : 0)).toLocaleString('en-IN')}
-                                    </span>
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl font-bold font-montserrat text-brandPink">
+                                            {formatPrice(Number(currentPrice) * quantity + (customizationData?.isCustomized ? Number(customizationData.customizationCharge) : 0))}
+                                        </span>
+                                        {isPromo && (
+                                            <span className="bg-brandPink text-white text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg">
+                                                {product.campaignTag}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {isPromo && product.originalPrice && (
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <span className="text-sm font-bold text-gray-400 line-through">
+                                                {formatPrice(product.originalPrice * quantity)}
+                                            </span>
+                                            <span className="text-xs font-bold text-brandGreen uppercase tracking-wider">
+                                                You save {formatPrice(savings * quantity)}
+                                            </span>
+                                        </div>
+                                    )}
                                     {customizationData?.isCustomized && (
-                                        <span className="text-[10px] text-gray-500 font-bold uppercase">Includes ₹{customizationData.customizationCharge} customization fee</span>
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase mt-1">Includes ₹{customizationData.customizationCharge} customization fee</span>
                                     )}
                                 </div>
                             )}

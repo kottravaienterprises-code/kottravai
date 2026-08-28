@@ -24,22 +24,25 @@ const BlogDetail = () => {
         if (!post) return;
         
         analytics.trackEvent('blog_view', {
-            article_title: post.title,
-            article_slug: post.slug,
+            blog_id: post.id,
+            blog_title: post.title,
+            blog_slug: post.slug,
             category: post.category
         });
 
         const handleScroll = () => {
             const scrollPercent = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
             
-            ['25', '50', '75', '100'].forEach(milestone => {
+            ['25', '50', '75', '90'].forEach(milestone => {
                 const mark = parseInt(milestone);
                 const key = `scrolled_${milestone}_${post.id}`;
                 if (scrollPercent >= mark && !sessionStorage.getItem(key)) {
                     sessionStorage.setItem(key, 'true');
-                    analytics.trackEvent(`blog_scroll_${milestone}`, {
-                        article_title: post.title,
-                        article_slug: post.slug,
+                    analytics.trackEvent('blog_scroll', {
+                        scroll_depth: mark,
+                        blog_id: post.id,
+                        blog_title: post.title,
+                        blog_slug: post.slug,
                         category: post.category
                     });
                 }
@@ -108,8 +111,9 @@ const BlogDetail = () => {
 
     const handleShare = () => {
         analytics.trackEvent('blog_share_click', {
-            article_title: post.title,
-            article_slug: post.slug,
+            blog_id: post.id,
+            blog_title: post.title,
+            blog_slug: post.slug,
             category: post.category
         });
         if (navigator.share) {
@@ -126,8 +130,9 @@ const BlogDetail = () => {
 
     const handleCtaClick = () => {
         analytics.trackEvent('blog_cta_click', {
-            article_title: post.title,
-            article_slug: post.slug,
+            blog_id: post.id,
+            blog_title: post.title,
+            blog_slug: post.slug,
             category: post.category
         });
         navigate('/shop');

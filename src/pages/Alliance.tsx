@@ -73,16 +73,16 @@ const Alliance = () => {
             <Helmet>
                 <title>Be a part of Kottravai - Affiliate Alliance</title>
                 <meta name="description" content="Join the Kottravai Alliance and grow with us. Apply now to become an affiliate partner and empower local creators and artisans." />
-                <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/alliance`} />
+                <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/alliance`} />
                 <meta property="og:title" content="Be a part of Kottravai - Affiliate Alliance" />
                 <meta property="og:description" content="Join the Kottravai Alliance and grow with us. Apply now to become an affiliate partner and empower local creators and artisans." />
-                <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/alliance`} />
+                <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/alliance`} />
                 <meta property="og:type" content="website" />
-                <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hero.webp`} />
+                <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/hero.webp`} />
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:title" content="Be a part of Kottravai - Affiliate Alliance" />
                 <meta name="twitter:description" content="Join the Kottravai Alliance and grow with us. Apply now to become an affiliate partner and empower local creators and artisans." />
-                <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hero.webp`} />
+                <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/hero.webp`} />
             </Helmet>
 
             <div className="py-20 bg-[#FAF9F6]">

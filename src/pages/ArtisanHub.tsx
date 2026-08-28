@@ -107,16 +107,16 @@ const ArtisanHub: React.FC = () => {
       <Helmet>
         <title>{hubTitle} - Artisan Hub | Kottravai</title>
         <meta name="description" content={`Discover the master artisans of ${hubTitle}. Learn about their journey, skills, and the beautiful handcrafted products they create at Kottravai.`} />
-        <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hub/${hubName}`} />
+        <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/hub/${hubName}`} />
         <meta property="og:title" content={`${hubTitle} - Artisan Hub | Kottravai`} />
         <meta property="og:description" content={`Discover the master artisans of ${hubTitle}. Learn about their journey, skills, and the beautiful handcrafted products they create at Kottravai.`} />
-        <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hub/${hubName}`} />
+        <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/hub/${hubName}`} />
         <meta property="og:type" content="website" />
-        <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hero.webp`} />
+        <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/hero.webp`} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={`${hubTitle} - Artisan Hub | Kottravai`} />
         <meta name="twitter:description" content={`Discover the master artisans of ${hubTitle}. Learn about their journey, skills, and the beautiful handcrafted products they create at Kottravai.`} />
-        <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/hero.webp`} />
+        <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/hero.webp`} />
       </Helmet>
 
       <div className="bg-[#FCF9F5] text-[#2D1B4E]">

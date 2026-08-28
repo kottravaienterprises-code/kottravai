@@ -334,12 +334,13 @@ const Checkout = () => {
                         if (verifyResult.status === "success") {
                             console.log("✅ ORDER SUCCESS: Payment verified");
                             analytics.trackEvent('purchase_completed', {
-                                order_id: activeOrder.id,
+                                transaction_id: activeOrder.id,
+                                value: finalTotal,
+                                currency: 'INR',
+                                items: cart.map(item => ({ item_id: item.id, item_name: item.name, quantity: item.quantity, price: item.price })),
                                 payment_id: response.razorpay_payment_id,
                                 payment_method: formData.paymentMethod,
-                                order_total: finalTotal,
                                 item_count: cart.length,
-                                total_amount: finalTotal
                             });
                             localStorage.removeItem('kottravai_affiliate_ref_time');
                             navigate('/order-success', { state: { orderData } });

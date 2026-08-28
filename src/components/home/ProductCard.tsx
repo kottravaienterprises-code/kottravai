@@ -7,6 +7,7 @@ import { useWishlist } from '@/context/WishlistContext';
 import toast from 'react-hot-toast';
 import analytics from '@/utils/analyticsService';
 import { getOptimizedImage, IMAGE_SIZES } from '@/utils/imageOptimizer';
+import { isActivePromotion } from '@/utils/promotionHelper';
 
 interface ProductCardProps {
     product: Product;
@@ -31,9 +32,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, badge }) => {
 
     const isFavorite = isInWishlist(product.id);
 
-
-
-
+    const isPromo = isActivePromotion(product, selectedVariant);
+    const currentPrice = selectedVariant?.price || product.price;
+    const savings = isPromo && product.originalPrice ? product.originalPrice - currentPrice : 0;
+    
+    // Use format to 2 decimal places to match example if needed, but keeping simple for typical numbers
+    const formatPrice = (p: number) => `₹${p.toFixed(2).replace(/\.00$/, '')}`;
 
     const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -68,7 +72,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, badge }) => {
                         product_id: product.id,
                         product_name: displayName,
                         category: product.category,
-                        price: selectedVariant?.price || product.price,
+                        price: currentPrice,
                         page: `/product/${product.slug}`
                     })}
                 >
@@ -95,14 +99,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, badge }) => {
                 </Link>
 
                 {/* Optional Badge or Customizable Badge */}
-                {(badge || (product.isCustomizable && product.customizableTag)) && (
+                {(badge || isPromo || (product.isCustomizable && product.customizableTag)) && (
                     <div className="absolute top-3 left-3 z-10 flex flex-col gap-1">
                         {badge && (
                             <span className="bg-[#8E2A8B] text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg">
                                 {badge}
                             </span>
                         )}
-                        {!badge && product.isCustomizable && product.customizableTag && (
+                        {!badge && isPromo && (
+                            <span className="bg-brandPink text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg">
+                                {product.campaignTag}
+                            </span>
+                        )}
+                        {!badge && !isPromo && product.isCustomizable && product.customizableTag && (
                             <span className="bg-[#2D1B4E] text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg flex items-center gap-1">
                                 <span className="text-[10px]">✨</span> {product.customizableTag}
                             </span>
@@ -132,18 +141,34 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, badge }) => {
                             product_id: product.id,
                             product_name: displayName,
                             category: product.category,
-                            price: selectedVariant?.price || product.price,
+                            price: currentPrice,
                             page: `/product/${product.slug}`
                         })}
                     >
-                        <h3 className="text-[14px] font-bold font-comfortaa text-brandPurple leading-tight line-clamp-1 hover:opacity-80 transition-opacity">
+                        <h3 className="text-[14px] font-bold font-comfortaa text-brandPurple leading-tight line-clamp-2 hover:opacity-80 transition-opacity">
                             {displayName}
                         </h3>
                     </Link>
-                    <div className="text-right">
-                        <span className="text-[14px] font-bold font-montserrat text-brandPink">
-                            {product.isCustomRequest ? 'Custom' : `₹${selectedVariant?.price || product.price}`}
-                        </span>
+                    <div className="text-right flex flex-col items-end">
+                        {product.isCustomRequest ? (
+                            <span className="text-[14px] font-bold font-montserrat text-brandPink">Custom</span>
+                        ) : (
+                            <>
+                                <span className="text-[14px] font-bold font-montserrat text-brandPink flex items-center gap-1">
+                                    {formatPrice(currentPrice)}
+                                </span>
+                                {isPromo && product.originalPrice && (
+                                    <>
+                                        <span className="text-[11px] font-bold text-gray-400 line-through mt-0.5">
+                                            {formatPrice(product.originalPrice)}
+                                        </span>
+                                        <span className="text-[9px] font-bold text-brandGreen mt-0.5 uppercase tracking-wider">
+                                            Save {formatPrice(savings)}
+                                        </span>
+                                    </>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
 

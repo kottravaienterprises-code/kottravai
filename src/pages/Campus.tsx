@@ -218,16 +218,16 @@ export default function CampusPage() {
       <Helmet>
         <title>மண் வாசம் Camp Registration | Kottravai</title>
         <meta name="description" content="Register for the மண் வாசம் nature camp — a grounded, immersive experience of nature, community, and mindful living." />
-        <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/campus`} />
+        <link rel="canonical" href={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/campus`} />
         <meta property="og:title" content="மண் வாசம் Camp Registration | Kottravai" />
         <meta property="og:description" content="Register for the மண் வாசம் nature camp — a grounded, immersive experience of nature, community, and mindful living." />
-        <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/campus`} />
+        <meta property="og:url" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/campus`} />
         <meta property="og:type" content="website" />
-        <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/images/nature_camp_banner.png`} />
+        <meta property="og:image" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/images/nature_camp_banner.png`} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="மண் வாசம் Camp Registration | Kottravai" />
         <meta name="twitter:description" content="Register for the மண் வாசம் nature camp — a grounded, immersive experience of nature, community, and mindful living." />
-        <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://kottravai.com'}/images/nature_camp_banner.png`} />
+        <meta name="twitter:image" content={`${import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in'}/images/nature_camp_banner.png`} />
       </Helmet>
 
       <div className="w-full">

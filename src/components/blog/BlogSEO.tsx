@@ -8,7 +8,7 @@ interface BlogSEOProps {
 }
 
 const BlogSEO: React.FC<BlogSEOProps> = ({ post, isList = false }) => {
-    const siteUrl = import.meta.env.VITE_SITE_URL || 'https://kottravai.com';
+    const siteUrl = import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in';
 
     if (isList) {
         const pageUrl = `${siteUrl}/blog`;
