@@ -164,7 +164,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, badge }) => {
                                             {formatPrice(product.originalPrice)}
                                         </span>
                                         <span className="text-[9px] font-bold text-brandGreen mt-0.5 uppercase tracking-wider">
-                                            Save {formatPrice(savings)} ({discountPercentage}%)
+                                            You save {formatPrice(savings)} ({discountPercentage}%)
                                         </span>
                                     </>
                                 )}

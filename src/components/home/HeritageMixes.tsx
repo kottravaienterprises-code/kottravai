@@ -131,7 +131,7 @@ const HeritageMixes = () => {
                                     )}
                                 </div>
                                 {isPromo && product.originalPrice ? (
-                                    <div className="text-[9px] font-bold text-brandGreen uppercase tracking-wider mt-0.5">Save {formatPrice(savings * quantity)} ({discountPercentage}%)</div>
+                                    <div className="text-[9px] font-bold text-brandGreen uppercase tracking-wider mt-0.5">You save {formatPrice(savings * quantity)} ({discountPercentage}%)</div>
                                 ) : (
                                     <div className="text-[9px] text-gray-400 mt-0.5">Inclusive of all taxes</div>
                                 )}

@@ -79,7 +79,7 @@ const NewArrivalProductCard: React.FC<NewArrivalProductCardProps> = ({ product }
                     </div>
                     {isPromo && product.originalPrice && (
                         <span className="text-[9px] font-bold text-brandGreen uppercase tracking-wider">
-                            Save {formatPrice(savings)} ({discountPercentage}%)
+                            You save {formatPrice(savings)} ({discountPercentage}%)
                         </span>
                     )}
                 </div>

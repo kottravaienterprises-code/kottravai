@@ -60,7 +60,7 @@ const HamperProductCard = ({ product }: { product: any }) => {
                         </div>
                         {isPromo && product.originalPrice && (
                             <span className="text-xs font-bold text-brandGreen uppercase tracking-wider">
-                                Save {formatPrice(savings)} ({discountPercentage}%)
+                                You save {formatPrice(savings)} ({discountPercentage}%)
                             </span>
                         )}
                     </div>
