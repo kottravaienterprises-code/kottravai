@@ -400,7 +400,7 @@ const ProductDetails = () => {
     const isPromo = isActivePromotion(product, selectedVariant);
     const currentPrice = selectedVariant?.price || product.price;
     const savings = isPromo && product.originalPrice ? product.originalPrice - currentPrice : 0;
-    const formatPrice = (p: number) => `₹${p.toFixed(2).replace(/\.00$/, '')}`;
+    const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
 
     return (
         <MainLayout>

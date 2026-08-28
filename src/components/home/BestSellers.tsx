@@ -25,7 +25,7 @@ const BestSellerProductCard = ({ product }: { product: any }) => {
     const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
     
     // Format helper
-    const formatPrice = (p: number) => `₹${p.toFixed(2).replace(/\.00$/, '')}`;
+    const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
     
     return (
         <div className="bg-white rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.05)] border border-gray-100 flex flex-col w-full h-full group hover:shadow-xl transition-all duration-300">

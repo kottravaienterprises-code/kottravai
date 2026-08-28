@@ -37,7 +37,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, badge }) => {
     const savings = isPromo && product.originalPrice ? product.originalPrice - currentPrice : 0;
     
     // Use format to 2 decimal places to match example if needed, but keeping simple for typical numbers
-    const formatPrice = (p: number) => `₹${p.toFixed(2).replace(/\.00$/, '')}`;
+    const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
 
     const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault();

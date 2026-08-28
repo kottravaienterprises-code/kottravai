@@ -14,7 +14,7 @@ const CocoProductCard: React.FC<{ product: Product }> = ({ product }) => {
 
     const isPromo = isActivePromotion(product);
     const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
-    const formatPrice = (p: number) => `₹${p.toFixed(2).replace(/\.00$/, '')}`;
+    const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
 
     return (
         <div className="bg-white rounded-2xl p-3 shadow-xl border border-gray-50 flex flex-col h-full group transition-all duration-500 hover:shadow-2xl">

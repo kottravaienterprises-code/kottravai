@@ -25,7 +25,7 @@ const NewArrivalProductCard: React.FC<NewArrivalProductCardProps> = ({ product }
     const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
     
     // Format helper
-    const formatPrice = (p: number) => `₹${p.toFixed(2).replace(/\.00$/, '')}`;
+    const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
 
     return (
         <div className="group relative bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 flex flex-col h-full mx-1 w-full">
