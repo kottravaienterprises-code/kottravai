@@ -23,6 +23,7 @@ const NewArrivalProductCard: React.FC<NewArrivalProductCardProps> = ({ product }
 
     const isPromo = isActivePromotion(product);
     const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
+    const discountPercentage = isPromo && product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
     
     // Format helper
     const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
@@ -78,7 +79,7 @@ const NewArrivalProductCard: React.FC<NewArrivalProductCardProps> = ({ product }
                     </div>
                     {isPromo && product.originalPrice && (
                         <span className="text-[9px] font-bold text-brandGreen uppercase tracking-wider">
-                            Save {formatPrice(savings)}
+                            Save {formatPrice(savings)} ({discountPercentage}%)
                         </span>
                     )}
                 </div>

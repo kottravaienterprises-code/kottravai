@@ -14,6 +14,7 @@ const CocoProductCard: React.FC<{ product: Product }> = ({ product }) => {
 
     const isPromo = isActivePromotion(product);
     const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
+    const discountPercentage = isPromo && product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
     const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
 
     return (
@@ -102,7 +103,7 @@ const CocoProductCard: React.FC<{ product: Product }> = ({ product }) => {
                 </div>
                 {isPromo && product.originalPrice && (
                     <span className="text-xs font-bold text-brandGreen uppercase tracking-wider">
-                        You save {formatPrice(savings)}
+                        You save {formatPrice(savings)} ({discountPercentage}%)
                     </span>
                 )}
             </div>

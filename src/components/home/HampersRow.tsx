@@ -11,6 +11,7 @@ const HamperProductCard = ({ product }: { product: any }) => {
     const { addToCart } = useCart();
     const isPromo = isActivePromotion(product);
     const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
+    const discountPercentage = isPromo && product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
     const formatPrice = (p: number) => `₹${Number(p).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/\.00$/, '')}`;
 
     return (
@@ -59,7 +60,7 @@ const HamperProductCard = ({ product }: { product: any }) => {
                         </div>
                         {isPromo && product.originalPrice && (
                             <span className="text-xs font-bold text-brandGreen uppercase tracking-wider">
-                                Save {formatPrice(savings)}
+                                Save {formatPrice(savings)} ({discountPercentage}%)
                             </span>
                         )}
                     </div>

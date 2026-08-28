@@ -62,6 +62,7 @@ const HeritageMixes = () => {
         const { addToCart } = useCart();
         const isPromo = isActivePromotion(product);
         const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
+    const discountPercentage = isPromo && product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
         const formatPrice = (p: number) => `₹${Number(p).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/\.00$/, '')}`;
         
         return (
@@ -130,7 +131,7 @@ const HeritageMixes = () => {
                                     )}
                                 </div>
                                 {isPromo && product.originalPrice ? (
-                                    <div className="text-[9px] font-bold text-brandGreen uppercase tracking-wider mt-0.5">Save {formatPrice(savings * quantity)}</div>
+                                    <div className="text-[9px] font-bold text-brandGreen uppercase tracking-wider mt-0.5">Save {formatPrice(savings * quantity)} ({discountPercentage}%)</div>
                                 ) : (
                                     <div className="text-[9px] text-gray-400 mt-0.5">Inclusive of all taxes</div>
                                 )}

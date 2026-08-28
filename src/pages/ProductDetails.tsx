@@ -400,6 +400,7 @@ const ProductDetails = () => {
     const isPromo = isActivePromotion(product, selectedVariant);
     const currentPrice = selectedVariant?.price || product.price;
     const savings = isPromo && product.originalPrice ? product.originalPrice - currentPrice : 0;
+    const discountPercentage = isPromo && product.originalPrice ? Math.round(((product.originalPrice - currentPrice) / product.originalPrice) * 100) : 0;
     const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
 
     return (
@@ -601,7 +602,7 @@ const ProductDetails = () => {
                                                 {formatPrice(product.originalPrice * quantity)}
                                             </span>
                                             <span className="text-xs font-bold text-brandGreen uppercase tracking-wider">
-                                                You save {formatPrice(savings * quantity)}
+                                                You save {formatPrice(savings * quantity)} ({discountPercentage}%)
                                             </span>
                                         </div>
                                     )}

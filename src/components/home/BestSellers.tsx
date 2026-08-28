@@ -23,6 +23,7 @@ const BestSellerProductCard = ({ product }: { product: any }) => {
 
     const isPromo = isActivePromotion(product);
     const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
+    const discountPercentage = isPromo && product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
     
     // Format helper
     const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
@@ -103,7 +104,7 @@ const BestSellerProductCard = ({ product }: { product: any }) => {
                     </div>
                     {isPromo && product.originalPrice && (
                         <span className="text-[10px] font-bold text-brandGreen uppercase tracking-wider">
-                            You save {formatPrice(savings)}
+                            You save {formatPrice(savings)} ({discountPercentage}%)
                         </span>
                     )}
                 </div>

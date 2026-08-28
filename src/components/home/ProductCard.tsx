@@ -35,6 +35,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, badge }) => {
     const isPromo = isActivePromotion(product, selectedVariant);
     const currentPrice = selectedVariant?.price || product.price;
     const savings = isPromo && product.originalPrice ? product.originalPrice - currentPrice : 0;
+    const discountPercentage = isPromo && product.originalPrice ? Math.round(((product.originalPrice - currentPrice) / product.originalPrice) * 100) : 0;
     
     // Use format to 2 decimal places to match example if needed, but keeping simple for typical numbers
     const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
@@ -163,7 +164,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, badge }) => {
                                             {formatPrice(product.originalPrice)}
                                         </span>
                                         <span className="text-[9px] font-bold text-brandGreen mt-0.5 uppercase tracking-wider">
-                                            Save {formatPrice(savings)}
+                                            Save {formatPrice(savings)} ({discountPercentage}%)
                                         </span>
                                     </>
                                 )}
