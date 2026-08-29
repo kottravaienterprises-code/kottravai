@@ -1459,6 +1459,8 @@ const AdminDashboard = () => {
   const [formData, setFormData] = useState({
     name: "",
     price: "",
+    originalPrice: "",
+    campaignTag: "",
     category: categories[0]?.slug || "", // Use slug for value
     description: "",
     shortDescription: "",
@@ -1682,6 +1684,8 @@ const AdminDashboard = () => {
     setFormData({
       name: product.name,
       price: product.price.toString(),
+      originalPrice: product.originalPrice ? product.originalPrice.toString() : "",
+      campaignTag: product.campaignTag || "",
       category: catSlug,
       description: product.description || "",
       shortDescription: product.shortDescription || "", // assuming property exists or optional
@@ -1974,6 +1978,8 @@ const AdminDashboard = () => {
         maxFileSize: formData.customImageMaxSizeMB,
         customizableTag: formData.customizableTag,
         variants: formData.variants,
+        originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
+        campaignTag: formData.campaignTag || undefined,
       };
 
       if (editingId) {
@@ -5404,6 +5410,38 @@ const AdminDashboard = () => {
                       placeholder="0.00"
                       disabled={formData.isCustomRequest || isUploading}
                     />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">
+                        Original Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.originalPrice || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, originalPrice: e.target.value })
+                        }
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-[#8E2A8B] focus:border-[#8E2A8B] outline-none transition-all"
+                        placeholder="Optional"
+                        disabled={isUploading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">
+                        Campaign Tag
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.campaignTag || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, campaignTag: e.target.value })
+                        }
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-[#8E2A8B] focus:border-[#8E2A8B] outline-none transition-all"
+                        placeholder="e.g. 70% OFF"
+                        disabled={isUploading}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">

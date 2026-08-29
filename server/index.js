@@ -1497,7 +1497,7 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
             shortDescription, description, keyFeatures, features, images, isBestSeller,
             isGiftBundleItem, isLive, isCustomRequest, customFormConfig, defaultFormFields, variants, hub,
             is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level,
-            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag
+            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag, originalPrice, campaignTag
         } = req.body;
 
         if (!name) {
@@ -1537,7 +1537,7 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
                 affiliate_fixed_amount, min_affiliate_level,
                 normalized_name, normalized_category, normalized_description,
                 image_alts,
-                is_customizable, customization_charge, allow_image_upload, allow_custom_text, allow_special_instructions, max_text_length, max_file_size, allowed_file_types, customizable_tag
+                is_customizable, customization_charge, allow_image_upload, allow_custom_text, allow_special_instructions, max_text_length, max_file_size, allowed_file_types, customizable_tag, original_price, campaign_tag
             ) VALUES (
                 $1, $2, $3, $4, $5, $6,
                 $7, $8, $9, $10, $11,
@@ -1546,7 +1546,7 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
                 $20, $21, $22,
                 $23, $24, $25, $26, $27,
                 $28,
-                $29, $30, $31, $32, $33, $34, $35, $36, $37
+                $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39
             ) RETURNING *
         `, [
             name,
@@ -1614,7 +1614,7 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
             shortDescription, description, keyFeatures, features, images, isBestSeller,
             isGiftBundleItem, isLive, isCustomRequest, customFormConfig, defaultFormFields, variants, hub,
             is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level,
-            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag
+            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag, originalPrice
         } = req.body;
 
         const cleanPrice = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : Number(price);
@@ -1651,7 +1651,7 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
                 image_alts = $28,
                 is_customizable = $30, customization_charge = $31, allow_image_upload = $32,
                 allow_custom_text = $33, allow_special_instructions = $34, max_text_length = $35,
-                max_file_size = $36, allowed_file_types = $37, customizable_tag = $38
+                max_file_size = $36, allowed_file_types = $37, customizable_tag = $38, original_price = $39, campaign_tag = $40
             WHERE id = $29
             RETURNING *
         `, [
