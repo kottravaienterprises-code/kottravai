@@ -1585,7 +1585,9 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
             maxTextLength || 50,
             maxFileSize || 5,
             allowedFileTypes ? JSON.stringify(allowedFileTypes) : JSON.stringify(['JPG', 'JPEG', 'PNG', 'WEBP']),
-            customizableTag || 'CUSTOMIZABLE'
+            customizableTag || 'CUSTOMIZABLE',
+            originalPrice !== undefined && originalPrice !== null && originalPrice !== "" && !isNaN(parseFloat(originalPrice)) ? parseFloat(originalPrice) : null,
+            campaignTag || null
         ]);
 
         const data = result.rows[0];
@@ -1692,7 +1694,9 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
             maxTextLength || 50,
             maxFileSize || 5,
             allowedFileTypes ? JSON.stringify(allowedFileTypes) : JSON.stringify(['JPG', 'JPEG', 'PNG', 'WEBP']),
-            customizableTag || 'CUSTOMIZABLE'
+            customizableTag || 'CUSTOMIZABLE',
+            originalPrice !== undefined && originalPrice !== null && originalPrice !== "" && !isNaN(parseFloat(originalPrice)) ? parseFloat(originalPrice) : null,
+            campaignTag || null
         ]);
 
         const data = result.rows[0];
