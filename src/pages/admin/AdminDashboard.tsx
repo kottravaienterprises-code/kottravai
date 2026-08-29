@@ -1795,6 +1795,8 @@ const AdminDashboard = () => {
   const resetForm = () => {
     setFormData({
       name: "",
+      originalPrice: "",
+      campaignTag: "",
       price: "",
       category: categories[0]?.slug || "",
       description: "",
