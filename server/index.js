@@ -1616,7 +1616,7 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
             shortDescription, description, keyFeatures, features, images, isBestSeller,
             isGiftBundleItem, isLive, isCustomRequest, customFormConfig, defaultFormFields, variants, hub,
             is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level,
-            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag, originalPrice
+            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag, originalPrice, campaignTag
         } = req.body;
 
         const cleanPrice = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : Number(price);
