@@ -1,7 +1,8 @@
+const db = require('../db');
 const { google } = require('googleapis');
 const { validateAndRepairKey } = require('../utils/googleKeyValidator');
 const chartBuilder = require('./chartBuilder');
-const db = require('../db');
+
 
 let SHEET_ID = process.env.GOOGLE_SHEET_ID;
 let CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL;
@@ -1392,7 +1393,7 @@ let lastProcessedDataRowCount = 0;
 let lastCacheSyncTime = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-async function fetchRawEventRows(s) {
+async function fetchRawEventRows_LEGACY(s) {
   const now = Date.now();
   if (cachedRawEvents && (now - lastCacheSyncTime) < CACHE_TTL) {
     console.log('[CACHE_HIT] Returning cached raw events');
@@ -1496,7 +1497,7 @@ async function fetchRawEventRows(s) {
 
 // Fetch only rows that match a target date (YYYY-MM-DD) in the Timestamp column.
 // This reduces transfer when the raw sheet contains many historical rows.
-async function fetchRawEventRowsForDate(s, targetDateStr) {
+async function fetchRawEventRowsForDate_LEGACY(s, targetDateStr) {
   const start = Date.now();
   console.log(`[DATE_FILTER_FETCH] Fetching rows for date ${targetDateStr}`);
 
@@ -3432,7 +3433,7 @@ exports.ensureDashboardSheetExists = async () => {
   await ensureDashboardSheetExists(s);
 };
 
-exports.appendEventRow = async (payload) => {
+exports.appendEventRow_LEGACY = async (payload) => {
   try {
     console.log('[GOOGLE_APPEND] Starting appendEventRow...');
     console.log('[GOOGLE_APPEND] Payload:', JSON.stringify(payload, null, 2));
@@ -3483,7 +3484,7 @@ exports.appendEventRow = async (payload) => {
   }
 };
 
-exports.appendEventRows = async (payloads) => {
+exports.appendEventRows_LEGACY = async (payloads) => {
   try {
     console.log('[GOOGLE_BATCH] Starting appendEventRows with', payloads.length, 'rows');
     
@@ -3531,7 +3532,7 @@ exports.appendEventRows = async (payloads) => {
  * Diagnostic test: Validates Google authentication, spreadsheet access, and sheet existence
  * Returns detailed status and error information
  */
-exports.diagnosticTest = async () => {
+exports.diagnosticTest_LEGACY = async () => {
   const results = {
     success: false,
     steps: [],
@@ -3891,3 +3892,159 @@ exports.fetchRawEventRows = fetchRawEventRows;
 exports.buildAggregations = buildAggregations;
 exports.sheets = sheets;
 exports.fetchWhatsAppPerformance = fetchWhatsAppPerformance;
+
+// --- POSTGRESQL MIGRATION WRAPPERS ---
+
+
+async function fetchRawEventRows(s) {
+  if ((process.env.ANALYTICS_MODE || 'legacy') === 'postgres') {
+      console.log('[STAGE_2] Fetching raw events from PostgreSQL analytics_events table');
+      const query = "SELECT * FROM analytics_events ORDER BY event_timestamp ASC";
+      try {
+        const res = await db.query(query);
+        return res.rows.map(dbRow => ({
+            date: dbRow.event_timestamp ? new Date(dbRow.event_timestamp).toISOString() : '',
+            event_type: dbRow.event_name || '',
+            page_path: dbRow.page_url || '',
+            referrer: dbRow.referrer || '',
+            browser: dbRow.browser || '',
+            device_type: dbRow.device || '',
+            screen_size: dbRow.screen_size || '',
+            user_agent: dbRow.user_agent || '',
+            session_id: dbRow.session_id || '',
+            visitor_id: dbRow.visitor_id || '',
+            utm_source: dbRow.utm_source || '',
+            utm_medium: dbRow.utm_medium || '',
+            utm_campaign: dbRow.utm_campaign || '',
+            utm_term: dbRow.utm_term || '',
+            product_name: dbRow.product_name || '',
+            category: dbRow.category || '',
+            price: dbRow.price || 0,
+            quantity: dbRow.quantity || 0,
+            currency: 'INR',
+            order_id: dbRow.order_id || '',
+            order_total: dbRow.order_total || 0,
+            payment_method: dbRow.payment_method || '',
+            duration_seconds: dbRow.duration_seconds || 0,
+            utm_content: dbRow.utm_content || '',
+            first_utm_source: dbRow.first_utm_source || '',
+            first_utm_medium: dbRow.first_utm_medium || '',
+            first_utm_campaign: dbRow.first_utm_campaign || '',
+            session_utm_source: dbRow.session_utm_source || '',
+            session_utm_medium: dbRow.session_utm_medium || '',
+            session_utm_campaign: dbRow.session_utm_campaign || '',
+            product_id: dbRow.product_id || '',
+            metadata: dbRow.metadata || '',
+            ip_address: dbRow.ip_address || '',
+            geo_country: dbRow.geo_country || '',
+            geo_state: dbRow.geo_state || '',
+            geo_city: dbRow.geo_city || ''
+        }));
+      } catch (err) {
+        console.error('[STAGE_2_PG_ERROR]', err);
+        return [];
+      }
+  } else {
+      return fetchRawEventRows_LEGACY(s);
+  }
+}
+
+async function fetchRawEventRowsForDate(s, targetDateStr) {
+  if ((process.env.ANALYTICS_MODE || 'legacy') === 'postgres') {
+      console.log(`[STAGE_2] Fetching raw events for ${targetDateStr} from PostgreSQL`);
+      const query = "SELECT * FROM analytics_events WHERE (event_timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $1::date ORDER BY event_timestamp ASC";
+      try {
+        const res = await db.query(query, [targetDateStr]);
+        return res.rows.map(dbRow => ({
+            date: dbRow.event_timestamp ? new Date(dbRow.event_timestamp).toISOString() : '',
+            event_type: dbRow.event_name || '',
+            page_path: dbRow.page_url || '',
+            referrer: dbRow.referrer || '',
+            browser: dbRow.browser || '',
+            device_type: dbRow.device || '',
+            screen_size: dbRow.screen_size || '',
+            user_agent: dbRow.user_agent || '',
+            session_id: dbRow.session_id || '',
+            visitor_id: dbRow.visitor_id || '',
+            utm_source: dbRow.utm_source || '',
+            utm_medium: dbRow.utm_medium || '',
+            utm_campaign: dbRow.utm_campaign || '',
+            utm_term: dbRow.utm_term || '',
+            product_name: dbRow.product_name || '',
+            category: dbRow.category || '',
+            price: dbRow.price || 0,
+            quantity: dbRow.quantity || 0,
+            currency: 'INR',
+            order_id: dbRow.order_id || '',
+            order_total: dbRow.order_total || 0,
+            payment_method: dbRow.payment_method || '',
+            duration_seconds: dbRow.duration_seconds || 0,
+            utm_content: dbRow.utm_content || '',
+            first_utm_source: dbRow.first_utm_source || '',
+            first_utm_medium: dbRow.first_utm_medium || '',
+            first_utm_campaign: dbRow.first_utm_campaign || '',
+            session_utm_source: dbRow.session_utm_source || '',
+            session_utm_medium: dbRow.session_utm_medium || '',
+            session_utm_campaign: dbRow.session_utm_campaign || '',
+            product_id: dbRow.product_id || '',
+            metadata: dbRow.metadata || '',
+            ip_address: dbRow.ip_address || '',
+            geo_country: dbRow.geo_country || '',
+            geo_state: dbRow.geo_state || '',
+            geo_city: dbRow.geo_city || ''
+        }));
+      } catch (err) {
+        console.error('[STAGE_2_PG_ERROR]', err);
+        return [];
+      }
+  } else {
+      return fetchRawEventRowsForDate_LEGACY(s, targetDateStr);
+  }
+}
+
+exports.appendEventRow = async (payload) => {
+  if ((process.env.ANALYTICS_MODE || 'legacy') === 'postgres') {
+      console.log('[STAGE_2_GOOGLE_APPEND_SKIPPED] PostgreSQL is authoritative. Bypassing Google Sheets single append.');
+      return true;
+  }
+  return exports.appendEventRow_LEGACY(payload);
+};
+
+exports.appendEventRows = async (payloads) => {
+  if ((process.env.ANALYTICS_MODE || 'legacy') === 'postgres') {
+      console.log('[STAGE_2_GOOGLE_APPEND_SKIPPED] PostgreSQL is authoritative. Bypassing Google Sheets batch append.');
+      return true;
+  }
+  return exports.appendEventRows_LEGACY(payloads);
+};
+
+exports.diagnosticTest = async () => {
+  if ((process.env.ANALYTICS_MODE || 'legacy') === 'postgres') {
+      const results = {
+          success: false,
+          timestamp: new Date().toISOString(),
+          steps: [
+            { name: 'authentication', status: 'PENDING' },
+            { name: 'postgres_analytics_health', status: 'PENDING' }
+          ],
+          errors: []
+      };
+      try {
+          const s = await exports.sheets();
+          results.steps[0].status = 'PASSED';
+          await db.query('SELECT 1');
+          results.steps[1].status = 'PASSED';
+          results.steps[1].details = 'PostgreSQL DB is accessible';
+          results.success = true;
+      } catch (err) {
+          if (results.steps[0].status === 'PENDING') results.steps[0].status = 'FAILED';
+          else if (results.steps[1].status === 'PENDING') results.steps[1].status = 'FAILED';
+          results.errors.push(err.message);
+      }
+      return results;
+  }
+  return exports.diagnosticTest_LEGACY();
+};
+
+exports.fetchRawEventRows = fetchRawEventRows;
+exports.fetchRawEventRowsForDate = fetchRawEventRowsForDate;

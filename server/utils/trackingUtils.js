@@ -6,6 +6,8 @@ exports.sanitizeTrackingPayload = (p) => {
     'event_type','event_name','page','page_url','timestamp','user_agent','ua','browser','browser_name','device','device_type',
     'screen_size','screen_width','screen_height','referrer','session_id','visitor_id','visit_count','utm_source','utm_medium','utm_campaign',
     'utm_content', 'utm_term',
+    'first_utm_source', 'first_utm_medium', 'first_utm_campaign',
+    'session_utm_source', 'session_utm_medium', 'session_utm_campaign',
     'product_id', 'product_name', 'category', 'price', 'quantity', 'order_id', 'order_total', 'payment_method', 'revenue',
     'metadata'
   ];

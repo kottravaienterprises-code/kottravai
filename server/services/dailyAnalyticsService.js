@@ -33,13 +33,12 @@ const generateDailyAnalyticsSummary = async (reportDate = null) => {
   const s = await sheets();
   console.log('[DAILY_ANALYTICS] Sheets API initialized');
 
+
   // Fetch only yesterday's raw event rows to reduce transfer and processing time
   const fetchStart = Date.now();
-  const rows = await fetchRawEventRowsForDate(s, targetDateStr).catch(async (err) => {
-    console.error('[DAILY_ANALYTICS] Date-filtered fetch failed, falling back to full fetch:', err.message || err);
-    return await fetchRawEventRows(s);
-  });
-  console.log(`[DAILY_ANALYTICS] Fetched ${rows.length} rows for ${targetDateStr} in ${Date.now() - fetchStart}ms`);
+  const rows = await fetchRawEventRowsForDate(s, targetDateStr);
+  console.log(`[DAILY_ANALYTICS] Fetched ${rows.length} rows in ${Date.now() - fetchStart}ms`);
+
 
   // Fetch global aggregations for history (MTD, 7D, AI Alerts) using lightweight reader
   const aggStart = Date.now();
