@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const { sendDailyAnalyticsEmail } = require('../services/dailyEmailSender');
 
 const initDailyAnalyticsJob = () => {
-  const isEnabled = process.env.DAILY_ANALYTICS_ENABLED === 'true';
+  const isEnabled = false; // Paused by request
   
   if (!isEnabled) {
     console.log('[DAILY_ANALYTICS_JOB] Job is disabled via environment variable (DAILY_ANALYTICS_ENABLED).');
