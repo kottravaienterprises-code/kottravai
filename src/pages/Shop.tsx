@@ -11,6 +11,7 @@ import FilterSidebar from '@/components/shop/FilterSidebar';
 import { getOptimizedImage, IMAGE_SIZES } from '@/utils/imageOptimizer';
 import { API_ENDPOINTS } from '@/config/api';
 import axios from 'axios';
+import { isActivePromotion } from '@/utils/promotionHelper';
 const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in';
 const Shop = () => {
     const { slug } = useParams();
@@ -666,6 +667,14 @@ const Shop = () => {
                                     {productsToRender.map((product) => {
                                         console.log({ stage: 'ProductCard render', count: 1, sample: [(product.name || product.title || product.product_name || '').toString()] });
                                         const isInCart = Array.isArray(cart) && cart.some(item => item.id === product.id);
+                                        const currentPrice = Number(product.price);
+                                        const rawOriginalPrice = product.originalPrice || product.original_price;
+                                        const originalPrice = rawOriginalPrice ? Number(rawOriginalPrice) : null;
+                                        const hasDiscount = originalPrice && originalPrice > currentPrice;
+                                        const savings = hasDiscount ? originalPrice - currentPrice : 0;
+                                        const discountPercentage = hasDiscount ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
+                                        const formatPrice = (p: number | string) => `₹${Number(p).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                                        
                                         return (
                                             <div key={product.id} className="group flex flex-col bg-white rounded-lg overflow-hidden border border-gray-100/50 relative">
                                                 {/* Image Container - Square for compact height */}
@@ -713,14 +722,28 @@ const Shop = () => {
                                                 {/* Content Area */}
                                                 <div className="p-3 flex-1 flex flex-col">
 
-                                                    {/* Price ΓÇö Top */}
+                                                    {/* Price — Top */}
                                                     <div className="mb-2">
                                                         {product.isCustomRequest ? (
                                                             <span className="text-sm font-bold text-[#8E2A8B]">Price on Request</span>
                                                         ) : (product.variants && product.variants.length > 0) || Number(product.price) === 0 ? (
                                                             <span className="text-sm font-bold text-[#b5128f]">View Options</span>
                                                         ) : (
-                                                            <span className="text-lg font-black text-[#2D1B4E]">₹{Number(product.price).toLocaleString('en-IN')}</span>
+                                                            <div className="flex flex-col">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-lg font-black text-[#2D1B4E]">{formatPrice(currentPrice)}</span>
+                                                                    {hasDiscount && (
+                                                                        <span className="text-sm font-bold text-gray-400 line-through">
+                                                                            {formatPrice(originalPrice)}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {hasDiscount && (
+                                                                    <span className="text-xs font-bold text-green-600 mt-0.5 uppercase tracking-wider">
+                                                                        You save {formatPrice(savings)} ({discountPercentage}%)
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         )}
                                                     </div>
 
