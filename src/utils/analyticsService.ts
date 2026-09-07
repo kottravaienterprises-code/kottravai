@@ -267,6 +267,10 @@ class AnalyticsService {
     }
 
     private async send(payload: AnalyticsPayload) {
+        console.log('[Analytics] event attempted:', payload.event_type);
+        console.log('[Analytics] GAS URL configured:', !!GAS_ENDPOINT, GAS_ENDPOINT);
+        console.log('[Analytics] event payload:', JSON.stringify(payload));
+
         // 1. Send to Google Apps Script Endpoint (V2)
         if (GAS_ENDPOINT) {
             try {
