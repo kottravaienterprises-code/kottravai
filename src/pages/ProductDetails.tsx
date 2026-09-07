@@ -238,9 +238,11 @@ const ProductDetails = () => {
             // Track product view
             analytics.trackEvent('product_view', {
                 product_id: product.id,
+                sku: product.sku || '',
                 product_name: product.name,
                 category: product.category,
-                price: product.price
+                price: product.price,
+                stock_status: product.inStock ? 'in_stock' : 'out_of_stock'
             });
         }
         window.scrollTo(0, 0);

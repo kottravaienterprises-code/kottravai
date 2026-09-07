@@ -198,13 +198,16 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
             return [...prev, { id: product.id, quantity, variantWeight: variant?.weight, customizationData, customizationHash: hash }];
         });
 
+        const itemPrice = variant?.price || product.price;
         analytics.trackEvent('add_to_cart', {
             product_id: product.id,
+            sku: (product as any).sku || '',
             product_name: product.name,
             category: product.category,
             quantity,
             variant: variant?.weight,
-            price: variant?.price || product.price,
+            price: itemPrice,
+            cart_total_value: cartTotal + (itemPrice * quantity),
             customized: customizationData?.isCustomized || false
         });
 

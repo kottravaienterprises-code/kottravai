@@ -1,4 +1,7 @@
-import { getSessionId } from '@/utils/session';
+const fs = require('fs');
+const path = 'src/utils/analyticsService.ts';
+
+let code = `import { getSessionId } from '@/utils/session';
 import { getVisitorId } from '@/utils/visitor';
 
 export type AnalyticsMetadata = Record<string, any>;
@@ -38,14 +41,15 @@ export interface AnalyticsPayload {
     [key: string]: any;
 }
 
-
+const TRACKING_API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const TRACKING_ENDPOINT = TRACKING_API_BASE
+    ? \`\${TRACKING_API_BASE.replace(/\\/$/, '')}/api/track/event\`
+    : '/api/track/event';
 
 const normalizeValue = (value: any): any => {
     if (value === null || value === undefined || value === '') return undefined;
     return value;
 };
-
-const GAS_ENDPOINT = import.meta.env.VITE_KOTTRAVAI_ANALYTICS_URL;
 
 class AnalyticsService {
     private sessionId: string;
@@ -231,7 +235,7 @@ class AnalyticsService {
             page_url: typeof window !== 'undefined' ? window.location.href : '',
             browser: this.getBrowser(),
             device: this.getDeviceType(),
-            screen_size: typeof window !== 'undefined' ? `${window.screen.width}x${window.screen.height}` : '',
+            screen_size: typeof window !== 'undefined' ? \`\${window.screen.width}x\${window.screen.height}\` : '',
             referrer: normalizeValue(typeof document !== 'undefined' ? document.referrer : ''),
             
             user_id: userId,
@@ -260,30 +264,24 @@ class AnalyticsService {
             session_utm_content: normalizeValue(this.sessionUtm.content),
             session_utm_term: normalizeValue(this.sessionUtm.term),
 
-            ...metadata
+            metadata: metadata
         };
 
         return payload;
     }
 
     private async send(payload: AnalyticsPayload) {
-        // 1. Send to Google Apps Script Endpoint (V2)
-        if (GAS_ENDPOINT) {
-            try {
-                await fetch(GAS_ENDPOINT, {
-                    method: 'POST',
-                    // Using text/plain avoids CORS preflight issues with Google Apps Script Web Apps
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload),
-                    keepalive: true,
-                    mode: 'no-cors' // We don't need to read the response, just fire and forget
-                });
-                console.debug('[Analytics] Sent', payload.event_type, 'to GAS V2');
-            } catch (error) {
-                console.warn('[Analytics] GAS tracking failed safely:', error);
-            }
-        } else {
-            console.warn('[Analytics] VITE_KOTTRAVAI_ANALYTICS_URL is not configured. Event dropped:', payload.event_type);
+        // 1. Send to Custom Backend API
+        try {
+            await fetch(TRACKING_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                keepalive: true
+            });
+            console.debug('[Analytics] Sent', payload.event_type, 'to', TRACKING_ENDPOINT);
+        } catch (error) {
+            console.warn('[Analytics] Backend tracking failed:', error);
         }
 
         // 2. Forward to GA4 (gtag)
@@ -359,3 +357,7 @@ if (typeof window !== 'undefined') {
 }
 
 export default analytics;
+`;
+
+fs.writeFileSync(path, code, 'utf8');
+console.log('Updated analyticsService.ts');

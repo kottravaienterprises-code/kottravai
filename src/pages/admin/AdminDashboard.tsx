@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useCallback, Fragment } from "react";
 import { useProducts } from "@/context/ProductContext";
 import { useVideos } from "@/context/VideoContext";

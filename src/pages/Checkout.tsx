@@ -109,8 +109,14 @@ const Checkout = () => {
     useEffect(() => {
         if (cart.length > 0) {
             analytics.trackEvent('checkout_started', {
-                cart_items: cart.length,
-                total_amount: finalTotal
+                cart_total_value: finalTotal,
+                products_array: cart.map(item => ({
+                    product_id: item.id,
+                    sku: (item as any).sku || '',
+                    product_name: item.name,
+                    quantity: item.quantity,
+                    price: item.price
+                }))
             });
         }
     }, [cart.length, finalTotal]);

@@ -27,11 +27,25 @@ const OrderSuccess = () => {
             if (!window.sessionStorage.getItem(trackingKey)) {
                 analytics.trackEvent('purchase_completed', {
                     order_id: orderDetails.orderId || orderDetails.paymentId || 'unknown',
+                    transaction_id: orderDetails.orderId || orderDetails.paymentId || 'unknown',
                     payment_id: orderDetails.paymentId || undefined,
                     payment_method: orderDetails.paymentMethod || 'online',
+                    value: orderDetails.total,
                     order_total: orderDetails.total,
                     item_count: orderDetails.items?.length || 0,
-                    total_amount: orderDetails.total
+                    total_amount: orderDetails.total,
+                    coupon_code: orderDetails.coupon_code || '',
+                    discount_applied: orderDetails.discount_applied || 0,
+                    shipping_cost: orderDetails.shipping_server || 0,
+                    taxes: orderDetails.taxes || 0,
+                    products_array: (orderDetails.items || []).map((item: any) => ({
+                        product_id: item.id || item.item_id,
+                        sku: item.sku || '',
+                        name: item.name,
+                        quantity: item.quantity,
+                        price: item.price,
+                        line_total: (item.price || 0) * (item.quantity || 1)
+                    }))
                 });
                 window.sessionStorage.setItem(trackingKey, '1');
             }

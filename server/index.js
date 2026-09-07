@@ -1255,7 +1255,7 @@ app.get('/api/init-db', async (req, res) => {
             image TEXT NOT NULL,
             slug VARCHAR(255) UNIQUE NOT NULL,
             category_slug VARCHAR(100),
-            sku VARCHAR(255),
+            sku VARCHAR(255) UNIQUE,
             tags TEXT[],
             short_description TEXT,
             description TEXT,
@@ -1294,6 +1294,8 @@ app.get('/api/init-db', async (req, res) => {
         ALTER TABLE products ADD COLUMN IF NOT EXISTS max_file_size INTEGER DEFAULT 5;
         ALTER TABLE products ADD COLUMN IF NOT EXISTS allowed_file_types JSONB DEFAULT '["JPG", "JPEG", "PNG", "WEBP"]'::jsonb;
         ALTER TABLE products ADD COLUMN IF NOT EXISTS customizable_tag VARCHAR(50) DEFAULT 'CUSTOMIZABLE';
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS sku VARCHAR(255);
+        DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'products_sku_key') THEN ALTER TABLE products ADD CONSTRAINT products_sku_key UNIQUE (sku); END IF; END $$;
 
         CREATE TABLE IF NOT EXISTS reviews (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -1497,8 +1499,7 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
             shortDescription, description, keyFeatures, features, images, isBestSeller,
             isGiftBundleItem, isLive, isCustomRequest, customFormConfig, defaultFormFields, variants, hub,
             is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level,
-            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag, originalPrice, campaignTag
-        } = req.body;
+            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag, originalPrice, campaignTag, sku } = req.body;
 
         if (!name) {
             console.error("❌ [CREATE_PRODUCT] Missing product name");
@@ -1537,7 +1538,7 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
                 affiliate_fixed_amount, min_affiliate_level,
                 normalized_name, normalized_category, normalized_description,
                 image_alts,
-                is_customizable, customization_charge, allow_image_upload, allow_custom_text, allow_special_instructions, max_text_length, max_file_size, allowed_file_types, customizable_tag, original_price, campaign_tag
+                is_customizable, customization_charge, allow_image_upload, allow_custom_text, allow_special_instructions, max_text_length, max_file_size, allowed_file_types, customizable_tag, original_price, campaign_tag, sku
             ) VALUES (
                 $1, $2, $3, $4, $5, $6,
                 $7, $8, $9, $10, $11,
@@ -1546,7 +1547,7 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
                 $20, $21, $22,
                 $23, $24, $25, $26, $27,
                 $28,
-                $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39
+                $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40
             ) RETURNING *
         `, [
             name,
@@ -1587,7 +1588,8 @@ app.post('/api/products', authenticateAdmin, logAdminAction('CREATE', 'product')
             allowedFileTypes ? JSON.stringify(allowedFileTypes) : JSON.stringify(['JPG', 'JPEG', 'PNG', 'WEBP']),
             customizableTag || 'CUSTOMIZABLE',
             originalPrice !== undefined && originalPrice !== null && originalPrice !== "" && !isNaN(parseFloat(originalPrice)) ? parseFloat(originalPrice) : null,
-            campaignTag || null
+            campaignTag || null,
+            sku || null
         ]);
 
         const data = result.rows[0];
@@ -1616,8 +1618,7 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
             shortDescription, description, keyFeatures, features, images, isBestSeller,
             isGiftBundleItem, isLive, isCustomRequest, customFormConfig, defaultFormFields, variants, hub,
             is_affiliate_eligible, affiliate_commission_rate, affiliate_payout_type, affiliate_fixed_amount, min_affiliate_level,
-            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag, originalPrice, campaignTag
-        } = req.body;
+            image_alts, imageAlts, isCustomizable, customizationCharge, allowImageUpload, allowCustomText, allowSpecialInstructions, maxTextLength, maxFileSize, allowedFileTypes, customizableTag, originalPrice, campaignTag, sku } = req.body;
 
         const cleanPrice = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : Number(price);
 
@@ -1653,7 +1654,7 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
                 image_alts = $28,
                 is_customizable = $30, customization_charge = $31, allow_image_upload = $32,
                 allow_custom_text = $33, allow_special_instructions = $34, max_text_length = $35,
-                max_file_size = $36, allowed_file_types = $37, customizable_tag = $38, original_price = $39, campaign_tag = $40
+                max_file_size = $36, allowed_file_types = $37, customizable_tag = $38, original_price = $39, campaign_tag = $40, sku = $41
             WHERE id = $29
             RETURNING *
         `, [
@@ -1696,7 +1697,8 @@ app.put('/api/products/:id', authenticateAdmin, logAdminAction('UPDATE', 'produc
             allowedFileTypes ? JSON.stringify(allowedFileTypes) : JSON.stringify(['JPG', 'JPEG', 'PNG', 'WEBP']),
             customizableTag || 'CUSTOMIZABLE',
             originalPrice !== undefined && originalPrice !== null && originalPrice !== "" && !isNaN(parseFloat(originalPrice)) ? parseFloat(originalPrice) : null,
-            campaignTag || null
+            campaignTag || null,
+            sku || null
         ]);
 
         const data = result.rows[0];
@@ -2720,6 +2722,32 @@ app.get('/api/search', async (req, res) => {
 });
 
 // Products API
+
+// SKU SEARCH ENDPOINT
+app.get('/api/products/sku/:sku', async (req, res) => {
+    try {
+        const sku = req.params.sku.trim();
+        if (!sku) return res.status(400).json({ error: 'SKU is required' });
+
+        const result = await db.query(
+            `SELECT id, name, image, price, category, is_live, slug, variants
+             FROM products 
+             WHERE LOWER(sku) = LOWER($1) AND is_live = TRUE
+             LIMIT 1`,
+            [sku]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error fetching product by SKU:', err);
+        res.status(500).json({ error: 'Failed to fetch product by SKU' });
+    }
+});
+
 app.get('/api/products', async (req, res) => {
     const T0 = Date.now();
     const cacheKey = JSON.stringify(req.query);
