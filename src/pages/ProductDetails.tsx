@@ -59,7 +59,12 @@ const ProductDetails = () => {
                     maxTextLength: data.max_text_length !== undefined ? data.max_text_length : data.maxTextLength,
                     maxFileSize: data.max_file_size !== undefined ? data.max_file_size : data.maxFileSize,
                     allowedFileTypes: data.allowed_file_types || data.allowedFileTypes,
-                    customizableTag: data.customizable_tag || data.customizableTag
+                    customizableTag: data.customizable_tag || data.customizableTag,
+                    originalPrice: data.original_price ? Number(data.original_price) : data.originalPrice,
+                    campaignTag: data.campaign_tag || data.campaignTag,
+                    campaignExcluded: data.campaign_excluded || data.campaignExcluded || false,
+                    saleStartAt: data.sale_start_at || data.saleStartAt,
+                    saleEndAt: data.sale_end_at || data.saleEndAt
                 };
 
                 setProduct(mappedProduct);
@@ -581,6 +586,13 @@ const ProductDetails = () => {
                     <div className="lg:w-1/2">
 
 
+                        {product.isBestSeller && (
+                            <div className="mb-2">
+                                <span className="bg-[#8E2A8B] text-white text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm">
+                                    BEST SELLER
+                                </span>
+                            </div>
+                        )}
                         <h1 className="text-xl md:text-2xl font-bold font-comfortaa text-brandPurple mb-3 leading-snug">{product.name}</h1>
 
                         <div className="flex items-center gap-3 mb-4">

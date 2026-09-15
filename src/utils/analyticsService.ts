@@ -299,9 +299,7 @@ class AnalyticsService {
                 }
                 
                 // If it's a purchase, ensure GA4 formatting is valid
-                if (payload.event_type === 'purchase_completed' || payload.event_type === 'purchase') {
-                    (window as any).gtag('event', 'purchase', ga4Payload);
-                } else {
+                /* SERVER_SIDE_ANALYTICS: purchase_completed frontend interceptor disabled. */ else {
                     (window as any).gtag('event', payload.event_type, ga4Payload);
                 }
             } catch (err) {

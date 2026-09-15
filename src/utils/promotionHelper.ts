@@ -17,8 +17,11 @@ export const isActivePromotion = (product: Product, variant?: ProductVariant | n
     }
 
     // Original price must exist and be greater than the current price
-    const currentPrice = variant?.price || product.price;
-    if (!product.originalPrice || product.originalPrice <= currentPrice) {
+    const currentPriceRaw = variant?.price || product.price;
+    const currentPrice = Number(currentPriceRaw);
+    const originalPrice = Number(product.originalPrice);
+    
+    if (!originalPrice || originalPrice <= currentPrice) {
         return false;
     }
 

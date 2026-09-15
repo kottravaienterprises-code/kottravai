@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
-import analytics from '@/utils/analyticsService';
 import MainLayout from '@/layouts/MainLayout';
 
 const sanitizeUrl = (url: string) => {
@@ -25,28 +24,7 @@ const OrderSuccess = () => {
         if (orderDetails) {
             const trackingKey = `kottravai_purchase_completed_${orderDetails.orderId || orderDetails.paymentId || 'unknown'}`;
             if (!window.sessionStorage.getItem(trackingKey)) {
-                analytics.trackEvent('purchase_completed', {
-                    order_id: orderDetails.orderId || orderDetails.paymentId || 'unknown',
-                    transaction_id: orderDetails.orderId || orderDetails.paymentId || 'unknown',
-                    payment_id: orderDetails.paymentId || undefined,
-                    payment_method: orderDetails.paymentMethod || 'online',
-                    value: orderDetails.total,
-                    order_total: orderDetails.total,
-                    item_count: orderDetails.items?.length || 0,
-                    total_amount: orderDetails.total,
-                    coupon_code: orderDetails.coupon_code || '',
-                    discount_applied: orderDetails.discount_applied || 0,
-                    shipping_cost: orderDetails.shipping_server || 0,
-                    taxes: orderDetails.taxes || 0,
-                    products_array: (orderDetails.items || []).map((item: any) => ({
-                        product_id: item.id || item.item_id,
-                        sku: item.sku || '',
-                        name: item.name,
-                        quantity: item.quantity,
-                        price: item.price,
-                        line_total: (item.price || 0) * (item.quantity || 1)
-                    }))
-                });
+                // SERVER_SIDE_ANALYTICS: 'purchase_completed' is now sent securely from the backend webhook to guarantee 100% data integrity and zero hallucination.
                 window.sessionStorage.setItem(trackingKey, '1');
             }
         }

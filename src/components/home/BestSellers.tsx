@@ -21,9 +21,12 @@ const BestSellerProductCard = ({ product }: { product: any }) => {
         toggleWishlist(product);
     };
 
-    const isPromo = isActivePromotion(product);
-    const savings = isPromo && product.originalPrice ? product.originalPrice - product.price : 0;
-    const discountPercentage = isPromo && product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
+    const isPromo = isActivePromotion(product) || product.campaignTag === '70% OFF' || Boolean(product.originalPrice && product.originalPrice > product.price);
+    const originalPriceNum = product.originalPrice ? Number(product.originalPrice) : 0;
+    const currentPriceNum = Number(product.price);
+    
+    const savings = isPromo && originalPriceNum > 0 ? originalPriceNum - currentPriceNum : 0;
+    const discountPercentage = isPromo && originalPriceNum > 0 ? Math.round(((originalPriceNum - currentPriceNum) / originalPriceNum) * 100) : 0;
     
     // Format helper
     const formatPrice = (p: number | string) => `₹${Number(p).toFixed(2).replace(/\.00$/, '')}`;
@@ -97,12 +100,12 @@ const BestSellerProductCard = ({ product }: { product: any }) => {
                 {/* Price Section */}
                 <div className="flex flex-col mb-4 gap-1">
                     <div className="flex items-center gap-3">
-                        <span className="text-2xl font-black text-[#8E2A8B]">{formatPrice(product.price)}</span>
-                        {isPromo && product.originalPrice && (
-                            <span className="text-gray-400 line-through text-sm">{formatPrice(product.originalPrice)}</span>
+                        <span className="text-2xl font-black text-[#8E2A8B]">{formatPrice(currentPriceNum)}</span>
+                        {isPromo && originalPriceNum > 0 && (
+                            <span className="text-gray-400 line-through text-sm">{formatPrice(originalPriceNum)}</span>
                         )}
                     </div>
-                    {isPromo && product.originalPrice && (
+                    {isPromo && originalPriceNum > 0 && (
                         <span className="text-[10px] font-bold text-brandGreen uppercase tracking-wider">
                             You save {formatPrice(savings)} ({discountPercentage}%)
                         </span>
@@ -176,32 +179,25 @@ const BestSellers = () => {
         // 1. Filter checks if it's marked as Best Seller
         filtered = filtered.filter(p => p.isBestSeller);
 
-        // 3. Structured Mixing Logic for "Best Overall" (2 Coco, 2 Terracotta pattern)
+        // 2. Only show Coconut Shell products as requested
         const coco = filtered.filter(p => p.category?.toLowerCase().includes('coco') || p.name?.toLowerCase().includes('coco'));
-        const terracotta = filtered.filter(p => 
-            p.category?.toLowerCase().includes('terracotta') || p.category?.toLowerCase().includes('ornaments') ||
-            p.name?.toLowerCase().includes('terracotta') || p.name?.toLowerCase().includes('necklace')
-        );
-        const others = filtered.filter(p => !coco.includes(p) && !terracotta.includes(p));
 
-        const interleaved: any[] = [];
-        const maxLen = Math.max(coco.length, terracotta.length, others.length);
-        
-        for (let i = 0; i < maxLen; i += 2) {
-            // Add 2 Coco
-            if (coco[i]) interleaved.push(coco[i]);
-            if (coco[i+1]) interleaved.push(coco[i+1]);
-            
-            // Add 2 Terracotta
-            if (terracotta[i]) interleaved.push(terracotta[i]);
-            if (terracotta[i+1]) interleaved.push(terracotta[i+1]);
+        // 3. Sort by exact quantity sold mapping
+        const quantityMap: Record<string, number> = {
+            'Kottravai Handmade Coconut Shell Nativity Set – Eco-Friendly Christmas Nativity Scene Decor': 10,
+            'Kottravai Handmade Coconut Shell Tea Cup – Eco-Friendly Natural Coconut Cup for Tea & Coffee': 3,
+            'Kottravai Handmade Coconut Shell Candle Holder – Eco-Friendly Natural Diya for Pooja & Home Decor': 2,
+            'Handcrafted Coconut Shell Coffee Mug Set – Eco-Friendly Natural Tea & Coffee Cups': 1,
+            'The Quote Stand – Coconut Shell': 1,
+            'Handcrafted Coconut Shell Cross Pendant Necklace | Eco-Friendly Spiritual Jewelry': 1,
+            'Kottravai Handmade Coconut Shell Pen Holder – Eco-Friendly Desk Organizer for Office & Study Table': 1,
+            'Kottravai Handmade Coconut Shell Bowl – Eco-Friendly Natural Serving Bowl for Fruits, Snacks & Salads': 1
+        };
 
-            // Add 1 Other (to keep it fresh)
-            const otherIdx = Math.floor(i/2);
-            if (others[otherIdx]) interleaved.push(others[otherIdx]);
-        }
+        coco.sort((a, b) => (quantityMap[b.name] || 0) - (quantityMap[a.name] || 0));
+
         const limit = typeof window !== 'undefined' && window.innerWidth < 768 ? 6 : 12;
-        return interleaved.slice(0, limit);
+        return coco.slice(0, limit);
     }, [products]);
 
     const scroll = (direction: 'left' | 'right') => {

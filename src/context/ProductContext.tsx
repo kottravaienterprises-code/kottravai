@@ -60,15 +60,15 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
         customizableTag: p.customizable_tag || p.customizableTag || 'CUSTOMIZABLE',
         customizationType: p.customization_type || p.customizationType || 'No Restrictions',
         
-        originalPrice: p.original_price ? Number(p.original_price) : undefined,
-        campaignTag: p.campaign_tag || undefined,
-        saleStartAt: p.sale_start_at || undefined,
-        saleEndAt: p.sale_end_at || undefined,
-        campaignExcluded: p.campaign_excluded || false
+        originalPrice: p.original_price ? Number(p.original_price) : (p.originalPrice ? Number(p.originalPrice) : undefined),
+        campaignTag: p.campaign_tag || p.campaignTag || undefined,
+        saleStartAt: p.sale_start_at || p.saleStartAt || undefined,
+        saleEndAt: p.sale_end_at || p.saleEndAt || undefined,
+        campaignExcluded: p.campaign_excluded !== undefined ? p.campaign_excluded : (p.campaignExcluded || false)
     });
 
     const [products, setProducts] = useState<Product[]>(() => {
-        const saved = safeGetItem('kottravai_cache_products');
+        const saved = safeGetItem('kottravai_cache_products_v2');
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
@@ -80,14 +80,14 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
         return [];
     });
     const [loading, setLoading] = useState(() => {
-        return !safeGetItem('kottravai_cache_products');
+        return !safeGetItem('kottravai_cache_products_v2');
     });
 
     const lastFetchRef = useRef<number>(0);
     const fetchProducts = useCallback(async (force = false) => {
         // High-Efficiency Check: Use cache if it's less than 30 minutes old
-        const cachedProducts = safeGetItem('kottravai_cache_products');
-        const cacheTime = safeGetItem('kottravai_cache_time');
+        const cachedProducts = safeGetItem('kottravai_cache_products_v2');
+        const cacheTime = safeGetItem('kottravai_cache_time_v2');
         const sessionChecked = sessionStorage.getItem('kottravai_session_checked');
         const CACHE_TTL = 5 * 60 * 1000; // 🚀 Reduced to 5 minutes for better sync
 
@@ -130,8 +130,8 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
                 sessionStorage.setItem('kottravai_session_checked', 'true');
                 // Update local storage in the background to avoid blocking the main thread
                 setTimeout(() => {
-                    safeSetItem('kottravai_cache_products', JSON.stringify(mappedProducts));
-                    safeSetItem('kottravai_cache_time', Date.now().toString());
+                    safeSetItem('kottravai_cache_products_v2', JSON.stringify(mappedProducts));
+                    safeSetItem('kottravai_cache_time_v2', Date.now().toString());
                 }, 0);
             } else {
                 console.error("API returned non-array data:", response.data);

@@ -42,7 +42,8 @@ if (!process.env.DATABASE_URL && !process.env.VITE_DATABASE_URL) {
             connectionTimeoutMillis: 30000, // Increased to 30 seconds for Supabase cold starts
             idleTimeoutMillis: 30000,      // Close idle clients after 30 seconds
             keepAlive: true,
-            max: 20
+            max: 1, // Reduced to 1 for Vercel Serverless to prevent ECHECKOUTTIMEOUT connection exhaustion
+            family: 4 // Force IPv4 to prevent 30s IPv6 fallback timeout on Vercel
         });
     } catch (err) {
         console.error("❌ ERROR: Failed to create Postgres Pool:", err);

@@ -164,11 +164,12 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "https://checkout.razorpay.com", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https://*.flixcart.com", "https://*.supabase.co", "https://itqdnbwbbhyaapquxlqs.supabase.co"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            connectSrc: ["'self'", "http://localhost:5000", "http://localhost:5005", "http://127.0.0.1:5000", "http://127.0.0.1:5005", "https://api.postalpincode.in", "https://*.supabase.co", "https://*.razorpay.com"],
-            frameSrc: ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
+            scriptSrc: ["'self'", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://accounts.google.com", "https://www.googletagmanager.com", "https://connect.facebook.net", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https://*.flixcart.com", "https://*.supabase.co", "https://itqdnbwbbhyaapquxlqs.supabase.co", "https://www.facebook.com"],
+            styleSrc: ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            connectSrc: ["'self'", "http://localhost:5000", "http://localhost:5005", "http://127.0.0.1:5000", "http://127.0.0.1:5005", "https://api.postalpincode.in", "https://*.supabase.co", "https://*.razorpay.com", "https://script.google.com", "https://www.google-analytics.com"],
+            frameSrc: ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com", "https://accounts.google.com"],
             upgradeInsecureRequests: [],
         },
     },

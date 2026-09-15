@@ -164,11 +164,12 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "https://checkout.razorpay.com", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https://*.flixcart.com", "https://*.supabase.co", "https://itqdnbwbbhyaapquxlqs.supabase.co"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            connectSrc: ["'self'", "http://localhost:5000", "http://localhost:5005", "http://127.0.0.1:5000", "http://127.0.0.1:5005", "https://api.postalpincode.in", "https://*.supabase.co", "https://*.razorpay.com"],
-            frameSrc: ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
+            scriptSrc: ["'self'", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://accounts.google.com", "https://www.googletagmanager.com", "https://connect.facebook.net", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https://*.flixcart.com", "https://*.supabase.co", "https://itqdnbwbbhyaapquxlqs.supabase.co", "https://www.facebook.com"],
+            styleSrc: ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            connectSrc: ["'self'", "http://localhost:5000", "http://localhost:5005", "http://127.0.0.1:5000", "http://127.0.0.1:5005", "https://api.postalpincode.in", "https://*.supabase.co", "https://*.razorpay.com", "https://script.google.com", "https://www.google-analytics.com"],
+            frameSrc: ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com", "https://accounts.google.com"],
             upgradeInsecureRequests: [],
         },
     },
@@ -2091,6 +2092,43 @@ const triggerAsyncTasks = async (orderId, orderData, paymentId) => {
  * CORE ORDER PROCESSING ENGINE (Idempotent)
  * Handles DB saving, Email, and Shiprocket logic.
  */
+
+// ==========================================
+// SERVER-SIDE ANALYTICS SYNC
+// ==========================================
+const sendPurchaseAnalytics = async (orderRow) => {
+    try {
+        const analyticsUrl = process.env.VITE_ANALYTICS_URL || process.env.VITE_KOTTRAVAI_ANALYTICS_URL;
+        if (!analyticsUrl) {
+            console.warn("?O [ANALYTICS] Missing Analytics URL in environment variables");
+            return;
+        }
+
+        const payload = {
+            timestamp: orderRow.created_at,
+            event_type: "purchase_completed",
+            order_id: String(orderRow.id),
+            order_total: orderRow.total,
+            payment_id: orderRow.payment_id || "",
+            payment_method: "Razorpay", // Extracted dynamically if needed, but Razorpay is the primary gateway
+            visitor_id: orderRow.customer_id || "guest",
+            session_id: orderRow.payment_id || orderRow.order_id || "", // Fallbacks for correlation
+            page_url: "https://www.kottravai.in/checkout"
+        };
+
+        const response = await fetch(analyticsUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        console.log("o. [ANALYTICS_SYNC] Successfully sent order", orderRow.id, result);
+    } catch (e) {
+        console.error("?O [ANALYTICS_SYNC_ERROR] Failed to send order", orderRow.id, e.message);
+    }
+};
+
 const finalizeOrder = async (orderData, paymentId) => {
     const { orderId } = orderData;
 
@@ -2982,8 +3020,12 @@ app.post('/api/wishlist/toggle', authenticateToken, async (req, res) => {
 
 app.post('/api/b2b-inquiry', verifyCaptcha, async (req, res) => {
     try {
-        const { name, email, phone, company, location, products, quantity, notes } = req.body;
+        const { name, email, phone, company, location, products, quantity, notes, businessType, requirement } = req.body;
         const adminEmail = 'admin@kottravai.in';
+        
+        const resolvedLocation = location || 'N/A';
+        const resolvedNotes = requirement || notes || 'N/A';
+        const bTypeString = businessType ? `\nBusiness Type: ${businessType}` : '';
 
         const lead = await createLeadWithActivity(
             {
@@ -2992,12 +3034,12 @@ app.post('/api/b2b-inquiry', verifyCaptcha, async (req, res) => {
                 phone,
                 company_name: company,
                 source: 'b2b_inquiry',
-                inquiry: `Company: ${company || 'Individual'}\nLocation: ${location || 'N/A'}\nProducts: ${products || 'N/A'}\nQuantity: ${quantity || 'N/A'}\nNotes: ${notes || 'N/A'}`
+                inquiry: `Company: ${company || 'Individual'}\nLocation: ${resolvedLocation}${bTypeString}\nProducts: ${products || 'N/A'}\nQuantity: ${quantity || 'N/A'}\nNotes: ${resolvedNotes}`
             },
             {
                 activity_type: 'Note Added',
                 activity_description: 'B2B inquiry received and lead created in CRM.',
-                metadata: { location, products, quantity, notes }
+                metadata: { location: resolvedLocation, products, quantity, notes: resolvedNotes, businessType }
             }
         );
 
@@ -4339,6 +4381,11 @@ app.post('/api/razorpay/webhook', async (req, res) => {
             };
 
             const result = await finalizeOrder(finalOrderData, paymentId);
+            
+            // Trigger server-side analytics idempotently
+            if (result && result.order && !result.alreadyProcessed) {
+                await sendPurchaseAnalytics(result.order);
+            }
             console.log('✅ Webhook: Order finalized for', paymentId, 'Result:', result);
 
             // Clean up pending
