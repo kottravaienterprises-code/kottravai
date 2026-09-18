@@ -4,26 +4,7 @@
     "count": 0,
     "slug": "handicrafts"
   },
-  {
-    "name": "Heritage Mixes",
-    "count": 0,
-    "slug": "heritage-mixes"
-  },
-  {
-    "name": "Masala Powders",
-    "count": 0,
-    "slug": "masala-powders"
-  },
-  {
-    "name": "Instant Nourish",
-    "count": 0,
-    "slug": "instant-nourish"
-  },
-  {
-    "name": "Essential Care",
-    "count": 0,
-    "slug": "essential-care"
-  },
+
   {
     "name": "Hampers",
     "count": 0,
@@ -64,17 +45,5 @@
     "count": 0,
     "slug": "banana-fiber-products",
     "parent": "handicrafts"
-  },
-  {
-    "name": "Idli Podi",
-    "count": 0,
-    "slug": "idli-podi",
-    "parent": "heritage-mixes"
-  },
-  {
-    "name": "Dosa Batter Mix",
-    "count": 0,
-    "slug": "dosa-batter-mix",
-    "parent": "heritage-mixes"
   }
 ]

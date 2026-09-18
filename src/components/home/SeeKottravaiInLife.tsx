@@ -18,16 +18,7 @@ const galleryImages = [
         alt: 'Kottravai lifestyle 3',
         link: '/category/banana-fiber'
     },
-    {
-        src: '/WhatsApp Image 2026-05-22 at 5.10.33 PM.jpeg',
-        alt: 'Kottravai lifestyle 4',
-        link: '/category/essential-care'
-    },
-    {
-        src: '/WhatsApp Image 2026-05-22 at 5.01.35 PM.jpeg',
-        alt: 'Kottravai lifestyle 5',
-        link: '/category/masala-powders'
-    },
+
     {
         src: '/hampers.webp',
         alt: 'Kottravai lifestyle 6',

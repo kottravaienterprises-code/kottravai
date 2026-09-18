@@ -25,18 +25,6 @@ const b2bCategories = [
         title: "Terracotta Jewellery",
         description: "Unique, handcrafted clay jewellery ideal for boutique retail or cultural events.",
         image: "/w5pt5wnue7-1778068003534-black_set_final_1_1.webp",
-    },
-    {
-        id: 6,
-        title: "Essential Care",
-        description: "Natural handmade soaps perfect for hotel amenities and wellness retreats.",
-        image: "/download_1.webp",
-    },
-    {
-        id: 4,
-        title: "Traditional Foods & Mixes",
-        description: "Authentic masalas and podis available in bulk for restaurants and caterers.",
-        image: "/u3cfrsk4b97-1777716271869-Gemini_Generated_Image_5n0cqp5n0cqp5n0c (2).webp",
     }
 ];
 
@@ -62,7 +50,7 @@ const B2BProductCategories = () => {
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                     {b2bCategories.map((cat, index) => (
                         <motion.div
                             key={cat.id}

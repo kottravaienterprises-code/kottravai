@@ -30,15 +30,15 @@ export const features = [
     },
     {
         id: 2,
-        title: "Heritage Mixes",
+        title: "Hampers",
         image: "/uploads/2025/01/cat-2.jpg",
-        link: "/category/heritage-mixes"
+        link: "/category/hampers"
     },
     {
         id: 3,
-        title: "Essential Care",
+        title: "Handmade Jewellery",
         image: "/uploads/2025/01/cat-3.jpg",
-        link: "/category/essential-care"
+        link: "/category/handmade-jewellery"
     }
 ];
 

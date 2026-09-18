@@ -48,8 +48,7 @@ const HowB2BWorks = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-6 relative">
-                    {/* Background connecting line for desktop */}
-                    <div className="hidden md:block absolute top-1/2 left-0 w-full h-[2px] bg-gray-200 -translate-y-1/2 z-0"></div>
+                    {/* Background connecting line for desktop removed */}
                     
                     {steps.map((step, idx) => (
                         <motion.div 

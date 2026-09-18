@@ -21,7 +21,6 @@ const SeeKottravaiInLife = lazy(() => import('@/components/home/SeeKottravaiInLi
 const CoconutShellProductsRow = lazy(() => import('@/components/home/CoconutShellProductsRow'));
 const BananaFiberRow = lazy(() => import('@/components/home/BananaFiberRow'));
 const GiftBundleBuilder = lazy(() => import('@/components/home/GiftBundleBuilder'));
-const HeritageMixes = lazy(() => import('@/components/home/HeritageMixes'));
 const Testimonials = lazy(() => import('@/components/home/Testimonials'));
 
 // Premium, lightweight skeleton/spinner fallback to ensure excellent layout stability
@@ -220,11 +219,6 @@ const Home = () => {
                 </Suspense>
             </LazyRender>
 
-            <LazyRender placeholderHeight={450}>
-                <Suspense fallback={<SectionSkeleton />}>
-                    <HeritageMixes />
-                </Suspense>
-            </LazyRender>
 
             <LazyRender placeholderHeight={200}>
                 <Suspense fallback={null}>

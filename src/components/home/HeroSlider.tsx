@@ -6,6 +6,7 @@ const HeroSlider = () => {
 
     const slides: {
         image: string;
+        tabletImage: string;
         mobileImage: string;
         alt: string;
         link: string;
@@ -14,24 +15,28 @@ const HeroSlider = () => {
         subtitle?: string;
         buttonText?: string;
         showTextOverlay?: boolean;
+        textRight?: boolean;
         hotspot?: { className: string };
     }[] = [
             {
-                image: '/kottravai-banner-new.png',
-                mobileImage: '/kottravai-banner-new.png',
+                image: '/slide1-desktop.webp',
+                tabletImage: '/slide1-tablet.webp',
+                mobileImage: '/slide1-mobile.webp',
                 alt: 'Handcrafted Terracotta Jewellery',
                 link: 'https://wa.me/918807829183'
             },
             {
-                image: '/kottravai-banner.webp',
-                mobileImage: '/kottravai-banner.webp',
+                image: '/slide2-desktop.webp',
+                tabletImage: '/slide2-tablet.webp',
+                mobileImage: '/slide2-mobile.webp',
                 alt: 'Kottravai Banner',
                 link: '/category/all',
                 showTextOverlay: false
             },
             {
-                image: '/uploads/2026/01/banner-2.webp',
-                mobileImage: '/uploads/2026/01/banner-2.webp',
+                image: '/slide3-desktop.webp',
+                tabletImage: '/slide3-tablet.webp',
+                mobileImage: '/slide3-mobile.webp',
                 alt: 'Crafted from Coconut',
                 link: '/category/coconut-shell-products',
                 showTextOverlay: false
@@ -58,7 +63,16 @@ const HeroSlider = () => {
         <section 
             className="relative w-full overflow-hidden bg-white group hero-section-container"
         >
-            <div className="w-full relative h-0" style={{ paddingBottom: '54.375%' }}>
+            {/* Invisible placeholder to dictate the exact height based on image aspect ratio */}
+            <div className="w-full invisible pointer-events-none">
+                <picture className="block w-full h-auto">
+                    <source media="(max-width: 767px)" srcSet={slides[0].mobileImage} />
+                    <source media="(max-width: 1279px)" srcSet={slides[0].tabletImage} />
+                    <img src={slides[0].image} alt="placeholder" className="w-full h-auto block" />
+                </picture>
+            </div>
+
+            <div className="absolute inset-0 w-full h-full">
                 {slides.map((slide, index) => (
                     <div
                         key={index}
@@ -67,19 +81,19 @@ const HeroSlider = () => {
                     >
                     {slide.hotspot ? (
                         <div className="block w-full h-full relative">
-                            <picture>
+                            <picture className="block w-full h-auto">
                                 <source 
-                                    media="(max-width: 768px)" 
+                                    media="(max-width: 767px)" 
                                     srcSet={slide.mobileImage}
-                                    width={1920}
-                                    height={1044}
+                                />
+                                <source 
+                                    media="(max-width: 1279px)" 
+                                    srcSet={slide.tabletImage}
                                 />
                                 <img
                                     src={slide.image}
                                     alt={slide.alt}
-                                    width={1920}
-                                    height={1044}
-                                    className="w-full h-full object-cover"
+                                    className="block w-full h-auto"
                                     loading={index === 0 ? 'eager' : 'lazy'}
                                     // @ts-ignore
                                     fetchpriority={index === 0 ? 'high' : 'low'}
@@ -96,19 +110,19 @@ const HeroSlider = () => {
                         </div>
                     ) : (
                         <a href={slide.link} className="block w-full h-full">
-                            <picture>
+                            <picture className="block w-full h-auto">
                                 <source 
-                                    media="(max-width: 768px)" 
+                                    media="(max-width: 767px)" 
                                     srcSet={slide.mobileImage}
-                                    width={1920}
-                                    height={1044}
+                                />
+                                <source 
+                                    media="(max-width: 1279px)" 
+                                    srcSet={slide.tabletImage}
                                 />
                                 <img
                                     src={slide.image}
                                     alt={slide.alt}
-                                    width={1920}
-                                    height={1044}
-                                    className="w-full h-full object-cover"
+                                    className="block w-full h-auto"
                                     loading={index === 0 ? 'eager' : 'lazy'}
                                     // @ts-ignore
                                     fetchpriority={index === 0 ? 'high' : 'low'}
@@ -118,9 +132,9 @@ const HeroSlider = () => {
                         </a>
                     )}
                     {slide.showTextOverlay && (
-                        <div className="absolute inset-0 flex items-center pointer-events-none">
+                        <div className={`absolute inset-0 flex items-center pointer-events-none ${slide.textRight ? 'justify-end text-right' : ''}`}>
                             <div className="container mx-auto px-4 sm:px-8 md:px-12 lg:px-20 pointer-events-auto">
-                                <div className="max-w-xl space-y-3 sm:space-y-4 md:space-y-6">
+                                <div className={`max-w-xl space-y-3 sm:space-y-4 md:space-y-6 ${slide.textRight ? 'ml-auto' : ''}`}>
                                     <div className="space-y-1">
                                         <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-serif text-[#3d2419] leading-tight text-shadow-sm">
                                             {slide.title}

@@ -756,11 +756,6 @@ const advisoryPanel = [
 
 const teamMembers = [
     {
-        name: "Ahamed Musharaf Ali",
-        role: "Product Manager",
-        image: "/team/member-3.jpg"
-    },
-    {
         name: "Santhosh",
         role: "Developer",
         image: "/team/member-1.jpg"

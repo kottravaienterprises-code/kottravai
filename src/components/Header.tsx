@@ -283,41 +283,18 @@ const Header = () => {
     ];
 
     const mainNavLinks: NavItem[] = [
+        { label: "Coconut Shell Products", path: "/category/coconut-shell-products" },
         {
-            label: "Handicrafts", path: "/category/handicrafts",
+            label: "Handmade Jewellery",
+            path: "/category/handmade-jewellery",
             sub: [
-                { label: "Coconut Shell Products", path: "/category/coconut-shell-products" },
-                {
-                    label: "Handmade Jewellery",
-                    path: "/category/handmade-jewellery",
-                    sub: [
-                        { label: "Festival Wear", path: "/category/festival-wear" },
-                        { label: "Bridal Set", path: "/category/bridal-set" },
-                        { label: "Daily Wear", path: "/category/daily-wear" }
-                    ]
-                },
-                { label: "Banana Fiber Products", path: "/category/banana-fiber-products" }
+                { label: "Festival Wear", path: "/category/festival-wear" },
+                { label: "Bridal Set", path: "/category/bridal-set" },
+                { label: "Daily Wear", path: "/category/daily-wear" }
             ]
         },
-        {
-            label: "Heritage Mixes", path: "/category/heritage-mixes",
-            sub: [
-                { label: "Idli Podi", path: "/category/idli-podi" },
-                { label: "Dosa Batter Mix", path: "/category/dosa-batter-mix" }
-            ]
-        },
-        {
-            label: "Instant Nourish", path: "/category/instant-nourish"
-        },
-        {
-            label: "Masala Powders", path: "/category/masala-powders"
-        },
-        {
-            label: "Essential Care", path: "/category/essential-care"
-        },
-        {
-            label: "Hampers", path: "/category/hampers"
-        }
+        { label: "Banana Fiber Products", path: "/category/banana-fiber-products" },
+        { label: "Hampers", path: "/category/hampers" }
     ];
 
     const LOGO_URL = "/uploads/2026/01/kottravai-logo-final.png";
@@ -345,7 +322,7 @@ const Header = () => {
                             alt="Kottravai"
                             width={150}
                             height={64}
-                            className="h-10 md:h-16 object-contain"
+                            className="h-10 md:h-12 object-contain"
                         />
                     </Link>
                 </div>
