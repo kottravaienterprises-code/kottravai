@@ -402,15 +402,7 @@ const Shop = () => {
         : [...filteredProducts].sort((a, b) => {
             if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
             if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
-            if (sortBy === 'best-selling') {
-                if (slug === 'coconut-shell-products') {
-                    const isEarringA = a.name.toLowerCase().includes('earring');
-                    const isEarringB = b.name.toLowerCase().includes('earring');
-                    if (isEarringA && !isEarringB) return -1;
-                    if (!isEarringA && isEarringB) return 1;
-                }
-                return 0; // Preserve API order for the rest
-            }
+            if (sortBy === 'best-selling') return 0; // Preserve API order
             if (sortBy === 'newest') {
                 const dateA = new Date(a.created_at || a.createdAt || 0).getTime();
                 const dateB = new Date(b.created_at || b.createdAt || 0).getTime();
