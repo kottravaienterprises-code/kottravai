@@ -481,7 +481,7 @@ const Shop = () => {
             </Helmet>
 
 
-            <div className="container mx-auto px-4 pt-4 pb-16">
+            <div className="container mx-auto px-4 pt-4 pb-4">
                 {/* Filter Sidebar Component */}
                 <FilterSidebar
                     isOpen={isFilterOpen}
@@ -860,7 +860,7 @@ const Shop = () => {
 
                                 {/* Innovation: Floating Artisanal Pagination */}
                                 {totalPages > 1 && (
-                                    <div className="flex flex-col items-center mt-12 mb-6">
+                                    <div className="flex flex-col items-center mt-8 mb-2">
                                         <div className="relative group p-1 bg-white/60 backdrop-blur-3xl rounded-[2.5rem] border border-white shadow-[0_25px_60px_-15px_rgba(142,42,139,0.15)] flex items-center gap-1">
                                             {/* Previous Button */}
                                             <button
