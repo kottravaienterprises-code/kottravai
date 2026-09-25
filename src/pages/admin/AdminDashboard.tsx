@@ -7048,7 +7048,7 @@ const AdminDashboard = () => {
                               </span>
                             </button>
 
-                            {!order.shiprocketOrderId && (
+                            {true && (
                               <button
                                 onClick={() => handleShiprocketPush(order)}
                                 className="text-purple-600 hover:text-purple-800 p-2 hover:bg-purple-50 rounded-lg transition-colors flex items-center gap-1"
