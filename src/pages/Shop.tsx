@@ -424,8 +424,8 @@ const Shop = () => {
 
     if (!isSearchMode && sortBy === 'best-selling' && slug === 'coconut-shell-products') {
         const specialProductTerms = ['mobile holder', 'soap holder', 'quote stand', 'dhoop stand'];
-        const specialProducts = [];
-        const normalProducts = [];
+        const specialProducts: any[] = [];
+        const normalProducts: any[] = [];
         sortedProducts.forEach(p => {
             const name = (p.name || '').toLowerCase();
             if (specialProductTerms.some(term => name.includes(term))) {
