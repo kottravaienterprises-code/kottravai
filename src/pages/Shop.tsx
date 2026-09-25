@@ -397,7 +397,7 @@ const Shop = () => {
         });
 
     // Sort Logic
-    const sortedProducts = isSearchMode
+    let sortedProducts = isSearchMode
         ? [...filteredProducts]
         : [...filteredProducts].sort((a, b) => {
             if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
@@ -421,6 +421,27 @@ const Shop = () => {
             if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
             return 0;
         });
+
+    if (!isSearchMode && sortBy === 'best-selling' && slug === 'coconut-shell-products') {
+        const specialProductTerms = ['mobile holder', 'soap holder', 'quote stand', 'dhoop stand'];
+        const specialProducts = [];
+        const normalProducts = [];
+        sortedProducts.forEach(p => {
+            const name = (p.name || '').toLowerCase();
+            if (specialProductTerms.some(term => name.includes(term))) {
+                specialProducts.push(p);
+            } else {
+                normalProducts.push(p);
+            }
+        });
+        
+        const insertIndex = Math.min(8, normalProducts.length);
+        sortedProducts = [
+            ...normalProducts.slice(0, insertIndex),
+            ...specialProducts,
+            ...normalProducts.slice(insertIndex)
+        ];
+    }
 
     const getDisplayName = (product: any) => product.product_name || product.productName || product.title || product.name || 'Product';
 
