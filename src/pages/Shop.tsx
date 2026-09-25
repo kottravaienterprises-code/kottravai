@@ -88,7 +88,7 @@ const Shop = () => {
 
     // Default price range 50 - 1000
     const [priceRange, setPriceRange] = useState<[number, number]>([0, 3000]);
-    const [sortBy, setSortBy] = useState('default');
+    const [sortBy, setSortBy] = useState('best-selling');
     const [isSortOpen, setIsSortOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isSortDrawerOpen, setIsSortDrawerOpen] = useState(false);
@@ -224,8 +224,8 @@ const Shop = () => {
                 // For parent categories, fetch all child slugs
                 let urls: string[] = [];
                 urls = validSlugs.length > 1
-                    ? validSlugs.map(s => `${baseUrl}?category_slug=${s}&limit=50`)
-                    : [`${baseUrl}${slug ? `?category_slug=${slug}&limit=50` : '?limit=50'}`];
+                    ? validSlugs.map(s => `${baseUrl}?category_slug=${s}&limit=50&sort=best-selling`)
+                    : [`${baseUrl}${slug ? `?category_slug=${slug}&limit=50&sort=best-selling` : '?limit=50&sort=best-selling'}`];
 
                 // Defensive: ensure signal isn't already aborted before launching parallel requests
                 if (controller.signal && controller.signal.aborted) {
@@ -402,11 +402,14 @@ const Shop = () => {
         : [...filteredProducts].sort((a, b) => {
             if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
             if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
-            if (sortBy === 'best-selling') return (b.salesCount || 0) - (a.salesCount || 0);
-            if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
+            if (sortBy === 'best-selling') return 0; // Preserve API order
+            if (sortBy === 'newest') {
+                const dateA = new Date(a.created_at || a.createdAt || 0).getTime();
+                const dateB = new Date(b.created_at || b.createdAt || 0).getTime();
+                return dateB - dateA;
+            }
             if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
             if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
-            if (sortBy === 'default') return a.name.localeCompare(b.name); // Default to Alphabetical A-Z
             return 0;
         });
 
@@ -572,12 +575,12 @@ const Shop = () => {
                                                             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Sort By</span>
                                                         </div>
                                                         {[
-                                                            { value: 'default', label: 'Alphabetical: A-Z' },
-                                                            { value: 'name-desc', label: 'Alphabetical: Z-A' },
                                                             { value: 'best-selling', label: 'Best Selling' },
-                                                            { value: 'rating', label: 'Rating' },
-                                                            { value: 'price-low', label: 'Price: Low ΓåÆ High' },
-                                                            { value: 'price-high', label: 'Price: High ΓåÆ Low' }
+                                                            { value: 'newest', label: 'Newest' },
+                                                            { value: 'price-low', label: 'Price: Low → High' },
+                                                            { value: 'price-high', label: 'Price: High → Low' },
+                                                            { value: 'name-asc', label: 'Name: A-Z' },
+                                                            { value: 'name-desc', label: 'Name: Z-A' }
                                                         ].map((option) => (
                                                             <button
                                                                 key={option.value}
@@ -618,12 +621,12 @@ const Shop = () => {
                                             </div>
                                             <div className="space-y-2">
                                                 {[
-                                                    { value: 'default', label: 'Alphabetical: A-Z' },
-                                                    { value: 'name-desc', label: 'Alphabetical: Z-A' },
                                                     { value: 'best-selling', label: 'Best Selling' },
-                                                    { value: 'rating', label: 'Rating' },
-                                                    { value: 'price-low', label: 'Price: Low ΓåÆ High' },
-                                                    { value: 'price-high', label: 'Price: High ΓåÆ Low' }
+                                                            { value: 'newest', label: 'Newest' },
+                                                            { value: 'price-low', label: 'Price: Low → High' },
+                                                            { value: 'price-high', label: 'Price: High → Low' },
+                                                            { value: 'name-asc', label: 'Name: A-Z' },
+                                                            { value: 'name-desc', label: 'Name: Z-A' }
                                                 ].map((option) => (
                                                     <button
                                                         key={option.value}
