@@ -6758,10 +6758,12 @@ const AdminDashboard = () => {
                 if (orderSearchQuery) {
                     const q = orderSearchQuery.toLowerCase();
                     filteredOrders = filteredOrders.filter(o => 
-                        o.id.toLowerCase().includes(q) || 
-                        o.customerName.toLowerCase().includes(q) || 
+                        (o.id && o.id.toLowerCase().includes(q)) || 
+                        (o.orderId && o.orderId.toLowerCase().includes(q)) || 
+                        (o.customerName && o.customerName.toLowerCase().includes(q)) || 
+                        (o.customerEmail && o.customerEmail.toLowerCase().includes(q)) || 
                         (o.customerPhone && o.customerPhone.includes(q)) ||
-                        o.items.some((i:any) => i.name.toLowerCase().includes(q))
+                        (o.items && o.items.some((i:any) => i.name && i.name.toLowerCase().includes(q)))
                     );
                 }
                 
