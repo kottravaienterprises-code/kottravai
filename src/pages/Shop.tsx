@@ -403,14 +403,7 @@ const Shop = () => {
             if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
             if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
             if (sortBy === 'best-selling') {
-                if (slug === 'coconut-shell-products') {
-                    const isEarringA = a.name.toLowerCase().includes('earring');
-                    const isEarringB = b.name.toLowerCase().includes('earring');
-                    // Demote earrings to the bottom (e.g. 4th page)
-                    if (isEarringA && !isEarringB) return 1;
-                    if (!isEarringA && isEarringB) return -1;
-                }
-                return 0; // Preserve API order for the rest
+                return (Number(b.salesCount) || 0) - (Number(a.salesCount) || 0);
             }
             if (sortBy === 'newest') {
                 const dateA = new Date(a.created_at || a.createdAt || 0).getTime();
@@ -421,27 +414,6 @@ const Shop = () => {
             if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
             return 0;
         });
-
-    if (!isSearchMode && sortBy === 'best-selling' && slug === 'coconut-shell-products') {
-        const specialProductTerms = ['mobile holder', 'soap holder', 'quote stand', 'dhoop stand'];
-        const specialProducts: any[] = [];
-        const normalProducts: any[] = [];
-        sortedProducts.forEach(p => {
-            const name = (p.name || '').toLowerCase();
-            if (specialProductTerms.some(term => name.includes(term))) {
-                specialProducts.push(p);
-            } else {
-                normalProducts.push(p);
-            }
-        });
-        
-        const insertIndex = Math.min(8, normalProducts.length);
-        sortedProducts = [
-            ...normalProducts.slice(0, insertIndex),
-            ...specialProducts,
-            ...normalProducts.slice(insertIndex)
-        ];
-    }
 
     const getDisplayName = (product: any) => product.product_name || product.productName || product.title || product.name || 'Product';
 

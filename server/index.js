@@ -2810,13 +2810,10 @@ app.get('/api/products', async (req, res) => {
         const offsetVal = parseInt(req.query.offset) || 0;
         
                 let queryText = q 
-            ? `SELECT p.*, ts_rank(p.search_vector, websearch_to_tsquery('english', $1)) AS relevance`
-            : 'SELECT p.*';
+            ? `SELECT p.*, ts_rank(p.search_vector, websearch_to_tsquery('english', $1)) AS relevance, COALESCE(sales_aggregation.sales_count, 0) AS "salesCount", COALESCE(sales_aggregation.revenue, 0) AS "salesRevenue"`
+            : 'SELECT p.*, COALESCE(sales_aggregation.sales_count, 0) AS "salesCount", COALESCE(sales_aggregation.revenue, 0) AS "salesRevenue"';
             
-        let joinClause = '';
-        if (req.query.sort === 'best-selling') {
-            queryText += `, COALESCE(sales_aggregation.sales_count, 0) AS "salesCount", COALESCE(sales_aggregation.revenue, 0) AS "salesRevenue"`;
-            joinClause = ` LEFT JOIN (
+        let joinClause = ` LEFT JOIN (
                 SELECT 
                     (item->>'id')::uuid AS product_id, 
                     SUM((item->>'quantity')::integer) AS sales_count,
@@ -2825,10 +2822,8 @@ app.get('/api/products', async (req, res) => {
                 WHERE status IN ('Processing', 'Delivered')
                 GROUP BY (item->>'id')::uuid
             ) sales_aggregation ON p.id = sales_aggregation.product_id`;
-        }
         
-        queryText += ' FROM products p';
-        if (joinClause) queryText += joinClause;
+        queryText += ' FROM products p' + joinClause;
         
         let conditions = [];
         let params = [];
