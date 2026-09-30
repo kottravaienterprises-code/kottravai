@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import MainLayout from '@/layouts/MainLayout';
 
 import B2BHero from '@/components/b2b/B2BHero';
+import CorporateGiftingCatalogue from '@/components/b2b/CorporateGiftingCatalogue';
 import B2BOfferings from '@/components/b2b/B2BOfferings';
 import B2BProductCategories from '@/components/b2b/B2BProductCategories';
 import WhyKottravaiB2B from '@/components/b2b/WhyKottravaiB2B';
@@ -30,22 +31,25 @@ const B2B = () => {
             {/* 1. B2BHero */}
             <B2BHero />
 
-            {/* 2. B2BOfferings */}
+            {/* 2. CorporateGiftingCatalogue */}
+            <CorporateGiftingCatalogue />
+
+            {/* 3. B2BOfferings */}
             <B2BOfferings />
 
-            {/* 3. B2BProductCategories */}
+            {/* 4. B2BProductCategories */}
             <B2BProductCategories />
 
-            {/* 4. WhyKottravaiB2B */}
+            {/* 5. WhyKottravaiB2B */}
             <WhyKottravaiB2B />
 
-            {/* 5. HowB2BWorks */}
+            {/* 6. HowB2BWorks */}
             <HowB2BWorks />
 
-            {/* 6. B2BImpact */}
+            {/* 7. B2BImpact */}
             <B2BImpact />
 
-            {/* 7. B2BContactForm */}
+            {/* 8. B2BContactForm */}
             <B2BContactForm />
         </MainLayout>
     );

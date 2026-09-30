@@ -53,9 +53,7 @@ const B2BHero = () => {
                 </div>
             </div>
             
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-bounce hidden md:block">
-                <ChevronDown size={24} className="text-[#8E2A8B]/50" />
-            </div>
+
         </section>
     );
 };
