@@ -5406,7 +5406,8 @@ const getValidDynamicRoutes = () => {
 };
 
 // Helper to check if a route is valid
-const isValidRoute = async (reqPath) => {
+const isValidRoute = async (rawPath) => {
+    const reqPath = (rawPath.endsWith("/") && rawPath.length > 1) ? rawPath.slice(0, -1) : rawPath;
     // 1. Check static routes first
     if (validStaticRoutes.has(reqPath)) return true;
 
@@ -5418,8 +5419,8 @@ const isValidRoute = async (reqPath) => {
             const result = await db.query('SELECT id FROM products WHERE LOWER(slug) = LOWER($1) AND is_live = TRUE LIMIT 1', [slug]);
             return result.rows.length > 0;
         } catch (e) {
-            console.error('Error checking product slug:', e);
-            return false;
+            console.error("Error checking product slug:", e);
+            return true;
         }
     }
 

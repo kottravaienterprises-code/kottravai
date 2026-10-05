@@ -2828,10 +2828,24 @@ const AdminDashboard = () => {
               {activeTab === "overview" && (
                 <>
                   {/* Stats Grid - Innovative Look */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {[
-                      
-                      
+                      {
+                        label: "Total Revenue",
+                        value: `₹${totalSales.toLocaleString()}`,
+                        grow: salesGrowth,
+                        icon: DollarSign,
+                        color: "text-emerald-600",
+                        bg: "bg-emerald-50",
+                      },
+                      {
+                        label: "Total Orders",
+                        value: totalOrders,
+                        grow: ordersGrowth,
+                        icon: ShoppingBag,
+                        color: "text-blue-600",
+                        bg: "bg-blue-50",
+                      },
                       {
                         label: "Conversion Rate",
                         value: "3.2%",
@@ -6545,16 +6559,257 @@ const AdminDashboard = () => {
             </div>
           ) : view === "users" ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-6 mb-8">
-                  <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                    <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
-                      Pending Processing
-                    </h4>
-                    <p className="text-3xl font-bold text-orange-500">
-                      {filteredOrders.filter((o) => o.status === "Pending").length}
-                    </p>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                  <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
+                    Total Customers
+                  </h4>
+                  <p className="text-3xl font-bold text-[#2D1B4E]">
+                    {customers.length}
+                  </p>
                 </div>
+                <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                  <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
+                    Average LTV
+                  </h4>
+                  <p className="text-3xl font-bold text-blue-600">
+                    ₹
+                    {customers.length > 0
+                      ? (
+                          customers.reduce((acc, c) => acc + c.totalSpent, 0) /
+                          customers.length
+                        ).toFixed(2)
+                      : 0}
+                  </p>
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                  <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
+                    Repeat Customers
+                  </h4>
+                  <p className="text-3xl font-bold text-purple-600">
+                    {customers.filter((c) => c.orderCount > 1).length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-[#2D1B4E] text-white">
+                    <tr>
+                      <th className="px-6 py-4 font-bold text-sm uppercase tracking-wider">
+                        Customer Name
+                      </th>
+                      <th className="px-6 py-4 font-bold text-sm uppercase tracking-wider">
+                        Email/Phone
+                      </th>
+                      <th className="px-6 py-4 font-bold text-sm uppercase tracking-wider">
+                        Orders
+                      </th>
+                      <th className="px-6 py-4 font-bold text-sm uppercase tracking-wider">
+                        Total Spent
+                      </th>
+                      <th className="px-6 py-4 font-bold text-sm uppercase tracking-wider">
+                        Last Order
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {customers
+                      .sort((a, b) => b.totalSpent - a.totalSpent)
+                      .map((customer, idx) => (
+                        <tr
+                          key={idx}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-6 py-4">
+                            <span className="font-bold text-gray-800">
+                              {customer.name}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-sm text-gray-600">
+                                {customer.email}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {customer.phone}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="bg-purple-50 text-[#8E2A8B] px-3 py-1 rounded-full text-xs font-bold">
+                              {customer.orderCount} Orders
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-bold text-gray-900">
+                            ₹{customer.totalSpent.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {new Date(customer.lastOrder).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    {customers.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-6 py-10 text-center text-gray-400 italic"
+                        >
+                          No customer data available yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : view === "orders" ? (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-[#2D1B4E]">
+                  Orders Management
+                </h3>
+                <button
+                  onClick={() =>
+                    generateInvoice({
+                      id: "SAMPLE-123",
+                      date: new Date().toISOString(),
+                      customerName: "Sample Customer",
+                      customerEmail: "customer@example.com",
+                      customerPhone: "+91 9876543210",
+                      address: "123, Sample Street, Test City",
+                      city: "Chennai",
+                      state: "Tamil Nadu",
+                      pincode: "600001",
+                      total: 5000,
+                      items: [
+                        {
+                          name: "Kottravai Premium Product",
+                          quantity: 1,
+                          price: 4500,
+                        },
+                        {
+                          name: "Heritage Collection Item",
+                          quantity: 2,
+                          price: 250,
+                        },
+                      ],
+                      subtotal_server: 5000,
+                      shipping_server: 0,
+                    })
+                  }
+                  className="bg-[#8E2A8B] text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-[#2D1B4E] transition-all flex items-center gap-2 shadow-md"
+                >
+                  <FileText size={18} />
+                  Generate Sample Invoice
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4 border-b border-gray-200 mb-6 pb-2">
+                <button
+                  onClick={() => setOrderTab("normal")}
+                  className={`px-4 py-2 font-bold text-sm rounded-t-lg transition-colors ${orderTab === "normal" ? "text-[#8E2A8B] border-b-2 border-[#8E2A8B]" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  Normal Orders
+                </button>
+                <button
+                  onClick={() => setOrderTab("customized")}
+                  className={`px-4 py-2 font-bold text-sm rounded-t-lg transition-colors ${orderTab === "customized" ? "text-[#8E2A8B] border-b-2 border-[#8E2A8B]" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  ✨ Customized Orders
+                </button>
+              </div>
+
+              {(() => {
+                let filteredOrders = orders.filter(o => {
+                  const hasCustom = o.has_customizations || (o.items && o.items.some((i: any) => i.customizationData?.isCustomized));
+                  return orderTab === "customized" ? hasCustom : !hasCustom;
+                });
+                
+                // Analytics calcs
+                const totalRevenue = filteredOrders.reduce((acc, curr) => acc + curr.total, 0);
+                
+                let avgCustomizationFee = 0;
+                let topCustomProduct = "";
+                let repeatCustomers = 0;
+                
+                if (orderTab === "customized" && filteredOrders.length > 0) {
+                  let totalFees = 0;
+                  let feeCount = 0;
+                  const productCounts: Record<string, number> = {};
+                  const customerCounts: Record<string, number> = {};
+                  
+                  filteredOrders.forEach(o => {
+                      customerCounts[o.customerEmail] = (customerCounts[o.customerEmail] || 0) + 1;
+                      o.items.forEach((i: any) => {
+                          if (i.customizationData?.isCustomized) {
+                              totalFees += (i.customizationData.customizationCharge || 0);
+                              feeCount++;
+                              productCounts[i.name] = (productCounts[i.name] || 0) + 1;
+                          }
+                      });
+                  });
+                  avgCustomizationFee = feeCount > 0 ? totalFees / feeCount : 0;
+                  topCustomProduct = Object.keys(productCounts).sort((a,b) => productCounts[b] - productCounts[a])[0] || "N/A";
+                  repeatCustomers = Object.values(customerCounts).filter(v => v > 1).length;
+                }
+
+                // Apply search and filters
+                if (orderSearchQuery) {
+                    const q = orderSearchQuery.toLowerCase();
+                    filteredOrders = filteredOrders.filter(o => 
+                        (o.id && o.id.toLowerCase().includes(q)) || 
+                        (o.orderId && o.orderId.toLowerCase().includes(q)) || 
+                        (o.customerName && o.customerName.toLowerCase().includes(q)) || 
+                        (o.customerEmail && o.customerEmail.toLowerCase().includes(q)) || 
+                        (o.customerPhone && o.customerPhone.includes(q)) ||
+                        (o.items && o.items.some((i:any) => i.name && i.name.toLowerCase().includes(q)))
+                    );
+                }
+                
+                if (orderFilterStatus !== "All") {
+                    filteredOrders = filteredOrders.filter(o => o.status === orderFilterStatus);
+                }
+
+                return (
+                  <>
+              {orderTab === "customized" ? (
+                <div className="mb-8 space-y-4">
+                  <div className="p-5 bg-purple-50 rounded-2xl border border-purple-100 shadow-inner">
+                    <div className="mb-4">
+                      <h4 className="text-[#2D1B4E] text-lg font-black flex items-center gap-2">
+                        <Sparkles size={20} className="text-[#8E2A8B]" />
+                        Customization Analytics
+                      </h4>
+                      <p className="text-xs text-gray-500">Comprehensive metrics for customized production</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Total Custom Orders</p>
+                        <p className="text-xl font-black text-[#2D1B4E]">{filteredOrders.length}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Total Revenue</p>
+                        <p className="text-xl font-black text-green-600">₹{totalRevenue.toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Avg Custom Fee</p>
+                        <p className="text-xl font-black text-[#8E2A8B]">₹{avgCustomizationFee.toFixed(0)}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Avg Production Time</p>
+                        <p className="text-xl font-black text-blue-600">3 Days</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm col-span-2">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Top Customized Product</p>
+                        <p className="text-sm font-black text-gray-800 truncate">{topCustomProduct}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 shadow-sm col-span-2">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Repeat Customers</p>
+                        <p className="text-sm font-black text-gray-800">{repeatCustomers} Customers</p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">

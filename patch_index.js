@@ -1,23 +1,111 @@
 const fs = require('fs');
-let c = fs.readFileSync('server/index.js', 'utf8');
 
-const targetStr = `        const server = app.listen(port, async () => {
-            console.log(\`✅ Server running on port \${port}\`);`;
+const idxPath = 'server/index.js';
+let content = fs.readFileSync(idxPath, 'utf8');
 
-const replacement = `        const server = app.listen(port, async () => {
-            console.log(\`✅ Server running on port \${port}\`);
+const targetStr = `        let queryText = q 
+            ? \`SELECT *, ts_rank(search_vector, websearch_to_tsquery('english', $1)) AS relevance FROM products\`
+            : 'SELECT * FROM products';
             
-            if ((process.env.ANALYTICS_MODE || 'legacy') === 'postgres') {
-                console.log('\\n==================================================');
-                console.log('Analytics Configuration');
-                console.log('==================================================');
-                console.log('ANALYTICS_MODE=postgres');
-                console.log('Analytics source: PostgreSQL');
-                console.log('Analytics table: analytics_events');
-                console.log('Raw Events Google Sheets ingestion: DISABLED');
-                console.log('Google Sheets dashboard output: ENABLED');
-                console.log('==================================================\\n');
-            }`;
+        let conditions = [];
+        let params = [];
 
-c = c.replace(targetStr, replacement);
-fs.writeFileSync('server/index.js', c);
+        if (q) {
+            params.push(q);
+            conditions.push("search_vector @@ websearch_to_tsquery('english', $1)");
+        }
+
+        if (!isAdmin) {
+            conditions.push('is_live = TRUE');
+        }
+
+        if (category_slug) {
+            params.push(category_slug);
+            conditions.push(\`category_slug = $\${params.length}\`);
+        }
+
+        if (is_best_seller === 'true') {
+            conditions.push('is_best_seller = TRUE');
+        }
+
+        if (hub) {
+            params.push(hub);
+            conditions.push(\`hub = $\${params.length}\`);
+        }
+
+        if (conditions.length > 0) {
+            queryText += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        if (q) {
+            queryText += ' ORDER BY relevance DESC, created_at DESC';
+        } else {
+            queryText += ' ORDER BY created_at DESC';
+        }`;
+
+const replaceStr = `        let queryText = q 
+            ? \`SELECT p.*, ts_rank(p.search_vector, websearch_to_tsquery('english', $1)) AS relevance\`
+            : 'SELECT p.*';
+            
+        let joinClause = '';
+        if (req.query.sort === 'best-selling') {
+            queryText += \`, COALESCE(sales_aggregation.sales_count, 0) AS "salesCount", COALESCE(sales_aggregation.revenue, 0) AS "salesRevenue"\`;
+            joinClause = \` LEFT JOIN (
+                SELECT 
+                    (item->>'id')::uuid AS product_id, 
+                    SUM((item->>'quantity')::integer) AS sales_count,
+                    SUM((item->>'price')::numeric * (item->>'quantity')::numeric) AS revenue
+                FROM orders, jsonb_array_elements(items) AS item
+                WHERE status IN ('Processing', 'Delivered')
+                GROUP BY (item->>'id')::uuid
+            ) sales_aggregation ON p.id = sales_aggregation.product_id\`;
+        }
+        
+        queryText += ' FROM products p';
+        if (joinClause) queryText += joinClause;
+        
+        let conditions = [];
+        let params = [];
+
+        if (q) {
+            params.push(q);
+            conditions.push("p.search_vector @@ websearch_to_tsquery('english', $1)");
+        }
+
+        if (!isAdmin) {
+            conditions.push('p.is_live = TRUE');
+        }
+
+        if (category_slug) {
+            params.push(category_slug);
+            conditions.push(\`p.category_slug = $\${params.length}\`);
+        }
+
+        if (is_best_seller === 'true') {
+            conditions.push('p.is_best_seller = TRUE');
+        }
+
+        if (hub) {
+            params.push(hub);
+            conditions.push(\`p.hub = $\${params.length}\`);
+        }
+
+        if (conditions.length > 0) {
+            queryText += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        if (q) {
+            queryText += ' ORDER BY relevance DESC, p.created_at DESC';
+        } else if (req.query.sort === 'best-selling') {
+            queryText += ' ORDER BY "salesCount" DESC, "salesRevenue" DESC, p.created_at DESC';
+        } else {
+            queryText += ' ORDER BY p.created_at DESC';
+        }`;
+
+if (content.includes(targetStr)) {
+    content = content.replace(targetStr, replaceStr);
+    fs.writeFileSync(idxPath, content);
+    console.log("Successfully patched server/index.js");
+} else {
+    console.log("Target string not found in server/index.js");
+}

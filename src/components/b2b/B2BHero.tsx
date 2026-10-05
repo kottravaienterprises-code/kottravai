@@ -1,4 +1,4 @@
-import { ChevronDown, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 const B2BHero = () => {
     const scrollToEnquiry = () => {

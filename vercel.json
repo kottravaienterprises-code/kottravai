@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "cleanUrls": true,
+  "trailingSlash": false,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "headers": [
@@ -15,7 +17,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "server/**|config.json",
+      "includeFiles": "server/**|config.json|src/data/**/*.json",
       "memory": 512,
       "maxDuration": 30
     }
