@@ -82,6 +82,10 @@
       "destination": "/api/index.js"
     },
     {
+      "source": "/kottravai-secure-hq(.*)",
+      "destination": "/index.html"
+    },
+    {
       "source": "/((?!api|assets|robots.txt|sitemap.xml|sitemap_.*\\.xml|favicon.png|logo.png|.*\\.).*)",
       "destination": "/api/index.js"
     }
