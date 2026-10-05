@@ -5341,6 +5341,9 @@ const validStaticRoutes = new Set([
     '/services',
     '/contact',
     '/camps',
+    '/kottravai-secure-hq',
+    '/kottravai-secure-hq/login',
+    '/kottravai-secure-hq/orders',
     '/affiliate/dashboard',
     '/shipping-policy',
     '/refund-policy',
@@ -5407,9 +5410,17 @@ const getValidDynamicRoutes = () => {
 
 // Helper to check if a route is valid
 const isValidRoute = async (rawPath) => {
-    const reqPath = (rawPath.endsWith("/") && rawPath.length > 1) ? rawPath.slice(0, -1) : rawPath;
+    let reqPath = rawPath;
+    if (reqPath.endsWith('/index.html')) {
+        reqPath = reqPath.slice(0, -11);
+    } else if (reqPath.endsWith('/index')) {
+        reqPath = reqPath.slice(0, -6);
+    }
+    if (reqPath.endsWith("/") && reqPath.length > 1) {
+        reqPath = reqPath.slice(0, -1);
+    }
     // 1. Check static routes first
-    if (validStaticRoutes.has(reqPath)) return true;
+    if (validStaticRoutes.has(reqPath) || reqPath.startsWith('/kottravai-secure-hq')) return true;
 
     // 2. Check dynamic routes with regex and database lookups
     const productMatch = reqPath.match(/^\/product\/([^/]+)$/);
@@ -5681,7 +5692,17 @@ app.use(async (req, res, next) => {
         return res.status(404).json({ error: 'API route not found' });
     }
 
-    // Check if it's a static file (has extension)
+    // 1. Check if it's a valid React route FIRST
+    // Vercel may send req.path as /b2b/index.html for directory routes.
+    const isValid = await isValidRoute(req.path);
+    if (isValid) {
+        const buildFolder = 'dist';
+        const indexFilePath = path.join(__dirname, `../${buildFolder}/index.html`);
+        await injectMetadata(indexFilePath, req.path, 200, res);
+        return;
+    }
+
+    // 2. Check if it's a static file (has extension)
     const hasExtension = req.path.includes('.');
     if (hasExtension) {
         // Let express.static handle it if the file exists
@@ -5695,13 +5716,10 @@ app.use(async (req, res, next) => {
         }
     }
 
-    // Check if it's a valid React route
-    const isValid = await isValidRoute(req.path);
-    const statusCode = isValid ? 200 : 404;
-
+    // 3. Otherwise, it's an invalid React route (no extension), return 404 page
     const buildFolder = 'dist';
     const indexFilePath = path.join(__dirname, `../${buildFolder}/index.html`);
-    await injectMetadata(indexFilePath, req.path, statusCode, res);
+    await injectMetadata(indexFilePath, req.path, 404, res);
 });
 
 /**

@@ -17,7 +17,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "server/**|config.json|src/data/**/*.json",
+      "includeFiles": "server/**|config.json|src/data/**/*.json|dist/index.html",
       "memory": 512,
       "maxDuration": 30
     }
