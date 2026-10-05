@@ -21,7 +21,7 @@ const BestSellerProductCard = ({ product }: { product: any }) => {
         toggleWishlist(product);
     };
 
-    const isPromo = isActivePromotion(product) || product.campaignTag === '70% OFF' || Boolean(product.originalPrice && product.originalPrice > product.price);
+    const isPromo = isActivePromotion(product) || product.campaignTag === '50% OFF' || Boolean(product.originalPrice && product.originalPrice > product.price);
     const originalPriceNum = product.originalPrice ? Number(product.originalPrice) : 0;
     const currentPriceNum = Number(product.price);
     

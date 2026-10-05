@@ -5441,7 +5441,7 @@ const AdminDashboard = () => {
                           setFormData({ ...formData, campaignTag: e.target.value })
                         }
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-[#8E2A8B] focus:border-[#8E2A8B] outline-none transition-all"
-                        placeholder="e.g. 70% OFF"
+                        placeholder="e.g. 50% OFF"
                         disabled={isUploading}
                       />
                     </div>

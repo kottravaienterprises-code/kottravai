@@ -1,8 +1,8 @@
 import { Product, ProductVariant } from '@/data/products';
 
 export const isActivePromotion = (product: Product, variant?: ProductVariant | null): boolean => {
-    // Must be 70% OFF campaign
-    if (product.campaignTag !== '70% OFF') {
+    // Must be 50% OFF campaign
+    if (product.campaignTag !== '50% OFF') {
         return false;
     }
 
