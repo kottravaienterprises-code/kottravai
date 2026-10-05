@@ -83,7 +83,7 @@
     },
     {
       "source": "/kottravai-secure-hq(.*)",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/((?!api|assets|robots.txt|sitemap.xml|sitemap_.*\\.xml|favicon.png|logo.png|.*\\.).*)",
