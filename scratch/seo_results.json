@@ -1,0 +1,516 @@
+{
+  "robotsTxt": "User-agent: Googlebot\nAllow: /\n\nUser-agent: Googlebot-Image\nAllow: /\n\nUser-agent: Googlebot-News\nAllow: /\n\nUser-agent: Googlebot-Mobile\nAllow: /\n\nUser-agent: bingbot\nAllow: /\n\nUser-agent: Slurp\nAllow: /\n\nUser-agent: *\nDisallow: /api/\nDisallow: /kottravai-secure-hq/\nDisallow: /admin-dashboard/\nDisallow: /affiliate/\nDisallow: /webhooks/\nDisallow: /checkout/\nDisallow: /order-success/\nDisallow: /*?*   # Disallow parameters to avoid duplicate crawling\nAllow: /\n\nSitemap: https://www.kottravai.in/sitemap.xml\nSitemap: https://www.kottravai.in/sitemap-index.xml\n",
+  "sitemapXml": "This XML file does not appear to have any style information associated with it. The document tree is shown below.\n\n<sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n<sitemap>\n<loc>https://www.kottravai.in/sitemap-products.xml</loc>\n</sitemap>\n<sitemap>\n<loc>https://www.kottravai.in/sitemap-pages.xml</loc>\n</sitemap>\n<sitemap>\n<loc>https://www.kottravai.in/sitemap-categories.xml</loc>\n</sitemap>\n<sitemap>\n<loc>https://www.kottravai.in/sitemap-blog.xml</loc>\n</sitemap>\n</sitemapindex>",
+  "results": {
+    "/": {
+      "status": 200,
+      "title": "Kottravai | Handmade Crafts, Eco Products & Traditional Food Mixes",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/",
+      "robots": null,
+      "jsonld": [
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Kottravai",
+          "url": "https://www.kottravai.in",
+          "logo": "https://www.kottravai.in/logo.png"
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "url": "https://www.kottravai.in",
+          "name": "Kottravai",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.kottravai.in/shop?q={q}",
+            "query-input": "required name=q"
+          }
+        }
+      ]
+    },
+    "/shop": {
+      "status": 200,
+      "title": "Shop - Kottravai",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/shop",
+      "robots": null,
+      "jsonld": [
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Kottravai",
+          "url": "https://www.kottravai.in",
+          "logo": "https://www.kottravai.in/logo.png",
+          "sameAs": [
+            "https://instagram.com/kottravai",
+            "https://facebook.com/kottravai"
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "url": "https://www.kottravai.in",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.kottravai.in/shop?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "Shop",
+          "description": "Shop Kottravai for handcrafted terracotta jewellery, sustainable home decor, natural essentials, and meaningful gifts.",
+          "url": "https://www.kottravai.in/shop"
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://www.kottravai.in"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Shop",
+              "item": "https://www.kottravai.in/shop"
+            }
+          ]
+        }
+      ]
+    },
+    "/category/food": {
+      "status": 404,
+      "title": "Category Not Found - Kottravai",
+      "metaDesc": "Discover high-quality, authentic handcrafted Food products. Sustainably sourced and lovingly made by local traditional artisans.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/category/food",
+      "robots": "noindex, nofollow",
+      "jsonld": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://www.kottravai.in"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Shop",
+              "item": "https://www.kottravai.in/shop"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Food",
+              "item": "https://www.kottravai.in/category/food"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "Category Not Found",
+          "description": "The requested category could not be found.",
+          "url": "https://www.kottravai.in/shop"
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://www.kottravai.in"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Shop",
+              "item": "https://www.kottravai.in/shop"
+            }
+          ]
+        }
+      ]
+    },
+    "/category/home-decor": {
+      "status": 404,
+      "title": "Category Not Found - Kottravai",
+      "metaDesc": "Discover high-quality, authentic handcrafted Home Decor products. Sustainably sourced and lovingly made by local traditional artisans.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/category/home-decor",
+      "robots": "noindex, nofollow",
+      "jsonld": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://www.kottravai.in"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Shop",
+              "item": "https://www.kottravai.in/shop"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Home Decor",
+              "item": "https://www.kottravai.in/category/home-decor"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "Category Not Found",
+          "description": "The requested category could not be found.",
+          "url": "https://www.kottravai.in/shop"
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://www.kottravai.in"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Shop",
+              "item": "https://www.kottravai.in/shop"
+            }
+          ]
+        }
+      ]
+    },
+    "/category/personal-care": {
+      "status": 404,
+      "title": "Category Not Found - Kottravai",
+      "metaDesc": "Discover high-quality, authentic handcrafted Personal Care products. Sustainably sourced and lovingly made by local traditional artisans.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/category/personal-care",
+      "robots": "noindex, nofollow",
+      "jsonld": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://www.kottravai.in"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Shop",
+              "item": "https://www.kottravai.in/shop"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Personal Care",
+              "item": "https://www.kottravai.in/category/personal-care"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "Category Not Found",
+          "description": "The requested category could not be found.",
+          "url": "https://www.kottravai.in/shop"
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://www.kottravai.in"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Shop",
+              "item": "https://www.kottravai.in/shop"
+            }
+          ]
+        }
+      ]
+    },
+    "/product/coconut-shell-bowl": {
+      "status": 404,
+      "title": "Product Not Found - Kottravai",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/product/coconut-shell-bowl",
+      "robots": "noindex, nofollow",
+      "jsonld": []
+    },
+    "/product/cold-pressed-coconut-oil": {
+      "status": 404,
+      "title": "Product Not Found - Kottravai",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/product/cold-pressed-coconut-oil",
+      "robots": "noindex, nofollow",
+      "jsonld": []
+    },
+    "/product/neem-wood-comb": {
+      "status": 404,
+      "title": "Kottravai | Revival of Heritage",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/product/neem-wood-comb",
+      "robots": "noindex, nofollow",
+      "jsonld": []
+    },
+    "/product/handmade-soap": {
+      "status": 404,
+      "title": "Product Not Found - Kottravai",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/product/handmade-soap",
+      "robots": "noindex, nofollow",
+      "jsonld": []
+    },
+    "/product/bamboo-toothbrush": {
+      "status": 404,
+      "title": "Product Not Found - Kottravai",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/product/bamboo-toothbrush",
+      "robots": "noindex, nofollow",
+      "jsonld": []
+    },
+    "/b2b": {
+      "status": 404,
+      "title": "Corporate Partnerships & B2B Gifting - Kottravai",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": "Purposeful Products.\nMeaningful Partnerships.",
+      "canonical": "https://www.kottravai.in/b2b/",
+      "robots": "noindex, nofollow",
+      "jsonld": [
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Kottravai",
+          "url": "https://www.kottravai.in",
+          "logo": "https://www.kottravai.in/logo.png",
+          "sameAs": [
+            "https://instagram.com/kottravai",
+            "https://facebook.com/kottravai"
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "url": "https://www.kottravai.in",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.kottravai.in/shop?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    },
+    "/about": {
+      "status": 200,
+      "title": "About Us | Kottravai - Dignified Livelihoods Through Craft",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/about",
+      "robots": null,
+      "jsonld": [
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Kottravai",
+          "url": "https://www.kottravai.in",
+          "logo": "https://www.kottravai.in/logo.png",
+          "sameAs": [
+            "https://instagram.com/kottravai",
+            "https://facebook.com/kottravai"
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "url": "https://www.kottravai.in",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.kottravai.in/shop?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    },
+    "/contact": {
+      "status": 200,
+      "title": "Contact Us | Kottravai - Pure, Natural & Authentic",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": null,
+      "canonical": "https://www.kottravai.in/contact",
+      "robots": null,
+      "jsonld": [
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Kottravai",
+          "url": "https://www.kottravai.in",
+          "logo": "https://www.kottravai.in/logo.png",
+          "sameAs": [
+            "https://instagram.com/kottravai",
+            "https://facebook.com/kottravai"
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "url": "https://www.kottravai.in",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.kottravai.in/shop?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    },
+    "/blog": {
+      "status": 404,
+      "title": "Kottravai Blog | Handcrafted Stories & Sustainable Living",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": "Kottravai Journal",
+      "canonical": "https://www.kottravai.in/blog/",
+      "robots": "noindex, nofollow",
+      "jsonld": [
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Kottravai",
+          "url": "https://www.kottravai.in",
+          "logo": "https://www.kottravai.in/logo.png",
+          "sameAs": [
+            "https://instagram.com/kottravai",
+            "https://facebook.com/kottravai"
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "url": "https://www.kottravai.in",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.kottravai.in/shop?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "name": "Kottravai Blog",
+          "description": "Discover stories about artisan craftsmanship, sustainable living, women entrepreneurship, and eco-friendly home decor.",
+          "url": "https://www.kottravai.in/blog"
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://www.kottravai.in"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Blog",
+              "item": "https://www.kottravai.in/blog"
+            }
+          ]
+        }
+      ]
+    },
+    "/blog/sustainable-living": {
+      "status": 404,
+      "title": "Page Not Found - Kottravai",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": "404",
+      "canonical": "https://www.kottravai.in/blog/sustainable-living",
+      "robots": "noindex, nofollow",
+      "jsonld": []
+    },
+    "/blog/benefits-of-neem-wood": {
+      "status": 404,
+      "title": "Page Not Found - Kottravai",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": "404",
+      "canonical": "https://www.kottravai.in/blog/benefits-of-neem-wood",
+      "robots": "noindex, nofollow",
+      "jsonld": []
+    },
+    "/this-url-does-not-exist-404": {
+      "status": 404,
+      "title": "Page Not Found - Kottravai",
+      "metaDesc": "Kottravai offers premium handcrafted terracotta jewellery, heritage mixes, coconut crafts and essential care products. Shop our exclusive handmade collection today.",
+      "h1": "404",
+      "canonical": "https://www.kottravai.in/this-url-does-not-exist-404",
+      "robots": "noindex, nofollow",
+      "jsonld": [
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Kottravai",
+          "url": "https://www.kottravai.in",
+          "logo": "https://www.kottravai.in/logo.png",
+          "sameAs": [
+            "https://instagram.com/kottravai",
+            "https://facebook.com/kottravai"
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "url": "https://www.kottravai.in",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.kottravai.in/shop?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    }
+  },
+  "counts": {
+    "total200": 4,
+    "total3xx": 0,
+    "total4xx": 13,
+    "total5xx": 0
+  }
+}
