@@ -55,14 +55,14 @@ const CorporateGiftingCatalogue = () => {
                         
                         <div className="flex flex-col sm:flex-row items-center gap-4">
                             <a 
-                                href="/kottravai-corporate%20gifting.pdf"
+                                href="/diwali-gifting-catalogue.pdf"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                download="Kottravai-Diwali-Gifting-Catalogue.pdf"
+                                download="Diwali-Gifting-Catalogue.pdf"
                                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#8E2A8B] hover:bg-[#6D1E6A] text-white px-8 py-4 rounded-xl font-bold text-sm tracking-wide transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                             >
                                 <FileText size={18} />
-                                View Corporate Catalogue
+                                Download Diwali Gifting Catalogue
                             </a>
                             <button 
                                 onClick={scrollToEnquiry}

@@ -331,8 +331,7 @@ const buildDailyAnalyticsEmail = (data) => {
               <!-- EXECUTIVE SCORECARDS -->
               ${ScorecardRow([
                 { label: "Today's Visitors", value: formatNum(s7.todayVisitors) },
-                { label: "Today's Orders", value: formatNum(data.summary.totalOrders) },
-                { label: "Today's Revenue", value: formatCur(data.summary.totalRevenue), isGreen: true },
+                
                 { label: "Conversion Rate", value: formatPct(data.summary.overallConversionRate * 100) }
               ])}
               
