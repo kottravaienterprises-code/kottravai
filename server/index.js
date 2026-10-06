@@ -39,6 +39,7 @@ const aiLeadQualificationService = require('./services/aiLeadQualificationServic
 const aiCopilotService = require('./services/aiCopilotService');
 const leadService = require('./services/leadService');
 const escalationService = require('./services/escalationService');
+const orderPricing = require('./services/orderPricing');
 const { sendMetaWhatsAppFreeFormText } = require('./services/metaWhatsappService');
 const { buildSearchTokens, normalizeSearchText } = require('./utils/searchEngine');
 const { logSearchEvent, getPopularSearches } = require('./services/searchAnalyticsService');
@@ -1874,43 +1875,10 @@ const recalculateTotals = async (items, state) => {
 
     if (!dbProducts || dbProducts.length === 0) throw new Error('COULD_NOT_FETCH_PRODUCTS');
 
-    let subtotalCents = 0;
-    let totalGstCents = 0;
-    
-    for (const item of items) {
-        const dbProduct = dbProducts.find(p => p.id === item.id);
-        if (!dbProduct) throw new Error(`PRODUCT_NOT_FOUND: ${item.id}`);
+    const initialTotals = orderPricing.calculateWebsiteTotals(items, dbProducts, 0);
+    const shipping = await shippingService.calculateShipping(state || 'Rest of India', initialTotals.subtotalCents / 100);
 
-        let itemPrice = Number(dbProduct.price);
-        if (item.selectedVariant && dbProduct.variants) {
-            const variant = dbProduct.variants.find(v => v.weight === item.selectedVariant.weight);
-            if (variant) itemPrice = Number(variant.price);
-        }
-        
-        const quantity = item.quantity || 1;
-        const customCharge = item.customizationData?.isCustomized ? Number(item.customizationData.customizationCharge || 0) : 0;
-        const itemTotalCents = (Math.round(itemPrice * 100) * quantity) + Math.round(customCharge * 100);
-        subtotalCents += itemTotalCents;
-        
-        const gstRate = Number(dbProduct.gst_rate || 0);
-        item.gst_rate = gstRate; // Store it back in the item object
-
-        if (gstRate > 0) {
-            // Calculate GST: Price * GST% / 100
-            totalGstCents += Math.round(itemTotalCents * (gstRate / 100));
-        }
-    }
-
-    const shipping = await shippingService.calculateShipping(state || 'Rest of India', subtotalCents / 100);
-    const shippingCents = Math.round(shipping.shippingFee * 100);
-
-    return {
-        subtotalCents,
-        shippingCents,
-        totalGstCents,
-        totalCents: subtotalCents + shippingCents + totalGstCents,
-        zoneName: shipping.zoneName
-    };
+    return orderPricing.calculateWebsiteTotals(items, dbProducts, shipping);
 };
 
 /**
@@ -2399,6 +2367,21 @@ app.get('/api/orders', async (req, res) => {
                 total: parseFloat(row.total),
                 status: row.status,
                 date: row.created_at,
+                source: row.source,
+                invoice_number: row.invoice_number,
+                invoice_date: row.invoice_date,
+                payment_status: row.payment_status,
+                payment_method: row.payment_method,
+                amount_paid: parseFloat(row.amount_paid || 0),
+                discount_server: parseFloat(row.discount_server || 0),
+                taxable_amount_server: parseFloat(row.taxable_amount_server || 0),
+                cgst_server: parseFloat(row.cgst_server || 0),
+                sgst_server: parseFloat(row.sgst_server || 0),
+                igst_server: parseFloat(row.igst_server || 0),
+                total_gst_server: parseFloat(row.total_gst_server || 0),
+                customer_company: row.customer_company,
+                customer_gstin: row.customer_gstin,
+                place_of_supply: row.place_of_supply,
                 items: row.items,
                 paymentId: row.payment_id,
                 shiprocketOrderId: row.shiprocket_order_id,
@@ -2674,6 +2657,207 @@ app.delete('/api/orders/:id', authenticateAdmin, async (req, res) => {
         res.json({ message: 'Order deleted successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
+// OFFLINE INVOICE ENDPOINTS (Admin Only)
+// ==========================================
+
+// Server-side Price Preview Endpoint (Side-effect free)
+app.post('/api/admin/invoices/offline/preview', authenticateAdmin, async (req, res) => {
+    try {
+        const {
+            placeOfSupply,
+            items,
+            discountAmount = 0,
+            shippingFee = 0,
+            shippingTaxRate = 0
+        } = req.body;
+
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ error: 'AT_LEAST_ONE_PRODUCT_REQUIRED' });
+        }
+
+        for (const item of items) {
+            if (!item.id || Number(item.quantity) <= 0) {
+                return res.status(400).json({ error: 'INVALID_ITEM_QUANTITY' });
+            }
+        }
+
+        if (Number(discountAmount) < 0 || Number(shippingFee) < 0) {
+            return res.status(400).json({ error: 'INVALID_DISCOUNT_OR_SHIPPING_VALUE' });
+        }
+
+        const uniqueProductIds = Array.from(new Set(items.map(item => item.id)));
+        const dbRes = await db.query(
+            'SELECT id, name, sku, price, variants, gst_rate FROM products WHERE id = ANY($1)',
+            [uniqueProductIds]
+        );
+        const dbProducts = dbRes.rows;
+
+        if (!dbProducts || dbProducts.length === 0) {
+            return res.status(400).json({ error: 'NO_VALID_PRODUCTS_FOUND' });
+        }
+
+        const calculation = orderPricing.calculateOfflinePricing({
+            items,
+            dbProducts,
+            placeOfSupply,
+            discountAmount,
+            shippingFee,
+            shippingTaxRate
+        });
+
+        return res.json(calculation);
+    } catch (err) {
+        console.error('❌ [OFFLINE_INVOICE_PREVIEW_ERROR]:', err.message);
+        return res.status(400).json({ error: err.message });
+    }
+});
+
+// Offline Invoice Creation Endpoint (Idempotent, Admin Only)
+app.post('/api/admin/invoices/offline', authenticateAdmin, async (req, res) => {
+    try {
+        const {
+            idempotencyKey,
+            customer = {},
+            placeOfSupply = 'Tamil Nadu',
+            items = [],
+            discountAmount = 0,
+            shippingFee = 0,
+            shippingTaxRate = 0,
+            paymentStatus = 'paid',
+            paymentMethod = 'Cash',
+            paymentReference = null,
+            amountPaid = 0,
+            notes = null,
+            invoiceDate = null
+        } = req.body;
+
+        if (!idempotencyKey || typeof idempotencyKey !== 'string') {
+            return res.status(400).json({ error: 'IDEMPOTENCY_KEY_REQUIRED' });
+        }
+
+        // 1. Idempotency Check
+        const existingRes = await db.query('SELECT * FROM orders WHERE idempotency_key = $1', [idempotencyKey]);
+        if (existingRes.rows.length > 0) {
+            console.log(`ℹ️ [IDEMPOTENT_OFFLINE_INVOICE] Key ${idempotencyKey} already processed.`);
+            return res.json({ success: true, order: existingRes.rows[0], alreadyProcessed: true });
+        }
+
+        // 2. Input Validation
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ error: 'AT_LEAST_ONE_PRODUCT_REQUIRED' });
+        }
+
+        for (const item of items) {
+            if (!item.id || Number(item.quantity) <= 0) {
+                return res.status(400).json({ error: 'INVALID_ITEM_QUANTITY' });
+            }
+        }
+
+        if (Number(discountAmount) < 0 || Number(shippingFee) < 0 || Number(amountPaid) < 0) {
+            return res.status(400).json({ error: 'INVALID_NUMERIC_VALUE' });
+        }
+
+        // 3. Load authoritative DB products
+        const uniqueProductIds = Array.from(new Set(items.map(item => item.id)));
+        const dbRes = await db.query(
+            'SELECT id, name, sku, price, variants, gst_rate FROM products WHERE id = ANY($1)',
+            [uniqueProductIds]
+        );
+        const dbProducts = dbRes.rows;
+
+        if (!dbProducts || dbProducts.length < uniqueProductIds.length) {
+            return res.status(400).json({ error: 'ONE_OR_MORE_PRODUCTS_NOT_FOUND' });
+        }
+
+        // 4. Compute authoritative server-side pricing
+        const pricing = orderPricing.calculateOfflinePricing({
+            items,
+            dbProducts,
+            placeOfSupply,
+            discountAmount,
+            shippingFee,
+            shippingTaxRate
+        });
+
+        // 5. Generate Atomic Invoice Number & Financial Year
+        const invDate = invoiceDate ? new Date(invoiceDate) : new Date();
+        const invoiceNumber = await orderPricing.getNextInvoiceNumber(db, invDate);
+
+        // 6. Map Statuses and Created By
+        const createdBy = req.adminUser ? (req.adminUser.username || req.adminUser.id) : 'admin';
+        const finalAmountPaid = Number(amountPaid) || (paymentStatus === 'paid' ? pricing.grandTotal : 0);
+        const payStatus = paymentStatus || (finalAmountPaid >= pricing.grandTotal ? 'paid' : 'pending');
+
+        const billingAddr = customer.address
+            ? `${customer.address}, ${customer.city || ''}, ${customer.state || placeOfSupply} - ${customer.pincode || ''}`
+            : customer.billingAddress || '';
+
+        // 7. Save Invoice Record to Database
+        const insertRes = await db.query(`
+            INSERT INTO orders (
+                source, invoice_number, invoice_date, payment_status, payment_method, payment_reference,
+                amount_paid, discount_server, taxable_amount_server, cgst_server, sgst_server, igst_server,
+                customer_company, customer_gstin, place_of_supply, billing_address, notes, created_by, idempotency_key,
+                customer_name, customer_email, customer_phone, address, city, state, pincode,
+                total, subtotal_server, shipping_server, total_server, total_gst_server,
+                items, payment_id, order_id, status
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6,
+                $7, $8, $9, $10, $11, $12,
+                $13, $14, $15, $16, $17, $18, $19,
+                $20, $21, $22, $23, $24, $25, $26,
+                $27, $28, $29, $30, $31, $32, $33, $34, $35
+            ) RETURNING *
+        `, [
+            'offline',
+            invoiceNumber,
+            invDate,
+            payStatus,
+            paymentMethod || 'Cash',
+            paymentReference || null,
+            finalAmountPaid,
+            pricing.discount,
+            pricing.taxableAmount,
+            pricing.cgst,
+            pricing.sgst,
+            pricing.igst,
+            customer.company || null,
+            customer.gstin || null,
+            placeOfSupply,
+            billingAddr,
+            notes || null,
+            createdBy,
+            idempotencyKey,
+            customer.name || 'Offline Customer',
+            customer.email || 'offline@kottravai.in',
+            customer.phone || '0000000000',
+            customer.address || billingAddr,
+            customer.city || '',
+            customer.state || placeOfSupply,
+            customer.pincode || '',
+            pricing.grandTotal,
+            pricing.subtotal,
+            pricing.shippingFee,
+            pricing.grandTotal,
+            pricing.cgst + pricing.sgst + pricing.igst + pricing.shippingTax,
+            JSON.stringify(pricing.items),
+            paymentReference ? `${paymentReference}-${invoiceNumber}` : invoiceNumber,
+            invoiceNumber,
+            'Processing'
+        ]);
+
+        const newOrder = insertRes.rows[0];
+        console.log(`✅ [OFFLINE_INVOICE_CREATED] Invoice #${invoiceNumber} saved for ${customer.name || 'Customer'}`);
+
+        return res.status(201).json({ success: true, order: newOrder });
+
+    } catch (err) {
+        console.error('❌ [CREATE_OFFLINE_INVOICE_CRASH]:', err.message);
+        return res.status(500).json({ error: err.message || 'INTERNAL_SERVER_ERROR' });
     }
 });
 

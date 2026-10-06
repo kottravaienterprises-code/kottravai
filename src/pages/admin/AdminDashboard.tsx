@@ -95,6 +95,7 @@ import LeadCRMPanel from "./LeadCRMPanel";
 import { LeadCopilotPanel } from "./LeadCopilotPanel";
 import { Lead } from "@/types/crm";
 import EventRegistrationsView from "./EventRegistrationsView";
+import { CreateOfflineInvoiceModal } from "@/components/admin/CreateOfflineInvoiceModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadsView — Phase 1: Lead Capture & Qualification System
@@ -594,6 +595,7 @@ const AdminDashboard = () => {
     boolean | null
   >(null);
   const [orderTab, setOrderTab] = useState<"normal" | "customized">("normal");
+  const [showOfflineInvoiceModal, setShowOfflineInvoiceModal] = useState(false);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<any>(null);
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [orderFilterStatus, setOrderFilterStatus] = useState("All");
@@ -1047,8 +1049,11 @@ const AdminDashboard = () => {
   }, []);
 
   const generateInvoice = async (order: any) => {
-    const invoiceId = `INV-${Date.now().toString(36).toUpperCase()}`;
-    const dateStr = new Date(order.date || Date.now()).toLocaleDateString(
+    const invoiceId =
+      order.invoice_number || `INV-${Date.now().toString(36).toUpperCase()}`;
+    const dateStr = new Date(
+      order.invoice_date || order.date || Date.now(),
+    ).toLocaleDateString(
       "en-IN",
       {
         day: "2-digit",
@@ -1073,7 +1078,19 @@ const AdminDashboard = () => {
 
     const subtotal = rawSubtotal || rawTotal - rawShipping;
     const shipping = rawShipping;
-    const gstAmount = Number(order.total_gst_server || 0);
+    const items = Array.isArray(order.items) ? order.items : [];
+    const itemGstAmount = items.reduce((sum: number, item: any) => {
+      const gstAmount =
+        item.gst_amount ??
+        item.gstAmount ??
+        Number(item.cgst || 0) +
+          Number(item.sgst || 0) +
+          Number(item.igst || 0);
+      return sum + Number(gstAmount || 0);
+    }, 0);
+    const storedGstAmount = Number(order.total_gst_server || 0);
+    const gstAmount = storedGstAmount || itemGstAmount;
+    const discount = Number(order.discount_server || 0);
     const grandTotal = rawTotal;
 
     const fmt = (n: number) =>
@@ -1091,26 +1108,30 @@ const AdminDashboard = () => {
       'position:fixed;left:-9999px;top:0;width:800px;background:#fff;padding:0;margin:0;box-sizing:border-box;font-family:"Segoe UI", Roboto, Helvetica, Arial, sans-serif;';
     document.body.appendChild(container);
 
-    const items = Array.isArray(order.items) ? order.items : [];
     const itemRows = items
       .map((item: any, i: number) => {
-        let unit = Number(item.price || 0);
+        let unit = Number(item.price ?? item.unitPrice ?? item.unit_price ?? 0);
         const qty = Number(item.quantity || 0);
+        const itemName =
+          item.name || item.productName || item.product_name || item.title || "";
 
         // Heuristic: If unit price * quantity is way higher than total, it's likely in cents
         if (grandTotal > 0 && unit * qty > grandTotal * 50) {
           unit = unit / 100;
         }
 
-        const gstRate = item.gst_rate || 0;
-        const gstAmount = item.gst_amount || 0;
+        const gstRate = item.gst_rate ?? item.gstRate ?? 0;
+        const gstAmount =
+          item.gst_amount ??
+          item.gstAmount ??
+          Number(item.cgst || 0) + Number(item.sgst || 0) + Number(item.igst || 0);
         const gstText = gstRate > 0 ? ` | GST: ${gstRate}% (₹${gstAmount})` : '';
 
         return `
             <tr style="border-bottom: 1px solid #edf2f7;">
                 <td style="padding: 12px; color: #718096; font-size: 11px; text-align: center; width: 40px;">${i + 1}</td>
                 <td style="padding: 12px; text-align: left;">
-                    <div style="font-weight: 700; color: #2d3748; font-size: 12px; line-height: 1.3;">${item.name || ""}</div>
+                    <div style="font-weight: 700; color: #2d3748; font-size: 12px; line-height: 1.3;">${itemName}</div>
                     <div style="font-size: 9px; color: #a0aec0; margin-top: 2px;">HSN/SAC: 6304${gstText}</div>
                 </td>
                 <td style="padding: 12px; color: #4a5568; font-size: 11px; text-align: center; width: 60px; font-weight: 600;">${qty} Nos</td>
@@ -1183,14 +1204,14 @@ const AdminDashboard = () => {
                 <div style="width: 1px; height: 25px; background: rgba(255,255,255,0.15);"></div>
                 <div style="text-align: left;">
                     <div style="font-size: 9px; color: rgba(255,255,255,0.6); font-weight: 800; text-transform: uppercase; margin-bottom: 2px;">Payment Method</div>
-                    <div style="font-size: 13px; font-weight: 800; color: #fff;">Prepaid (Razorpay)</div>
+                    <div style="font-size: 13px; font-weight: 800; color: #fff;">${order.payment_method || "Prepaid (Razorpay)"}</div>
                 </div>
                 <div style="width: 1px; height: 25px; background: rgba(255,255,255,0.15);"></div>
                 <div style="text-align: left;">
                     <div style="font-size: 9px; color: rgba(255,255,255,0.6); font-weight: 800; text-transform: uppercase; margin-bottom: 2px;">Status</div>
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <div style="width: 6px; height: 6px; border-radius: 50%; background: #48bb78;"></div>
-                        <div style="font-size: 12px; font-weight: 900; color: #fff; text-transform: uppercase;">PAID</div>
+                        <div style="font-size: 12px; font-weight: 900; color: #fff; text-transform: uppercase;">${order.payment_status || "PAID"}</div>
                     </div>
                 </div>
             </div>
@@ -1238,6 +1259,11 @@ const AdminDashboard = () => {
                             <span style="font-size: 11px; font-weight: 700; color: #718096;">Subtotal</span>
                             <span style="font-size: 11px; font-weight: 800; color: #2D1B4E;">${fmt(subtotal)}</span>
                         </div>
+                        ${discount > 0 ? `
+                        <div style="padding: 10px 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #edf2f7;">
+                            <span style="font-size: 11px; font-weight: 700; color: #718096;">Discount</span>
+                            <span style="font-size: 11px; font-weight: 800; color: #2D1B4E;">-${fmt(discount)}</span>
+                        </div>` : ""}
                         <div style="padding: 10px 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #edf2f7;">
                             <span style="font-size: 11px; font-weight: 700; color: #718096;">Shipping</span>
                             <span style="font-size: 11px; font-weight: 800; color: #2D1B4E;">${fmt(shipping)}</span>
@@ -6669,40 +6695,49 @@ const AdminDashboard = () => {
                 <h3 className="text-xl font-bold text-[#2D1B4E]">
                   Orders Management
                 </h3>
-                <button
-                  onClick={() =>
-                    generateInvoice({
-                      id: "SAMPLE-123",
-                      date: new Date().toISOString(),
-                      customerName: "Sample Customer",
-                      customerEmail: "customer@example.com",
-                      customerPhone: "+91 9876543210",
-                      address: "123, Sample Street, Test City",
-                      city: "Chennai",
-                      state: "Tamil Nadu",
-                      pincode: "600001",
-                      total: 5000,
-                      items: [
-                        {
-                          name: "Kottravai Premium Product",
-                          quantity: 1,
-                          price: 4500,
-                        },
-                        {
-                          name: "Heritage Collection Item",
-                          quantity: 2,
-                          price: 250,
-                        },
-                      ],
-                      subtotal_server: 5000,
-                      shipping_server: 0,
-                    })
-                  }
-                  className="bg-[#8E2A8B] text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-[#2D1B4E] transition-all flex items-center gap-2 shadow-md"
-                >
-                  <FileText size={18} />
-                  Generate Sample Invoice
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowOfflineInvoiceModal(true)}
+                    className="bg-[#2D1B4E] text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-[#8E2A8B] transition-all flex items-center gap-2 shadow-md"
+                  >
+                    <Plus size={18} />
+                    Create Offline Invoice
+                  </button>
+                  <button
+                    onClick={() =>
+                      generateInvoice({
+                        id: "SAMPLE-123",
+                        date: new Date().toISOString(),
+                        customerName: "Sample Customer",
+                        customerEmail: "customer@example.com",
+                        customerPhone: "+91 9876543210",
+                        address: "123, Sample Street, Test City",
+                        city: "Chennai",
+                        state: "Tamil Nadu",
+                        pincode: "600001",
+                        total: 5000,
+                        items: [
+                          {
+                            name: "Kottravai Premium Product",
+                            quantity: 1,
+                            price: 4500,
+                          },
+                          {
+                            name: "Heritage Collection Item",
+                            quantity: 2,
+                            price: 250,
+                          },
+                        ],
+                        subtotal_server: 5000,
+                        shipping_server: 0,
+                      })
+                    }
+                    className="bg-[#8E2A8B] text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-[#2D1B4E] transition-all flex items-center gap-2 shadow-md"
+                  >
+                    <FileText size={18} />
+                    Generate Sample Invoice
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center gap-4 border-b border-gray-200 mb-6 pb-2">
@@ -6971,9 +7006,9 @@ const AdminDashboard = () => {
                                   </span>
                                   <span
                                     className="text-gray-600 truncate max-w-[150px]"
-                                    title={item.name}
+                                    title={item.name || item.productName || item.product_name || item.title}
                                   >
-                                    {item.name}
+                                    {item.name || item.productName || item.product_name || item.title}
                                   </span>
                                 </div>
                               ))
@@ -7620,6 +7655,22 @@ const AdminDashboard = () => {
           ) : null}
         </div>
       </main>
+
+      <CreateOfflineInvoiceModal
+        isOpen={showOfflineInvoiceModal}
+        onClose={() => setShowOfflineInvoiceModal(false)}
+        products={products}
+        apiBase={API_BASE}
+        adminToken={sessionStorage.getItem("kottravai_admin_token") || ""}
+        onInvoiceCreated={(newOrder) => {
+          if (typeof fetchAllOrders === 'function') {
+            fetchAllOrders();
+          }
+        }}
+        onGenerateInvoicePdf={(order) => {
+          generateInvoice(order);
+        }}
+      />
     </div>
     </>
   );
