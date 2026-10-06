@@ -1091,6 +1091,10 @@ const AdminDashboard = () => {
     const storedGstAmount = Number(order.total_gst_server || 0);
     const gstAmount = storedGstAmount || itemGstAmount;
     const discount = Number(order.discount_server || 0);
+    const isOfflineInvoice = order.source === "offline";
+    const taxableAmount = isOfflineInvoice
+      ? Number(order.taxable_amount_server || 0)
+      : subtotal - discount;
     const grandTotal = rawTotal;
 
     const fmt = (n: number) =>
@@ -1247,7 +1251,7 @@ const AdminDashboard = () => {
                         <div style="background: #fdf2f8; border-radius: 10px; padding: 12px; border: 1px solid #f9a8d4;">
                             <div style="font-size: 9px; font-weight: 900; color: #8E2A8B; text-transform: uppercase; margin-bottom: 4px;">Terms & Conditions</div>
                             <div style="font-size: 9px; color: #8E2A8B; line-height: 1.5; font-weight: 500;">
-                                • Prices include GST where applicable<br/>
+                                • GST is calculated as applicable<br/>
                                 • Handcrafted products - unique subtle variations<br/>
                                 • Verification needed within 48h for claims
                             </div>
@@ -1263,6 +1267,11 @@ const AdminDashboard = () => {
                         <div style="padding: 10px 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #edf2f7;">
                             <span style="font-size: 11px; font-weight: 700; color: #718096;">Discount</span>
                             <span style="font-size: 11px; font-weight: 800; color: #2D1B4E;">-${fmt(discount)}</span>
+                        </div>` : ""}
+                        ${isOfflineInvoice ? `
+                        <div style="padding: 10px 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #edf2f7;">
+                            <span style="font-size: 11px; font-weight: 700; color: #718096;">Taxable Amount</span>
+                            <span style="font-size: 11px; font-weight: 800; color: #2D1B4E;">${fmt(taxableAmount)}</span>
                         </div>` : ""}
                         <div style="padding: 10px 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #edf2f7;">
                             <span style="font-size: 11px; font-weight: 700; color: #718096;">Shipping</span>

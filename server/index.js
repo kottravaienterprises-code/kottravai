@@ -16,6 +16,9 @@ console.log("ENV CHECK", {
 const rateLimit = require('express-rate-limit');
 const axios = require('axios');
 const app = express();
+const isValidOptionalGstRate = rate =>
+    rate === null || rate === undefined ||
+    (Number.isFinite(Number(rate)) && Number(rate) >= 0 && Number(rate) <= 100);
 const db = require('./db');
 const nodemailer = require('nodemailer');
 const { verifyConnection } = require('./utils/mailer');
@@ -2672,7 +2675,8 @@ app.post('/api/admin/invoices/offline/preview', authenticateAdmin, async (req, r
             items,
             discountAmount = 0,
             shippingFee = 0,
-            shippingTaxRate = 0
+            shippingTaxRate = 0,
+            gstRate = null
         } = req.body;
 
         if (!Array.isArray(items) || items.length === 0) {
@@ -2687,6 +2691,9 @@ app.post('/api/admin/invoices/offline/preview', authenticateAdmin, async (req, r
 
         if (Number(discountAmount) < 0 || Number(shippingFee) < 0) {
             return res.status(400).json({ error: 'INVALID_DISCOUNT_OR_SHIPPING_VALUE' });
+        }
+        if (!isValidOptionalGstRate(gstRate)) {
+            return res.status(400).json({ error: 'INVALID_GST_RATE' });
         }
 
         const uniqueProductIds = Array.from(new Set(items.map(item => item.id)));
@@ -2706,7 +2713,8 @@ app.post('/api/admin/invoices/offline/preview', authenticateAdmin, async (req, r
             placeOfSupply,
             discountAmount,
             shippingFee,
-            shippingTaxRate
+            shippingTaxRate,
+            gstRate
         });
 
         return res.json(calculation);
@@ -2727,6 +2735,7 @@ app.post('/api/admin/invoices/offline', authenticateAdmin, async (req, res) => {
             discountAmount = 0,
             shippingFee = 0,
             shippingTaxRate = 0,
+            gstRate = null,
             paymentStatus = 'paid',
             paymentMethod = 'Cash',
             paymentReference = null,
@@ -2760,6 +2769,9 @@ app.post('/api/admin/invoices/offline', authenticateAdmin, async (req, res) => {
         if (Number(discountAmount) < 0 || Number(shippingFee) < 0 || Number(amountPaid) < 0) {
             return res.status(400).json({ error: 'INVALID_NUMERIC_VALUE' });
         }
+        if (!isValidOptionalGstRate(gstRate)) {
+            return res.status(400).json({ error: 'INVALID_GST_RATE' });
+        }
 
         // 3. Load authoritative DB products
         const uniqueProductIds = Array.from(new Set(items.map(item => item.id)));
@@ -2780,7 +2792,8 @@ app.post('/api/admin/invoices/offline', authenticateAdmin, async (req, res) => {
             placeOfSupply,
             discountAmount,
             shippingFee,
-            shippingTaxRate
+            shippingTaxRate,
+            gstRate
         });
 
         // 5. Generate Atomic Invoice Number & Financial Year

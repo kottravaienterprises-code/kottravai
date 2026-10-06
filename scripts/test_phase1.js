@@ -37,8 +37,8 @@ async function runAsyncTest(testName, fn) {
 
 async function main() {
 
-    // TEST 1: Tamil Nadu Customer (Intra-state GST)
-    runTest('Tamil Nadu customer, Subtotal ₹1,000, 18% GST, No Discount', () => {
+    // TEST 1: Tamil Nadu customer, GST added to subtotal (Intra-state GST)
+    runTest('Tamil Nadu customer, ₹1,000 subtotal plus 18% GST', () => {
         const items = [{ id: 'prod_1', quantity: 1 }];
         const dbProducts = [{ id: 'prod_1', name: 'Test Product', price: 1000, gst_rate: 18 }];
 
@@ -51,15 +51,15 @@ async function main() {
 
         assert.strictEqual(res.subtotal, 1000, 'Subtotal should be 1000');
         assert.strictEqual(res.discount, 0, 'Discount should be 0');
-        assert.strictEqual(res.taxableAmount, 1000, 'Taxable Amount should be 1000');
-        assert.strictEqual(res.cgst, 90, 'CGST should be 90');
-        assert.strictEqual(res.sgst, 90, 'SGST should be 90');
+        assert.strictEqual(res.taxableAmount, 1000, 'Taxable Amount should equal the subtotal');
+        assert.strictEqual(res.cgst, 90, 'CGST should be 9% of the subtotal');
+        assert.strictEqual(res.sgst, 90, 'SGST should be 9% of the subtotal');
         assert.strictEqual(res.igst, 0, 'IGST should be 0');
-        assert.strictEqual(res.grandTotal, 1180, 'Grand Total should be 1180');
+        assert.strictEqual(res.grandTotal, 1180, 'Grand Total should include GST added to the subtotal');
     });
 
-    // TEST 2: Karnataka Customer (Inter-state IGST)
-    runTest('Karnataka customer, Subtotal ₹1,000, 18% GST, No Discount', () => {
+    // TEST 2: Karnataka customer, GST added to subtotal (Inter-state GST)
+    runTest('Karnataka customer, ₹1,000 subtotal plus 18% GST', () => {
         const items = [{ id: 'prod_1', quantity: 1 }];
         const dbProducts = [{ id: 'prod_1', name: 'Test Product', price: 1000, gst_rate: 18 }];
 
@@ -71,15 +71,15 @@ async function main() {
         });
 
         assert.strictEqual(res.subtotal, 1000, 'Subtotal should be 1000');
-        assert.strictEqual(res.taxableAmount, 1000, 'Taxable Amount should be 1000');
+        assert.strictEqual(res.taxableAmount, 1000, 'Taxable Amount should equal the subtotal');
         assert.strictEqual(res.cgst, 0, 'CGST should be 0');
         assert.strictEqual(res.sgst, 0, 'SGST should be 0');
-        assert.strictEqual(res.igst, 180, 'IGST should be 180');
-        assert.strictEqual(res.grandTotal, 1180, 'Grand Total should be 1180');
+        assert.strictEqual(res.igst, 180, 'IGST should be 18% of the subtotal');
+        assert.strictEqual(res.grandTotal, 1180, 'Grand Total should include GST added to the subtotal');
     });
 
-    // TEST 3: Tamil Nadu with Discount
-    runTest('Tamil Nadu, Subtotal ₹1,000, Discount ₹100, 18% GST', () => {
+    // TEST 3: Tamil Nadu subtotal with discount before GST
+    runTest('Tamil Nadu, ₹1,000 subtotal with ₹100 discount and 18% GST', () => {
         const items = [{ id: 'prod_1', quantity: 1 }];
         const dbProducts = [{ id: 'prod_1', name: 'Test Product', price: 1000, gst_rate: 18 }];
 
@@ -92,14 +92,69 @@ async function main() {
 
         assert.strictEqual(res.subtotal, 1000, 'Subtotal should be 1000');
         assert.strictEqual(res.discount, 100, 'Discount should be 100');
-        assert.strictEqual(res.taxableAmount, 900, 'Taxable Amount should be 900');
-        assert.strictEqual(res.cgst, 81, 'CGST should be 81 (900 * 18% / 2)');
-        assert.strictEqual(res.sgst, 81, 'SGST should be 81 (900 * 18% / 2)');
+        assert.strictEqual(res.taxableAmount, 900, 'Taxable Amount should equal subtotal after discount');
+        assert.strictEqual(res.cgst, 81, 'CGST should be 9% of the discounted subtotal');
+        assert.strictEqual(res.sgst, 81, 'SGST should be 9% of the discounted subtotal');
         assert.strictEqual(res.igst, 0, 'IGST should be 0');
-        assert.strictEqual(res.grandTotal, 1062, 'Grand Total should be 1062');
+        assert.strictEqual(res.grandTotal, 1062, 'Grand Total should include GST after discount');
     });
 
-    // TEST 4: Discount Greater than Subtotal (Validation Error)
+    // TEST 4: Mixed GST rates are calculated per product subtotal.
+    runTest('Mixed product GST rates are added to each product subtotal', () => {
+        const items = [
+            { id: 'p1', quantity: 1 },
+            { id: 'p2', quantity: 1 },
+            { id: 'p3', quantity: 1 },
+            { id: 'p4', quantity: 1 }
+        ];
+        const dbProducts = [
+            { id: 'p1', price: 360, gst_rate: 5 },
+            { id: 'p2', price: 150, gst_rate: 18 },
+            { id: 'p3', price: 750, gst_rate: 5 },
+            { id: 'p4', price: 450, gst_rate: 5 }
+        ];
+
+        const res = orderPricing.calculateOfflinePricing({
+            items,
+            dbProducts,
+            placeOfSupply: 'Tamil Nadu',
+            shippingFee: 50
+        });
+
+        assert.strictEqual(res.subtotal, 1710, 'Subtotal should equal the product prices');
+        assert.strictEqual(res.taxableAmount, 1710, 'Taxable amount should equal the subtotal');
+        assert.strictEqual(res.cgst + res.sgst, 105, 'GST should be calculated per product rate');
+        assert.strictEqual(res.grandTotal, 1865, 'GST and shipping should be added to the subtotal');
+    });
+
+    runTest('5% GST adds 5% of ₹3,524 to the subtotal', () => {
+        const res = orderPricing.calculateOfflinePricing({
+            items: [{ id: 'prod_1', quantity: 1 }],
+            dbProducts: [
+                { id: 'prod_1', name: 'Test Product', price: 3524, gst_rate: 18 }
+            ],
+            placeOfSupply: 'Tamil Nadu',
+            gstRate: 5
+        });
+
+        assert.strictEqual(res.taxableAmount, 3524);
+        assert.strictEqual(res.cgst, 88.1);
+        assert.strictEqual(res.sgst, 88.1);
+        assert.strictEqual(res.grandTotal, 3700.2);
+        assert.strictEqual(res.items[0].gstRate, 5, 'Invoice GST rate should override product GST');
+    });
+
+    runTest('Invalid invoice GST rate is rejected', () => {
+        assert.throws(() => {
+            orderPricing.calculateOfflinePricing({
+                items: [{ id: 'prod_1', quantity: 1 }],
+                dbProducts: [{ id: 'prod_1', price: 100, gst_rate: 5 }],
+                gstRate: 101
+            });
+        }, /INVALID_GST_RATE/);
+    });
+
+    // TEST 5: Discount Greater than Subtotal (Validation Error)
     runTest('Discount greater than subtotal validation error', () => {
         const items = [{ id: 'prod_1', quantity: 1 }];
         const dbProducts = [{ id: 'prod_1', name: 'Test Product', price: 1000, gst_rate: 18 }];

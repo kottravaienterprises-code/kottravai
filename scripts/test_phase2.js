@@ -53,8 +53,8 @@ async function main() {
         assert.strictEqual('invalid_secret' === systemSecret, false, 'Invalid secret must be rejected');
     });
 
-    // TEST 2: Preview - TN Order
-    runTest('Preview TN Order (₹1,000 subtotal, 18% GST -> CGST 90, SGST 90, IGST 0)', () => {
+    // TEST 2: Preview - TN Order with GST added to subtotal
+    runTest('Preview TN Order (₹1,000 subtotal, 18% GST -> CGST 90, SGST 90)', () => {
         const items = [{ id: 'dummy_1', quantity: 1 }];
         const dbProducts = [{ id: 'dummy_1', name: 'Item A', price: 1000, gst_rate: 18 }];
 
@@ -73,8 +73,8 @@ async function main() {
         assert.strictEqual(preview.grandTotal, 1180);
     });
 
-    // TEST 3: Preview - Inter-state Order (Karnataka)
-    runTest('Preview Karnataka Order (₹1,000 subtotal, 18% GST -> CGST 0, SGST 0, IGST 180)', () => {
+    // TEST 3: Preview - Inter-state Order (Karnataka) with GST added to subtotal
+    runTest('Preview Karnataka Order (₹1,000 subtotal, 18% GST -> IGST 180)', () => {
         const items = [{ id: 'dummy_1', quantity: 1 }];
         const dbProducts = [{ id: 'dummy_1', name: 'Item A', price: 1000, gst_rate: 18 }];
 
@@ -93,8 +93,8 @@ async function main() {
         assert.strictEqual(preview.grandTotal, 1180);
     });
 
-    // TEST 4: Preview - Discount Before GST
-    runTest('Preview Discount (Subtotal ₹1,000, Discount ₹100, 18% GST -> Taxable ₹900, CGST 81, SGST 81)', () => {
+    // TEST 4: Preview - Discount before GST
+    runTest('Preview Discount (₹1,000 subtotal, ₹100 off, 18% GST -> total ₹1,062)', () => {
         const items = [{ id: 'dummy_1', quantity: 1 }];
         const dbProducts = [{ id: 'dummy_1', name: 'Item A', price: 1000, gst_rate: 18 }];
 
@@ -132,15 +132,16 @@ async function main() {
             discountAmount: 50
         });
 
-        // Subtotal = 2*150 + 3*200 = 300 + 600 = 900
+        // Subtotal = ₹900; discount is applied before GST.
         assert.strictEqual(preview.subtotal, 900);
         assert.strictEqual(preview.discount, 50);
         assert.strictEqual(preview.taxableAmount, 850);
         assert.strictEqual(preview.items.length, 2);
 
-        // Sum of item line totals must equal taxableAmount
+        // Per-line taxable amounts sum to the discounted subtotal.
         const sumLineTaxable = preview.items.reduce((acc, item) => acc + item.taxableValue, 0);
-        assert.strictEqual(Math.round(sumLineTaxable), 850);
+        assert.strictEqual(sumLineTaxable, 850);
+        assert.strictEqual(preview.grandTotal, 986);
     });
 
     // TEST 6: Invalid Quantity Check

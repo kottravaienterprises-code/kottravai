@@ -105,8 +105,8 @@ const isTamilNadu = (pos) => {
 };
 
 /**
- * Calculates Offline Order Pricing with discount before GST, CGST/SGST vs IGST,
- * configurable shipping tax, and strict monetary precision.
+ * Calculates Offline Order Pricing with GST added to product prices, discounts,
+ * CGST/SGST vs IGST, configurable shipping tax, and strict monetary precision.
  *
  * @param {object} params
  * @param {Array} params.items - Items array [{ id, quantity, selectedVariant, customizationData }]
@@ -123,10 +123,15 @@ const calculateOfflinePricing = ({
     placeOfSupply = '',
     discountAmount = 0,
     shippingFee = 0,
-    shippingTaxRate = 0
+    shippingTaxRate = 0,
+    gstRate = null
 }) => {
     if (!Array.isArray(items) || items.length === 0) {
         throw new Error('ITEMS_REQUIRED');
+    }
+    if (gstRate !== null && gstRate !== undefined &&
+        (!Number.isFinite(Number(gstRate)) || Number(gstRate) < 0 || Number(gstRate) > 100)) {
+        throw new Error('INVALID_GST_RATE');
     }
 
     // 1. Calculate item subtotals
@@ -149,7 +154,9 @@ const calculateOfflinePricing = ({
             : 0;
 
         const lineSubtotal = round2((itemPrice * quantity) + customCharge);
-        const gstRate = Number(dbProduct.gst_rate || item.gstRate || item.gst_rate || 0);
+        const itemGstRate = gstRate === null || gstRate === undefined
+            ? Number(dbProduct.gst_rate || item.gstRate || item.gst_rate || 0)
+            : Number(gstRate);
 
         return {
             productId: dbProduct.id,
@@ -159,7 +166,7 @@ const calculateOfflinePricing = ({
             unitPrice: itemPrice,
             customCharge,
             subtotal: lineSubtotal,
-            gstRate,
+            gstRate: itemGstRate,
             selectedVariant: item.selectedVariant || null,
             customizationData: item.customizationData || null
         };
@@ -176,7 +183,7 @@ const calculateOfflinePricing = ({
         throw new Error(`Discount (₹${discount}) cannot exceed subtotal (₹${subtotal})`);
     }
 
-    // 3. Apply discount BEFORE GST (proportional allocation)
+    // 3. Apply discount before GST, allocated proportionally across line items.
     let allocatedDiscounts = lineDetails.map(() => 0);
     if (discount > 0 && subtotal > 0) {
         let currentAllocSum = 0;
@@ -192,7 +199,7 @@ const calculateOfflinePricing = ({
         });
     }
 
-    // 4. Calculate Taxable Value & GST per line
+    // 4. Calculate GST on each discounted line's taxable value.
     const isIntra = isTamilNadu(placeOfSupply);
     let totalTaxableAmount = 0;
     let totalCgst = 0;
@@ -202,12 +209,7 @@ const calculateOfflinePricing = ({
     const processedItems = lineDetails.map((line, index) => {
         const lineDiscount = allocatedDiscounts[index];
         const lineTaxableValue = round2(line.subtotal - lineDiscount);
-
-        if (lineTaxableValue < 0) {
-            throw new Error('Line taxable value cannot be negative');
-        }
-
-        const lineGstTotal = round2(lineTaxableValue * (line.gstRate / 100));
+        const lineGstTotal = round2(lineTaxableValue * line.gstRate / 100);
 
         let cgst = 0;
         let sgst = 0;

@@ -109,6 +109,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [shippingTaxRate, _setShippingTaxRate] = useState<number>(0);
+  const [invoiceGstRate, setInvoiceGstRate] = useState<number | "">("");
 
   const [paymentStatus, setPaymentStatus] = useState<"paid" | "pending">("paid");
   const [paymentMethod, setPaymentMethod] = useState("Cash");
@@ -189,7 +190,8 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
           })),
           discountAmount: Number(discountAmount || 0),
           shippingFee: Number(shippingFee || 0),
-          shippingTaxRate: Number(shippingTaxRate || 0)
+          shippingTaxRate: Number(shippingTaxRate || 0),
+          gstRate: invoiceGstRate === "" ? null : invoiceGstRate
         };
 
         const res = await axios.post(
@@ -221,6 +223,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
     discountAmount,
     shippingFee,
     shippingTaxRate,
+    invoiceGstRate,
     apiBase,
     adminToken
   ]);
@@ -317,6 +320,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
         discountAmount: Number(discountAmount || 0),
         shippingFee: Number(shippingFee || 0),
         shippingTaxRate: Number(shippingTaxRate || 0),
+        gstRate: invoiceGstRate === "" ? null : invoiceGstRate,
         paymentStatus,
         paymentMethod,
         paymentReference: paymentReference.trim() || null,
@@ -461,6 +465,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                             ? JSON.parse(createdOrder.items)
                             : createdOrder.items,
                         subtotal_server: createdOrder.subtotal_server,
+                        taxable_amount_server: createdOrder.taxable_amount_server,
                         shipping_server: createdOrder.shipping_server,
                         total_server: createdOrder.total_server,
                         total_gst_server: createdOrder.total_gst_server,
@@ -539,7 +544,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-gray-700 block mb-1">
-                      Email Address
+                      Email Address (Optional)
                     </label>
                     <input
                       type="email"
@@ -688,7 +693,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                           <optgroup key={category} label={category}>
                             {categoryProducts.map((p) => (
                               <option key={p.id} value={p.id}>
-                                {p.name} (₹{p.price} | GST: {p.gst_rate || 0}%)
+                                {p.name} (₹{p.price} | GST: {invoiceGstRate === "" ? p.gst_rate || 0 : invoiceGstRate}%)
                               </option>
                             ))}
                           </optgroup>
@@ -802,7 +807,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                               />
                             </td>
                             <td className="px-4 py-3 text-center">
-                              {item.gst_rate}%
+                              {invoiceGstRate === "" ? item.gst_rate : invoiceGstRate}%
                             </td>
                             <td className="px-4 py-3 text-right font-bold text-gray-900">
                               ₹{itemSub.toLocaleString()}
@@ -874,6 +879,28 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                         }
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-[#8E2A8B]/20 outline-none"
                       />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1">
+                        GST Rate (%)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.01"
+                        placeholder="Use product rates"
+                        value={invoiceGstRate}
+                        onChange={(e) =>
+                          setInvoiceGstRate(
+                            e.target.value === "" ? "" : Number(e.target.value)
+                          )
+                        }
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-[#8E2A8B]/20 outline-none"
+                      />
+                      <span className="text-[10px] text-gray-400">
+                        Overrides product GST rates for this invoice
+                      </span>
                     </div>
                   </div>
 
