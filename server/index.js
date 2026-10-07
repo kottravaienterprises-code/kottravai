@@ -2698,7 +2698,7 @@ app.post('/api/admin/invoices/offline/preview', authenticateAdmin, async (req, r
 
         const uniqueProductIds = Array.from(new Set(items.map(item => item.id)));
         const dbRes = await db.query(
-            'SELECT id, name, sku, price, variants, gst_rate FROM products WHERE id = ANY($1)',
+            'SELECT id, name, sku, price, original_price, variants, gst_rate FROM products WHERE id = ANY($1)',
             [uniqueProductIds]
         );
         const dbProducts = dbRes.rows;
@@ -2776,7 +2776,7 @@ app.post('/api/admin/invoices/offline', authenticateAdmin, async (req, res) => {
         // 3. Load authoritative DB products
         const uniqueProductIds = Array.from(new Set(items.map(item => item.id)));
         const dbRes = await db.query(
-            'SELECT id, name, sku, price, variants, gst_rate FROM products WHERE id = ANY($1)',
+            'SELECT id, name, sku, price, original_price, variants, gst_rate FROM products WHERE id = ANY($1)',
             [uniqueProductIds]
         );
         const dbProducts = dbRes.rows;

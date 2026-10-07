@@ -18,13 +18,33 @@ interface Product {
   id: string;
   name: string;
   price: number;
+  originalPrice?: number;
   gst_rate?: number;
   category?: string;
   categorySlug?: string;
   sku?: string;
   image?: string;
-  variants?: any[];
+  variants?: Array<{ weight: string; price: number }>;
 }
+
+interface InvoiceLineItem {
+  id: string;
+  name: string;
+  price: number;
+  basePrice: number;
+  discountPercentage: number;
+  quantity: number;
+  selectedVariant: { weight: string; price: number } | null;
+  gst_rate: number;
+}
+
+const getProductOfferPercentage = (product?: Product) => {
+  if (!product) return 0;
+  const currentPrice = Number(product.price);
+  const originalPrice = Number(product.originalPrice);
+  if (currentPrice <= 0 || originalPrice <= currentPrice) return 0;
+  return Math.round(((originalPrice - currentPrice) / originalPrice) * 10000) / 100;
+};
 
 interface CreateOfflineInvoiceModalProps {
   isOpen: boolean;
@@ -99,12 +119,13 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
   const [customerGstin, setCustomerGstin] = useState("");
 
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedDiscountPercentage, setSelectedDiscountPercentage] = useState(0);
   const [selectedQty, setSelectedQty] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [productSearch, setProductSearch] = useState("");
   const [productCategory, setProductCategory] = useState("");
 
-  const [lineItems, setLineItems] = useState<any[]>([]);
+  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
 
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [shippingFee, setShippingFee] = useState<number>(0);
@@ -186,7 +207,8 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
           items: lineItems.map((item) => ({
             id: item.id,
             quantity: item.quantity,
-            selectedVariant: item.selectedVariant || null
+            selectedVariant: item.selectedVariant || null,
+            discountPercentage: item.discountPercentage
           })),
           discountAmount: Number(discountAmount || 0),
           shippingFee: Number(shippingFee || 0),
@@ -234,15 +256,27 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
     const prod = products.find((p) => p.id === selectedProductId);
     if (!prod) return;
 
-    let itemPrice = Number(prod.price);
-    if (selectedVariant) {
-      itemPrice = Number(selectedVariant.price);
-    }
+    const currentPrice = Number(prod.price);
+    const originalPrice = Number(prod.originalPrice);
+    const hasProductDiscount = currentPrice > 0 && originalPrice > currentPrice;
+    const discountPercentage = selectedDiscountPercentage;
+    const selectedPrice = Number(selectedVariant?.price ?? prod.price);
+    const basePrice = selectedVariant
+      ? hasProductDiscount
+        ? selectedPrice * (originalPrice / currentPrice)
+        : selectedPrice
+      : hasProductDiscount
+        ? originalPrice
+        : currentPrice;
+    const itemPrice =
+      Math.round(basePrice * (1 - discountPercentage / 100) * 100) / 100;
 
     const newItem = {
       id: prod.id,
       name: prod.name,
       price: itemPrice,
+      basePrice,
+      discountPercentage,
       quantity: Number(selectedQty) || 1,
       selectedVariant,
       gst_rate: prod.gst_rate || 0
@@ -263,6 +297,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
     });
 
     setSelectedProductId("");
+    setSelectedDiscountPercentage(0);
     setSelectedQty(1);
     setSelectedVariant(null);
   };
@@ -278,6 +313,21 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
     setLineItems((prev) => {
       const updated = [...prev];
       updated[index].quantity = newQty;
+      return updated;
+    });
+  };
+
+  const handleUpdateDiscountPercentage = (index: number, percentage: number) => {
+    if (!Number.isFinite(percentage)) return;
+    const discountPercentage = Math.min(100, Math.max(0, percentage));
+    setLineItems((prev) => {
+      const updated = [...prev];
+      const item = updated[index];
+      updated[index] = {
+        ...item,
+        discountPercentage,
+        price: Math.round(item.basePrice * (1 - discountPercentage / 100) * 100) / 100
+      };
       return updated;
     });
   };
@@ -315,7 +365,8 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
         items: lineItems.map((item) => ({
           id: item.id,
           quantity: item.quantity,
-          selectedVariant: item.selectedVariant || null
+          selectedVariant: item.selectedVariant || null,
+          discountPercentage: item.discountPercentage
         })),
         discountAmount: Number(discountAmount || 0),
         shippingFee: Number(shippingFee || 0),
@@ -674,7 +725,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                   </div>
                 </div>
 
-                <div className="flex flex-col md:flex-row gap-3 items-end">
+                <div className="flex flex-col lg:flex-row gap-3 items-end">
                   <div className="flex-1">
                     <label className="text-xs font-bold text-gray-700 block mb-1">
                       Select Product ({filteredProducts.length})
@@ -682,7 +733,13 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                     <select
                       value={selectedProductId}
                       onChange={(e) => {
-                        setSelectedProductId(e.target.value);
+                        const productId = e.target.value;
+                        setSelectedProductId(productId);
+                        setSelectedDiscountPercentage(
+                          getProductOfferPercentage(
+                            products.find((product) => product.id === productId)
+                          )
+                        );
                         setSelectedVariant(null);
                       }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-[#8E2A8B]/20 outline-none bg-white"
@@ -705,6 +762,36 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                         No products match your search and category.
                       </p>
                     )}
+                  </div>
+
+                  <div className="w-32">
+                    <label
+                      htmlFor="offline-invoice-product-discount"
+                      className="text-xs font-bold text-gray-700 block mb-1"
+                    >
+                      Product Discount (%)
+                    </label>
+                    <input
+                      id="offline-invoice-product-discount"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={selectedDiscountPercentage}
+                      disabled={!selectedProductId}
+                      onChange={(e) => {
+                        const percentage = Number(e.target.value);
+                        if (Number.isFinite(percentage)) {
+                          setSelectedDiscountPercentage(
+                            Math.min(100, Math.max(0, percentage))
+                          );
+                        }
+                      }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-[#8E2A8B]/20 outline-none text-center disabled:bg-gray-100 disabled:text-gray-400"
+                    />
+                    <span className="text-[10px] text-gray-400">
+                      Offer percentage; editable
+                    </span>
                   </div>
 
                   {/* Variant Selection if available */}
@@ -764,12 +851,13 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                 </div>
 
                 {/* Line Items Table */}
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  <table className="w-full text-left text-xs">
+                <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-xs">
                     <thead className="bg-gray-100 text-gray-700 font-bold uppercase border-b border-gray-200">
                       <tr>
                         <th className="px-4 py-2.5">Product</th>
                         <th className="px-4 py-2.5 text-center">Unit Price</th>
+                        <th className="px-4 py-2.5 text-center">Discount %</th>
                         <th className="px-4 py-2.5 text-center">Qty</th>
                         <th className="px-4 py-2.5 text-center">GST Rate</th>
                         <th className="px-4 py-2.5 text-right">Subtotal</th>
@@ -790,7 +878,32 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                               )}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              ₹{item.price}
+                              {item.discountPercentage > 0 && (
+                                <span className="block text-[10px] text-gray-400 line-through">
+                                  ₹{item.basePrice.toLocaleString("en-IN")}
+                                </span>
+                              )}
+                              ₹{item.price.toLocaleString("en-IN")}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="inline-flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  step="0.01"
+                                  aria-label={`Discount percentage for ${item.name}`}
+                                  value={item.discountPercentage}
+                                  onChange={(e) =>
+                                    handleUpdateDiscountPercentage(
+                                      index,
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  className="w-16 border border-gray-300 rounded px-2 py-0.5 text-center font-bold"
+                                />
+                                <span>%</span>
+                              </div>
                             </td>
                             <td className="px-4 py-3 text-center">
                               <input
@@ -827,7 +940,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                       {lineItems.length === 0 && (
                         <tr>
                           <td
-                            colSpan={6}
+                            colSpan={7}
                             className="px-4 py-8 text-center text-gray-400 italic"
                           >
                             No products added to invoice yet.
@@ -1047,7 +1160,7 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                       </div>
                     ) : (
                       <div className="text-center py-8 text-purple-300/60 italic text-xs">
-                        Add products to calculate live server pricing breakdown
+                        Add a product above to set its discount percentage and calculate invoice pricing.
                       </div>
                     )}
                   </div>

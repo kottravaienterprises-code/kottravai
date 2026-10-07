@@ -109,7 +109,7 @@ const isTamilNadu = (pos) => {
  * CGST/SGST vs IGST, configurable shipping tax, and strict monetary precision.
  *
  * @param {object} params
- * @param {Array} params.items - Items array [{ id, quantity, selectedVariant, customizationData }]
+ * @param {Array} params.items - Items array [{ id, quantity, selectedVariant, discountPercentage, customizationData }]
  * @param {Array} params.dbProducts - Authoritative product details from DB
  * @param {string} params.placeOfSupply - State or Place of Supply (e.g. 'Tamil Nadu', 'Karnataka')
  * @param {number} [params.discountAmount=0] - Discount amount in Rupees
@@ -139,12 +139,30 @@ const calculateOfflinePricing = ({
         const dbProduct = dbProducts.find(p => String(p.id) === String(item.id));
         if (!dbProduct) throw new Error(`PRODUCT_NOT_FOUND: ${item.id}`);
 
-        let itemPrice = Number(dbProduct.price);
+        let originalUnitPrice = Number(dbProduct.price);
         if (item.selectedVariant && dbProduct.variants) {
             const variant = dbProduct.variants.find(v => v.weight === item.selectedVariant.weight);
-            if (variant) itemPrice = Number(variant.price);
+            if (variant) originalUnitPrice = Number(variant.price);
         }
 
+        const discountPercentage = item.discountPercentage === undefined || item.discountPercentage === null
+            ? 0
+            : Number(item.discountPercentage);
+        const hasExplicitDiscountPercentage = item.discountPercentage !== undefined && item.discountPercentage !== null;
+        if (!Number.isFinite(discountPercentage) || discountPercentage < 0 || discountPercentage > 100) {
+            throw new Error('INVALID_ITEM_DISCOUNT_PERCENTAGE');
+        }
+
+        const listedPrice = Number(dbProduct.price);
+        const productOriginalPrice = Number(dbProduct.original_price);
+        if (hasExplicitDiscountPercentage && listedPrice > 0 && productOriginalPrice > listedPrice) {
+            const originalPriceRatio = productOriginalPrice / listedPrice;
+            originalUnitPrice = item.selectedVariant
+                ? originalUnitPrice * originalPriceRatio
+                : productOriginalPrice;
+        }
+
+        const itemPrice = round2(originalUnitPrice * (1 - discountPercentage / 100));
         const quantity = Number(item.quantity);
         if (isNaN(quantity) || quantity <= 0) {
             throw new Error('Quantity must be greater than zero');
@@ -164,6 +182,9 @@ const calculateOfflinePricing = ({
             sku: dbProduct.sku || item.sku || null,
             quantity,
             unitPrice: itemPrice,
+            originalUnitPrice: round2(originalUnitPrice),
+            discountPercentage,
+            productDiscount: round2((originalUnitPrice - itemPrice) * quantity),
             customCharge,
             subtotal: lineSubtotal,
             gstRate: itemGstRate,
@@ -236,6 +257,9 @@ const calculateOfflinePricing = ({
             sku: line.sku,
             quantity: line.quantity,
             unitPrice: line.unitPrice,
+            originalUnitPrice: line.originalUnitPrice,
+            discountPercentage: line.discountPercentage,
+            productDiscount: line.productDiscount,
             subtotal: line.subtotal,
             discount: lineDiscount,
             taxableValue: lineTaxableValue,
