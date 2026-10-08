@@ -12,6 +12,104 @@ import { getOptimizedImage, IMAGE_SIZES } from '@/utils/imageOptimizer';
 import { API_ENDPOINTS } from '@/config/api';
 import axios from 'axios';
 const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://www.kottravai.in';
+
+const COCO_ORDER_KEYS = [
+    // --- PAGE 1 (Slots 1 to 16) ---
+    { id: '65cd9cf7-c618-4a72-88ba-99ec41a7cc0e', shortName: 'Dhoop Stand' },
+    { id: 'c299f14c-8531-4933-a55c-52a9f4f5fb29', shortName: 'Nativity Set' },
+    { id: 'bef434c4-7cab-4489-b4d2-645fa16c024f', shortName: 'Candle Holder' },
+    { id: 'fbdf7248-718b-44bf-bdc5-16f9623115f7', shortName: 'Shiva Lingam Idol' },
+    { id: '17c348ba-087d-47b0-ae90-d44c7965e7fb', shortName: 'Tea Cup' },
+    { id: 'e3adf652-31df-481a-8852-23149392c8a5', shortName: 'Wine Cup' },
+    { id: '3908bb41-f5db-42c8-b65a-fe1bb39922c2', shortName: 'Bowl' },
+    { id: '5a1b2a4d-7c0b-41c0-8cd2-9feb0c225344', shortName: 'Hanging Planter' },
+    { id: 'cf78ca71-33fd-4f90-b772-ff9b0df67b68', shortName: 'Mobile Holder' },
+    { id: 'f445ab26-33f4-457e-84c6-b71eff201b74', shortName: 'Pen Holder' },
+    { id: '0f780bd0-11d4-421d-9998-2b90b665866f', shortName: 'Quote Stand' },
+    { id: 'd140e4bc-5b6a-4459-837e-6a348abd8725', shortName: 'Shell Boats' },
+    { id: 'ebae3de6-5057-444b-8c4b-478c8c96678a', shortName: 'Tissue Holder' },
+    { id: '2ea986b6-deeb-4712-96ca-c60ff51c3dbc', shortName: 'Toothbrush Holder' },
+    { id: '62fb5fa4-6047-41fd-bd71-50046f99d417', shortName: 'Soap Holder' },
+    { id: 'ddd1f430-133d-4746-81b9-fff46046b511', shortName: 'The Suriya Product' },
+
+    // --- PAGE 2 (Slots 17 to 28) ---
+    { id: '56b49a41-f761-4bd6-b00c-08441d1a5a84', shortName: 'Wind Chime' },
+    { id: '8c4fca0d-1fbd-490c-bee4-e1678539a277', shortName: 'Shiva Decorative Showpiece' },
+    { id: 'ab02930e-1aaa-4e23-93a9-c621b2bfb8e9', shortName: 'Serving Set with Bowls & Spoons' },
+    { id: '4497cd95-f354-4506-91af-42e8e64f801b', shortName: 'Coconut Shell Bird House' },
+    { id: '0fd1bcbf-9abd-4084-83db-155b2555f1f6', shortName: 'Wine Cup (Pack of 2)' },
+    { id: '9cd2bdf4-e4f1-4fbe-8c14-546284ab4423', shortName: 'Tea Cup (Pack of 2)' },
+    { id: 'bb2e6fd7-9fe9-4d91-9ce7-069b5dd8e908', shortName: 'Shell Bowl (Pack of 2)' },
+    { id: '4c7bc6b9-1bc7-404a-bda6-ef2d3759def1', shortName: '"Happy Birthday" Engraved' },
+    { id: 'a02be6b1-1647-4de5-b261-ce7899197a60', shortName: 'Shell Lakshmi' },
+    { id: '4d4102e9-0091-40ea-b38e-6ba2e0d40a7b', shortName: 'Cross Pendant Necklace' },
+    { id: '82e4af86-2c9f-4b29-a36b-ef4aea160ba4', shortName: 'Star Drop Earrings' }
+];
+
+export const getCocoIndex = (product: any): number => {
+    if (!product) return 999;
+    const pId = String(product.id || '');
+    
+    // 1. Match by exact ID first
+    const idIdx = COCO_ORDER_KEYS.findIndex(k => k.id === pId);
+    if (idIdx !== -1) return idIdx;
+
+    // 2. Specific pattern fallback for mock data:
+    const pName = (product.name || product.title || product.product_name || '').toLowerCase();
+
+    // Page 1
+    if (pName.includes('dhoop stand')) return 0;
+    if (pName.includes('nativity set')) return 1;
+    if (pName.includes('candle holder')) return 2;
+    if (pName.includes('shiva lingam idol') || (pName.includes('shiva lingam') && !pName.includes('showpiece'))) return 3;
+    if (pName.includes('tea cup') && !pName.includes('pack of 2') && !pName.includes('suriya')) return 4;
+    if (pName.includes('wine cup') && !pName.includes('pack of 2')) return 5;
+    if (pName.includes('bowl') && !pName.includes('pack of 2') && !pName.includes('spoon') && !pName.includes('decor set') && !pName.includes('engraved') && !pName.includes('hamper') && !pName.includes('suriya')) return 6;
+    if (pName.includes('hanging planter') && !pName.includes('set') && !pName.includes('hamper')) return 7;
+    if (pName.includes('mobile holder') && !pName.includes('combo')) return 8;
+    if (pName.includes('pen holder') && !pName.includes('combo') && !pName.includes('set') && !pName.includes('hamper')) return 9;
+    if (pName.includes('quote stand')) return 10;
+    if (pName.includes('boat')) return 11;
+    if (pName.includes('tissue holder')) return 12;
+    if (pName.includes('toothbrush holder')) return 13;
+    if (pName.includes('soap holder')) return 14;
+    if (pName.includes('suriya')) return 15;
+
+    // Page 2
+    if (pName.includes('wind chime')) return 16;
+    if (pName.includes('shiva decorative showpiece')) return 17;
+    if (pName.includes('serving set with bowls')) return 18;
+    if (pName.includes('bird house')) return 19;
+    if (pName.includes('wine cups') || (pName.includes('wine cup') && pName.includes('pack of 2'))) return 20;
+    if (pName.includes('tea cups') || (pName.includes('tea cup') && pName.includes('pack of 2'))) return 21;
+    if (pName.includes('bowls (pack of 2)') || (pName.includes('bowl') && pName.includes('pack of 2'))) return 22;
+    if (pName.includes('happy birthday')) return 23;
+    if (pName.includes('lakshmi')) return 24;
+    if (pName.includes('cross pendant')) return 25;
+    if (pName.includes('star drop')) return 26;
+
+    // Remaining items from Slot 28 onwards
+    let hash = 0;
+    for (let i = 0; i < pId.length; i++) hash += pId.charCodeAt(i);
+    return 1000 + (hash % 500);
+};
+
+export const getCompactProductName = (product: any): string => {
+    const idx = getCocoIndex(product);
+    if (idx >= 0 && idx < COCO_ORDER_KEYS.length) {
+        return COCO_ORDER_KEYS[idx].shortName;
+    }
+    let name = product.product_name || product.productName || product.title || product.name || 'Product';
+    return name
+        .replace(/^Kottravai\s+/i, '')
+        .replace(/^Handmade\s+/i, '')
+        .replace(/^Handcrafted\s+/i, '')
+        .replace(/^Eco-Friendly\s+/i, '')
+        .replace(/^Coconut Shell\s+/i, '')
+        .replace(/–.*$/, '')
+        .replace(/\|.*$/, '')
+        .trim() || name;
+};
 const Shop = () => {
     const { slug } = useParams();
     const { addToCart, cart, removeFromCart } = useCart();
@@ -84,7 +182,7 @@ const Shop = () => {
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
-    const ITEMS_PER_PAGE = 12;
+    const ITEMS_PER_PAGE = slug === 'coconut-shell-products' ? 16 : 12;
 
     // Default price range 50 - 1000
     const [priceRange, setPriceRange] = useState<[number, number]>([0, 3000]);
@@ -402,6 +500,11 @@ const Shop = () => {
         : [...filteredProducts].sort((a, b) => {
             if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
             if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
+            if (slug === 'coconut-shell-products' && sortBy === 'best-selling') {
+                const idxA = getCocoIndex(a);
+                const idxB = getCocoIndex(b);
+                if (idxA !== idxB) return idxA - idxB;
+            }
             if (sortBy === 'best-selling') {
                 return (Number(b.salesCount) || 0) - (Number(a.salesCount) || 0);
             }

@@ -13,6 +13,7 @@ import {
   Sparkles,
   Search
 } from "lucide-react";
+import { KOTTRAVAI_COMPANY_DETAILS } from "@/config/companyDetails";
 
 interface Product {
   id: string;
@@ -484,6 +485,12 @@ export const CreateOfflineInvoiceModal: React.FC<CreateOfflineInvoiceModalProps>
                   </span>
                   <span className="font-mono text-[10px] text-gray-600">
                     {createdOrder.idempotency_key}
+                  </span>
+                </div>
+                <div className="border-t border-purple-200 pt-2 mt-2">
+                  <span className="text-gray-500 font-bold block mb-0.5">Bank Payment Details:</span>
+                  <span className="font-mono text-[10px] text-[#2D1B4E] block font-bold">
+                    {KOTTRAVAI_COMPANY_DETAILS.bankDetails.bankName} | A/C: {KOTTRAVAI_COMPANY_DETAILS.bankDetails.accountNumber} | IFSC: {KOTTRAVAI_COMPANY_DETAILS.bankDetails.ifscCode}
                   </span>
                 </div>
               </div>

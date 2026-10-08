@@ -1,3 +1,4 @@
+import { getCocoIndex } from '@/pages/Shop';
 import { useRef, useMemo } from 'react';
 import { useProducts } from '@/context/ProductContext';
 import CocoProductCard from './CocoProductCard';
@@ -9,8 +10,9 @@ const CoconutShellProductsRow = () => {
 
     const cocoProducts = useMemo(() => {
         return products
-            .filter(p => (p.category?.toLowerCase() || '').includes('coco'))
-            .slice(0, 12);
+            .filter(p => (p.category?.toLowerCase() || '').includes('coco') || (p.categorySlug || '').includes('coco') || (p.name || '').toLowerCase().includes('coconut'))
+            .sort((a, b) => getCocoIndex(a) - getCocoIndex(b))
+            .slice(0, 16);
     }, [products]);
 
     const scroll = (direction: 'left' | 'right') => {

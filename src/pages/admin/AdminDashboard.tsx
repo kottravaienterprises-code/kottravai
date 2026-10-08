@@ -96,6 +96,7 @@ import { LeadCopilotPanel } from "./LeadCopilotPanel";
 import { Lead } from "@/types/crm";
 import EventRegistrationsView from "./EventRegistrationsView";
 import { CreateOfflineInvoiceModal } from "@/components/admin/CreateOfflineInvoiceModal";
+import { KOTTRAVAI_COMPANY_DETAILS } from "@/config/companyDetails";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadsView — Phase 1: Lead Capture & Qualification System
@@ -1078,7 +1079,11 @@ const AdminDashboard = () => {
 
     const subtotal = rawSubtotal || rawTotal - rawShipping;
     const shipping = rawShipping;
-    const items = Array.isArray(order.items) ? order.items : [];
+    const items = Array.isArray(order.items)
+      ? order.items
+      : typeof order.items === "string"
+      ? (function() { try { return JSON.parse(order.items); } catch(e) { return []; } })()
+      : [];
     const itemGstAmount = items.reduce((sum: number, item: any) => {
       const gstAmount =
         item.gst_amount ??
@@ -1161,7 +1166,7 @@ const AdminDashboard = () => {
             <!-- HEADER -->
             <div style="padding: 30px 50px 25px; display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                    <img src="/uploads/2026/01/kottravai-logo-final.png" style="height: 65px; width: auto; margin-bottom: 8px;" />
+                    <img src="/logo.png" style="height: 65px; width: auto; margin-bottom: 8px;" />
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 36px; font-weight: 950; color: #2D1B4E; letter-spacing: -1.2px; line-height: 0.9; margin-bottom: 12px;">TAX INVOICE</div>
@@ -1243,12 +1248,23 @@ const AdminDashboard = () => {
             <div style="padding: 25px 50px 40px;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px;">
                     <div style="max-width: 320px;">
-                        <div style="margin-bottom: 15px;">
+                        <div style="margin-bottom: 12px;">
                             <div style="font-size: 9px; font-weight: 900; color: #A0AEC0; text-transform: uppercase; margin-bottom: 4px;">Amount in Words</div>
                             <div style="font-size: 12px; font-weight: 800; color: #2D1B4E;">${numberToWords(grandTotal)}</div>
                         </div>
-                        
-                        <div style="background: #fdf2f8; border-radius: 10px; padding: 12px; border: 1px solid #f9a8d4;">
+
+                        <!-- BANK ACCOUNT DETAILS FOR PAYMENT -->
+                        <div style="background: #f7fafc; border-radius: 8px; padding: 10px; border: 1px solid #e2e8f0; margin-bottom: 10px;">
+                            <div style="font-size: 11px; font-weight: 900; color: #2D1B4E; margin-bottom: 4px;">Payment Details:</div>
+                            <div style="font-size: 10px; color: #2d3748; line-height: 1.5;">
+                                <div style="font-weight: 800; color: #2D1B4E; text-transform: uppercase; font-size: 10.5px;">${KOTTRAVAI_COMPANY_DETAILS.bankDetails.accountName},</div>
+                                <div>Acc No. : <span style="font-weight: 800; color: #2D1B4E; font-family: monospace;">${KOTTRAVAI_COMPANY_DETAILS.bankDetails.accountNumber}</span></div>
+                                <div>IFSC: <span style="font-weight: 800; color: #2D1B4E;">${KOTTRAVAI_COMPANY_DETAILS.bankDetails.ifscCode}</span></div>
+                                <div>GST : <span style="font-weight: 800; color: #2D1B4E;">${KOTTRAVAI_COMPANY_DETAILS.gstin}</span></div>
+                            </div>
+                        </div>
+
+                        <div style="background: #fdf2f8; border-radius: 8px; padding: 10px; border: 1px solid #f9a8d4;">
                             <div style="font-size: 9px; font-weight: 900; color: #8E2A8B; text-transform: uppercase; margin-bottom: 4px;">Terms & Conditions</div>
                             <div style="font-size: 9px; color: #8E2A8B; line-height: 1.5; font-weight: 500;">
                                 • GST is calculated as applicable<br/>
@@ -1304,6 +1320,8 @@ const AdminDashboard = () => {
       const canvas = await html2canvas(container, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
+        imageTimeout: 15000,
         logging: false,
         backgroundColor: "#ffffff",
       });
