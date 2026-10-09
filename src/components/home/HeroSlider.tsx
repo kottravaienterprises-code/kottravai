@@ -19,6 +19,14 @@ const HeroSlider = () => {
         hotspot?: { className: string };
     }[] = [
             {
+                image: '/slide4-desktop.webp',
+                tabletImage: '/slide4-tablet.webp',
+                mobileImage: '/slide4-mobile.webp',
+                alt: 'Gift Hampers Collection',
+                link: '/category/hampers',
+                showTextOverlay: false
+            },
+            {
                 image: '/slide1-desktop.webp',
                 tabletImage: '/slide1-tablet.webp',
                 mobileImage: '/slide1-mobile.webp',
@@ -39,14 +47,6 @@ const HeroSlider = () => {
                 mobileImage: '/slide3-mobile.webp',
                 alt: 'Crafted from Coconut',
                 link: '/category/coconut-shell-products',
-                showTextOverlay: false
-            },
-            {
-                image: '/slide4-desktop.webp',
-                tabletImage: '/slide4-tablet.webp',
-                mobileImage: '/slide4-mobile.webp',
-                alt: 'Gift Hampers Collection',
-                link: '/category/hampers',
                 showTextOverlay: false
             }
         ];
