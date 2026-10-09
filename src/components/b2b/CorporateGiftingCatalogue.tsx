@@ -84,7 +84,7 @@ const CorporateGiftingCatalogue = () => {
                                 src="/catalog/catalog_preview.png"
                                 alt="Corporate Gifting Catalogue Preview" 
                                 className="w-full h-auto rounded-xl object-cover transform transition-transform duration-700 group-hover:scale-[1.02]"
-                                onError={(e) => { e.currentTarget.src = '/b2b-corporate-gifting.webp' }}
+                                onError={(e) => { e.currentTarget.src = '/961cdb1b-6365-4ae5-9c14-7204b94109e8.png'; }}
                             />
                         </div>
                     </div>
