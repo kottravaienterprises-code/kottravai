@@ -141,6 +141,22 @@ const HampersRow: React.FC<HampersRowProps> = () => {
     return (
         <section className="pb-4 pt-0 bg-white overflow-hidden">
             <div className="container mx-auto px-4 max-w-[1240px]">
+                {/* Banner Section */}
+                <div className="mb-8 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                    <Link to="/category/hampers" className="block w-full">
+                        <picture>
+                            <source media="(max-width: 767px)" srcSet="/slide4-mobile.webp" />
+                            <source media="(max-width: 1279px)" srcSet="/slide4-tablet.webp" />
+                            <img 
+                                src="/slide4-desktop.webp" 
+                                alt="Kottravai Hampers Collection"
+                                className="w-full h-auto object-cover rounded-2xl"
+                                loading="lazy"
+                            />
+                        </picture>
+                    </Link>
+                </div>
+
                 {/* Header Row (match Best Sellers layout) */}
                 <div className="mb-6 px-4 flex flex-col md:flex-row md:items-center md:justify-between text-center md:text-left">
                     <div>

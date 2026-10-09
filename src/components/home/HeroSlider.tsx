@@ -40,6 +40,14 @@ const HeroSlider = () => {
                 alt: 'Crafted from Coconut',
                 link: '/category/coconut-shell-products',
                 showTextOverlay: false
+            },
+            {
+                image: '/slide4-desktop.webp',
+                tabletImage: '/slide4-tablet.webp',
+                mobileImage: '/slide4-mobile.webp',
+                alt: 'Gift Hampers Collection',
+                link: '/category/hampers',
+                showTextOverlay: false
             }
         ];
 
